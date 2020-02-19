@@ -3454,6 +3454,7 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   }
   case OMPD_simd:
   case OMPD_for:
+  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_section:
@@ -4660,6 +4661,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   case OMPD_for:
     Res = ActOnOpenMPForDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,
                                   VarsWithInheritedDSA);
+  case OMPD_tile:
+    Res = ActOnOpenMPTileDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,   VarsWithInheritedDSA);
     break;
   case OMPD_for_simd:
     Res = ActOnOpenMPForSimdDirective(ClausesWithImplicit, AStmt, StartLoc,
@@ -4989,6 +4992,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_thread_limit:
       case OMPC_hint:
       case OMPC_collapse:
+      case OMPC_sizes:
       case OMPC_safelen:
       case OMPC_simdlen:
       case OMPC_default:
@@ -8163,6 +8167,14 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
                                  Clauses, AStmt, B, DSAStack->isCancelRegion());
 }
 
+
+StmtResult
+Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  SourceLocation StartLoc, SourceLocation EndLoc,  VarsWithInheritedDSAType &VarsWithImplicitDSA) {
+  llvm_unreachable("not implemented");
+}
+
+
+
 StmtResult Sema::ActOnOpenMPForSimdDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
     SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
@@ -10941,6 +10953,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -11078,6 +11091,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_teams:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_sections:
     case OMPD_section:
     case OMPD_single:
@@ -11149,6 +11163,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_teams:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11223,6 +11238,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11295,6 +11311,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11379,6 +11396,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_distribute_simd:
     case OMPD_target_teams:
     case OMPD_requires:
+    case OMPD_tile:
       llvm_unreachable("Unexpected OpenMP directive with schedule clause");
     case OMPD_unknown:
       llvm_unreachable("Unknown OpenMP directive");
@@ -11440,6 +11458,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11511,6 +11530,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11585,6 +11605,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11657,6 +11678,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Unexpected OpenMP clause.");
   }
   return CaptureRegion;
@@ -12087,6 +12109,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12283,6 +12306,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12508,6 +12532,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12756,6 +12781,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;

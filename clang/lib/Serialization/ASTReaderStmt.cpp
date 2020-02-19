@@ -2240,6 +2240,12 @@ void ASTStmtReader::VisitOMPForDirective(OMPForDirective *D) {
   D->setHasCancel(Record.readInt());
 }
 
+void ASTStmtReader::VisitOMPTileDirective(OMPTileDirective *D) {
+  VisitOMPLoopDirective(D);
+  llvm_unreachable("unimplemented");
+}
+
+
 void ASTStmtReader::VisitOMPForSimdDirective(OMPForSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }

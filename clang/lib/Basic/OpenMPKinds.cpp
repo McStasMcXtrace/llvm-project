@@ -194,6 +194,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_dynamic_allocators:
   case OMPC_match:
   case OMPC_nontemporal:
+  case OMPC_sizes:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -408,6 +409,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_dynamic_allocators:
   case OMPC_match:
   case OMPC_nontemporal:
+  case OMPC_sizes:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -450,6 +452,16 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
   case OMPD_for:
     switch (CKind) {
 #define OPENMP_FOR_CLAUSE(Name)                                                \
+  case OMPC_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+    default:
+      break;
+    }
+    break;
+  case OMPD_tile:
+    switch (CKind) {
+#define OPENMP_TILE_CLAUSE(Name)                                           \
   case OMPC_##Name:                                                            \
     return true;
 #include "clang/Basic/OpenMPKinds.def"
@@ -1173,6 +1185,7 @@ void clang::getOpenMPCaptureRegions(
     break;
   case OMPD_simd:
   case OMPD_for:
+  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_section:
