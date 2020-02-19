@@ -1843,6 +1843,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_taskgroup:
   case OMPD_flush:
   case OMPD_for:
+  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_section:
@@ -2083,6 +2084,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_for:
+  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_single:
@@ -2494,6 +2496,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::comma, tok::annot_pragma_openmp_end, StopBeforeMatch);
     break;
+  case OMPC_sizes:
+    llvm_unreachable("to implement");
   }
   return ErrorFound ? nullptr : Clause;
 }

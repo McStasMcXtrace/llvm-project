@@ -280,6 +280,53 @@ OMPForDirective *OMPForDirective::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPForDirective(CollapsedNum, NumClauses);
 }
 
+
+OMPTileDirective *
+OMPTileDirective::create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumLoops, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, const HelperExprs &Exprs) {
+  size_t NumClauses = Clauses.size();
+  void *Mem = C.Allocate(totalSizeToAlloc<OMPClause*,Stmt*>(NumClauses, numLoopChildren(NumLoops, OMPD_tile)));
+#if 0
+  uint64_t Size = llvm::alignTo(sizeof(OMPTileDirective), alignof(OMPClause *));
+  void *Mem = C.Allocate(Size + sizeof(OMPClause *) * Clauses.size() + sizeof(Stmt *) * numLoopChildren(SizesNum, OMPD_for));
+#endif
+  OMPTileDirective *Dir =  new (Mem) OMPTileDirective(StartLoc, EndLoc, NumLoops, NumClauses);
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+
+
+
+OMPTileDirective *OMPTileDirective::createEmpty(const ASTContext &C,  unsigned NumLoops,unsigned NumClauses) {
+  void *Mem = C.Allocate( totalSizeToAlloc<OMPClause*,Stmt*>(NumClauses, numLoopChildren(NumLoops, OMPD_for)));
+  return new (Mem) OMPTileDirective(NumLoops, NumClauses);
+}
+
 OMPForSimdDirective *
 OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                             SourceLocation EndLoc, unsigned CollapsedNum,

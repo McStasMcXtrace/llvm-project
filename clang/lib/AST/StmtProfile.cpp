@@ -472,6 +472,10 @@ void OMPClauseProfiler::VisitOMPCollapseClause(const OMPCollapseClause *C) {
     Profiler->VisitStmt(C->getNumForLoops());
 }
 
+void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
+  llvm_unreachable("unimplemented");
+}
+
 void OMPClauseProfiler::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 
 void OMPClauseProfiler::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
@@ -811,6 +815,10 @@ void StmtProfiler::VisitOMPSimdDirective(const OMPSimdDirective *S) {
 }
 
 void StmtProfiler::VisitOMPForDirective(const OMPForDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
   VisitOMPLoopDirective(S);
 }
 
