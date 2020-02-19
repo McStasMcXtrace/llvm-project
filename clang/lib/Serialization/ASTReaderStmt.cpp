@@ -3096,6 +3096,16 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
 
+
+    case STMT_OMP_TILE_DIRECTIVE: {
+      llvm_unreachable("unimplemented");
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumLoops = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTileDirective::createEmpty(Context, NumClauses, NumLoops);
+      break;
+    }
+
+
     case STMT_OMP_FOR_SIMD_DIRECTIVE: {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
       unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];

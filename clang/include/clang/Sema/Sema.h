@@ -10250,6 +10250,12 @@ public:
                                        SourceLocation StartLoc,
                                        SourceLocation LParenLoc,
                                        SourceLocation EndLoc);
+
+  OMPClause *ActOnOpenMPSizesClause(ArrayRef<Expr*> SizeExprs,
+    SourceLocation StartLoc,
+    SourceLocation LParenLoc,
+    SourceLocation EndLoc);
+
   /// Called on well-formed 'ordered' clause.
   OMPClause *
   ActOnOpenMPOrderedClause(SourceLocation StartLoc, SourceLocation EndLoc,

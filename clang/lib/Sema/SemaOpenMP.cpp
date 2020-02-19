@@ -4661,6 +4661,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   case OMPD_for:
     Res = ActOnOpenMPForDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,
                                   VarsWithInheritedDSA);
+    break;
   case OMPD_tile:
     Res = ActOnOpenMPTileDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,   VarsWithInheritedDSA);
     break;
@@ -7347,8 +7348,10 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
                 Expr *OrderedLoopCountExpr, Stmt *AStmt, Sema &SemaRef,
                 DSAStackTy &DSA,
                 Sema::VarsWithInheritedDSAType &VarsWithImplicitDSA,
-                OMPLoopDirective::HelperExprs &Built) {
-  unsigned NestedLoopCount = 1;
+                OMPLoopDirective::HelperExprs &Built, unsigned MinLoopCount = 1) {
+  assert(MinLoopCount == 1 || (!CollapseLoopCountExpr &&!OrderedLoopCountExpr  ));
+
+  unsigned NestedLoopCount = MinLoopCount;
   if (CollapseLoopCountExpr) {
     // Found 'collapse' clause - calculate collapse number.
     Expr::EvalResult Result;
@@ -7385,13 +7388,13 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   // This is helper routine for loop directives (e.g., 'for', 'simd',
   // 'for simd', etc.).
   llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-  SmallVector<LoopIterationSpace, 4> IterSpaces(
-      std::max(OrderedLoopCount, NestedLoopCount));
+  auto NumAssocociatedLoops = std::max(OrderedLoopCount, NestedLoopCount );
+  SmallVector<LoopIterationSpace, 4> IterSpaces(NumAssocociatedLoops);
   Stmt *CurStmt = AStmt->IgnoreContainers(/* IgnoreCaptured */ true);
   for (unsigned Cnt = 0; Cnt < NestedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
-            std::max(OrderedLoopCount, NestedLoopCount), CollapseLoopCountExpr,
+      NumAssocociatedLoops, CollapseLoopCountExpr,
             OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures))
       return 0;
     // Move on to the next nested for loop, or to the loop body.
@@ -8170,7 +8173,19 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
 
 StmtResult
 Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  SourceLocation StartLoc, SourceLocation EndLoc,  VarsWithInheritedDSAType &VarsWithImplicitDSA) {
-  llvm_unreachable("not implemented");
+  auto SizesClauses  =
+    OMPExecutableDirective::getClausesOfKind<OMPSizesClause>(Clauses);
+  assert(SizesClauses.begin() != SizesClauses.end());
+  auto SizesClause = *SizesClauses.begin();
+  auto NumLoops = SizesClause->getNumSizes();
+
+  OMPLoopDirective::HelperExprs B;
+  unsigned NestedLoopCount = checkOpenMPLoop(
+    OMPD_for, nullptr, nullptr,
+    AStmt, *this, *DSAStack, VarsWithImplicitDSA, B, NumLoops);
+  assert(NestedLoopCount ==NumLoops );
+
+  return OMPTileDirective::create( Context, StartLoc, EndLoc,NumLoops, Clauses, AStmt,  B );
 }
 
 
@@ -11999,6 +12014,17 @@ OMPClause *Sema::ActOnOpenMPCollapseClause(Expr *NumForLoops,
   return new (Context)
       OMPCollapseClause(NumForLoopsResult.get(), StartLoc, LParenLoc, EndLoc);
 }
+
+
+
+OMPClause* Sema::ActOnOpenMPSizesClause(ArrayRef<Expr*> SizeExprs,  SourceLocation StartLoc,  SourceLocation LParenLoc,  SourceLocation EndLoc) {
+  // TODO: Verify args
+  return OMPSizesClause::create(Context, StartLoc, LParenLoc, EndLoc, SizeExprs);
+}
+
+
+
+
 
 OMPClause *Sema::ActOnOpenMPOrderedClause(SourceLocation StartLoc,
                                           SourceLocation EndLoc,
