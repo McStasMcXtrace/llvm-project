@@ -23,6 +23,9 @@
 #ifndef OPENMP_FOR_CLAUSE
 #  define OPENMP_FOR_CLAUSE(Name)
 #endif
+#ifndef OPENMP_TILE_CLAUSE
+#  define OPENMP_TILE_CLAUSE(Name)
+#endif
 #ifndef OPENMP_FOR_SIMD_CLAUSE
 #  define OPENMP_FOR_SIMD_CLAUSE(Name)
 #endif
@@ -272,6 +275,7 @@ OPENMP_CLAUSE(atomic_default_mem_order, OMPAtomicDefaultMemOrderClause)
 OPENMP_CLAUSE(allocate, OMPAllocateClause)
 OPENMP_CLAUSE(nontemporal, OMPNontemporalClause)
 OPENMP_CLAUSE(order, OMPOrderClause)
+OPENMP_CLAUSE(sizes, OMPSizesClause)
 
 // Clauses allowed for OpenMP directive 'parallel'.
 OPENMP_PARALLEL_CLAUSE(if)
@@ -311,6 +315,9 @@ OPENMP_FOR_CLAUSE(nowait)
 OPENMP_FOR_CLAUSE(linear)
 OPENMP_FOR_CLAUSE(allocate)
 OPENMP_FOR_CLAUSE(order)
+
+// Clauses allowed for directive 'omp tile'.
+OPENMP_TILE_CLAUSE(sizes)
 
 // Clauses allowed for directive 'omp for simd'.
 OPENMP_FOR_SIMD_CLAUSE(private)
@@ -1120,6 +1127,7 @@ OPENMP_FLUSH_CLAUSE(release)
 #undef OPENMP_TEAMS_CLAUSE
 #undef OPENMP_SIMD_CLAUSE
 #undef OPENMP_FOR_CLAUSE
+#undef OPENMP_TILE_CLAUSE
 #undef OPENMP_FOR_SIMD_CLAUSE
 #undef OPENMP_MAP_KIND
 #undef OPENMP_MAP_MODIFIER_KIND

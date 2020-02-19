@@ -9918,6 +9918,12 @@ public:
   ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
                           SourceLocation StartLoc, SourceLocation EndLoc,
                           VarsWithInheritedDSAType &VarsWithImplicitDSA);
+
+  StmtResult
+    ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
+      SourceLocation StartLoc, SourceLocation EndLoc,
+      VarsWithInheritedDSAType &VarsWithImplicitDSA);
+
   /// Called on well-formed '\#pragma omp for simd' after parsing
   /// of the associated statement.
   StmtResult
@@ -10244,6 +10250,12 @@ public:
                                        SourceLocation StartLoc,
                                        SourceLocation LParenLoc,
                                        SourceLocation EndLoc);
+
+  OMPClause *ActOnOpenMPSizesClause(ArrayRef<Expr*> SizeExprs,
+    SourceLocation StartLoc,
+    SourceLocation LParenLoc,
+    SourceLocation EndLoc);
+
   /// Called on well-formed 'ordered' clause.
   OMPClause *
   ActOnOpenMPOrderedClause(SourceLocation StartLoc, SourceLocation EndLoc,

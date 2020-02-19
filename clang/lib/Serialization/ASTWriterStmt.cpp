@@ -2145,6 +2145,12 @@ void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   Code = serialization::STMT_OMP_FOR_DIRECTIVE;
 }
 
+void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
+  llvm_unreachable("unimplemented");
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
+}
+
 void ASTStmtWriter::VisitOMPForSimdDirective(OMPForSimdDirective *D) {
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_FOR_SIMD_DIRECTIVE;

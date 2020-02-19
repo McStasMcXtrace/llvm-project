@@ -2786,6 +2786,9 @@ DEF_TRAVERSE_STMT(OMPSimdDirective,
 DEF_TRAVERSE_STMT(OMPForDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+  DEF_TRAVERSE_STMT(OMPTileDirective,
+    { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 DEF_TRAVERSE_STMT(OMPForSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -3025,6 +3028,15 @@ RecursiveASTVisitor<Derived>::VisitOMPCollapseClause(OMPCollapseClause *C) {
   TRY_TO(TraverseStmt(C->getNumForLoops()));
   return true;
 }
+
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPSizesClause(OMPSizesClause *C) {
+  // TODO: Traverse subexpression
+  llvm_unreachable("not implemented");
+  return true;
+}
+
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPDefaultClause(OMPDefaultClause *) {

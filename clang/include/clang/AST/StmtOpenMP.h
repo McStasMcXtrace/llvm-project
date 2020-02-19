@@ -568,6 +568,7 @@ protected:
 
   /// Offset to the start of children expression arrays.
   static unsigned getArraysOffset(OpenMPDirectiveKind Kind) {
+    // TODO: tile directive?
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
@@ -1324,6 +1325,32 @@ public:
     return T->getStmtClass() == OMPForDirectiveClass;
   }
 };
+
+
+
+class OMPTileDirective : public OMPLoopDirective, private llvm::TrailingObjects<OMPTileDirective,OMPClause*,Stmt*> {
+  friend class ASTStmtReader;
+
+
+  OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc,unsigned NumLoops,  unsigned NumClauses)
+    : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile, StartLoc, EndLoc, NumLoops, NumClauses) {}
+
+  explicit OMPTileDirective(unsigned SizesNum, unsigned NumClauses)
+    : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
+      SourceLocation(), SourceLocation(), SizesNum,   NumClauses) {}
+
+
+
+public:
+  static OMPTileDirective *create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumLoops,  ArrayRef<OMPClause *> Clauses,  Stmt *AssociatedStmt, const HelperExprs &Exprs);
+
+  static OMPTileDirective *createEmpty(const ASTContext &C, unsigned NumLoops, unsigned NumClauses);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTileDirectiveClass;
+  }
+};
+
 
 /// This represents '#pragma omp for simd' directive.
 ///

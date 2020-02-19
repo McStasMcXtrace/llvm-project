@@ -3454,6 +3454,7 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   }
   case OMPD_simd:
   case OMPD_for:
+  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_section:
@@ -4661,6 +4662,9 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPForDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,
                                   VarsWithInheritedDSA);
     break;
+  case OMPD_tile:
+    Res = ActOnOpenMPTileDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,   VarsWithInheritedDSA);
+    break;
   case OMPD_for_simd:
     Res = ActOnOpenMPForSimdDirective(ClausesWithImplicit, AStmt, StartLoc,
                                       EndLoc, VarsWithInheritedDSA);
@@ -4989,6 +4993,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_thread_limit:
       case OMPC_hint:
       case OMPC_collapse:
+      case OMPC_sizes:
       case OMPC_safelen:
       case OMPC_simdlen:
       case OMPC_default:
@@ -7343,8 +7348,10 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
                 Expr *OrderedLoopCountExpr, Stmt *AStmt, Sema &SemaRef,
                 DSAStackTy &DSA,
                 Sema::VarsWithInheritedDSAType &VarsWithImplicitDSA,
-                OMPLoopDirective::HelperExprs &Built) {
-  unsigned NestedLoopCount = 1;
+                OMPLoopDirective::HelperExprs &Built, unsigned MinLoopCount = 1) {
+  assert(MinLoopCount == 1 || (!CollapseLoopCountExpr &&!OrderedLoopCountExpr  ));
+
+  unsigned NestedLoopCount = MinLoopCount;
   if (CollapseLoopCountExpr) {
     // Found 'collapse' clause - calculate collapse number.
     Expr::EvalResult Result;
@@ -7381,13 +7388,13 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   // This is helper routine for loop directives (e.g., 'for', 'simd',
   // 'for simd', etc.).
   llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-  SmallVector<LoopIterationSpace, 4> IterSpaces(
-      std::max(OrderedLoopCount, NestedLoopCount));
+  auto NumAssocociatedLoops = std::max(OrderedLoopCount, NestedLoopCount );
+  SmallVector<LoopIterationSpace, 4> IterSpaces(NumAssocociatedLoops);
   Stmt *CurStmt = AStmt->IgnoreContainers(/* IgnoreCaptured */ true);
   for (unsigned Cnt = 0; Cnt < NestedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
-            std::max(OrderedLoopCount, NestedLoopCount), CollapseLoopCountExpr,
+      NumAssocociatedLoops, CollapseLoopCountExpr,
             OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures))
       return 0;
     // Move on to the next nested for loop, or to the loop body.
@@ -8162,6 +8169,26 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
   return OMPForDirective::Create(Context, StartLoc, EndLoc, NestedLoopCount,
                                  Clauses, AStmt, B, DSAStack->isCancelRegion());
 }
+
+
+StmtResult
+Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  SourceLocation StartLoc, SourceLocation EndLoc,  VarsWithInheritedDSAType &VarsWithImplicitDSA) {
+  auto SizesClauses  =
+    OMPExecutableDirective::getClausesOfKind<OMPSizesClause>(Clauses);
+  assert(SizesClauses.begin() != SizesClauses.end());
+  auto SizesClause = *SizesClauses.begin();
+  auto NumLoops = SizesClause->getNumSizes();
+
+  OMPLoopDirective::HelperExprs B;
+  unsigned NestedLoopCount = checkOpenMPLoop(
+    OMPD_for, nullptr, nullptr,
+    AStmt, *this, *DSAStack, VarsWithImplicitDSA, B, NumLoops);
+  assert(NestedLoopCount ==NumLoops );
+
+  return OMPTileDirective::create( Context, StartLoc, EndLoc,NumLoops, Clauses, AStmt,  B );
+}
+
+
 
 StmtResult Sema::ActOnOpenMPForSimdDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
@@ -10941,6 +10968,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -11078,6 +11106,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_teams:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_sections:
     case OMPD_section:
     case OMPD_single:
@@ -11149,6 +11178,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_teams:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11223,6 +11253,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11295,6 +11326,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11379,6 +11411,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_distribute_simd:
     case OMPD_target_teams:
     case OMPD_requires:
+    case OMPD_tile:
       llvm_unreachable("Unexpected OpenMP directive with schedule clause");
     case OMPD_unknown:
       llvm_unreachable("Unknown OpenMP directive");
@@ -11440,6 +11473,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11511,6 +11545,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11585,6 +11620,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
+    case OMPD_tile:
     case OMPD_for_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11657,6 +11693,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Unexpected OpenMP clause.");
   }
   return CaptureRegion;
@@ -11978,6 +12015,17 @@ OMPClause *Sema::ActOnOpenMPCollapseClause(Expr *NumForLoops,
       OMPCollapseClause(NumForLoopsResult.get(), StartLoc, LParenLoc, EndLoc);
 }
 
+
+
+OMPClause* Sema::ActOnOpenMPSizesClause(ArrayRef<Expr*> SizeExprs,  SourceLocation StartLoc,  SourceLocation LParenLoc,  SourceLocation EndLoc) {
+  // TODO: Verify args
+  return OMPSizesClause::create(Context, StartLoc, LParenLoc, EndLoc, SizeExprs);
+}
+
+
+
+
+
 OMPClause *Sema::ActOnOpenMPOrderedClause(SourceLocation StartLoc,
                                           SourceLocation EndLoc,
                                           SourceLocation LParenLoc,
@@ -12087,6 +12135,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12283,6 +12332,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12508,6 +12558,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12756,6 +12807,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_order:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;

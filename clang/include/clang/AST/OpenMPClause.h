@@ -6607,6 +6607,81 @@ public:
   }
 };
 
+
+
+ class OMPSizesClause final : public OMPClause , private llvm::TrailingObjects<OMPSizesClause, Expr *>  {
+  friend class OMPClauseReader;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+
+
+  unsigned NumSizes;
+
+  OMPSizesClause(SourceLocation StartLoc,  SourceLocation LParenLoc, SourceLocation EndLoc, unsigned NumSizes)
+    : OMPClause(OMPC_sizes, StartLoc, EndLoc), LParenLoc(LParenLoc), NumSizes(NumSizes) {}
+
+  /// Build an empty clause.
+  explicit OMPSizesClause(int NumSizes) : OMPClause(OMPC_sizes, SourceLocation(), SourceLocation()) , NumSizes (NumSizes) {}
+
+
+public:
+  static OMPSizesClause *create(const ASTContext &C, SourceLocation StartLoc,  SourceLocation LParenLoc, SourceLocation EndLoc, ArrayRef<Expr *> Sizes);
+  static OMPSizesClause *createEmpty(const ASTContext &C, unsigned NumSizes);
+
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  unsigned getNumSizes() const { return NumSizes; }
+
+  MutableArrayRef<Expr *> getSizesRefs() {
+    return MutableArrayRef<Expr *>(static_cast<OMPSizesClause *>(this)->template getTrailingObjects<Expr *>(), NumSizes);
+  }
+
+  ArrayRef<Expr *> getSizesRefs() const {
+    return ArrayRef<Expr *>(static_cast<const OMPSizesClause *>(this)->template getTrailingObjects<Expr *>(), NumSizes);
+  }
+
+  void setSizesRefs(ArrayRef<Expr *> VL) {
+    assert(VL.size() == NumSizes );
+    std::copy(VL.begin(), VL.end(), static_cast<OMPSizesClause *>(this)->template getTrailingObjects<Expr *>());
+  }
+
+
+
+
+
+  child_range children() {
+    MutableArrayRef<Expr *> Sizes = getSizesRefs();
+    return child_range( reinterpret_cast<Stmt**>(   Sizes.begin()),reinterpret_cast<Stmt**>(  Sizes.end() )   );
+  }
+
+
+  const_child_range children() const {
+    ArrayRef<Expr *> Sizes = getSizesRefs();
+    return const_child_range(reinterpret_cast<Stmt*const *>(Sizes.begin()),reinterpret_cast<Stmt*const*>(  Sizes.end() ));
+  }
+
+#if 0
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+#endif
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == OMPC_sizes;
+  }
+};
+
+
 /// This class implements a simple visitor for OMPClause
 /// subclasses.
 template<class ImplClass, template <typename> class Ptr, typename RetTy>
