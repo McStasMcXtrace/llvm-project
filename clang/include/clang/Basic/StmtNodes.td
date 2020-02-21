@@ -216,6 +216,7 @@ def OMPLoopDirective : StmtNode<OMPExecutableDirective, 1>;
 def OMPParallelDirective : StmtNode<OMPExecutableDirective>;
 def OMPSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPForDirective : StmtNode<OMPLoopDirective>;
+def OMPTileDirective : StmtNode<OMPLoopDirective>;
 def OMPForSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPSectionsDirective : StmtNode<OMPExecutableDirective>;
 def OMPSectionDirective : StmtNode<OMPExecutableDirective>;

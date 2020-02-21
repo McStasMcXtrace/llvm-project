@@ -280,6 +280,88 @@ OMPForDirective *OMPForDirective::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPForDirective(CollapsedNum, NumClauses);
 }
 
+
+OMPTileDirective *
+OMPTileDirective::create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses,  unsigned NumLoops, Stmt* AssociatedStmt, Stmt *TransformedStmt, const HelperExprs& Exprs) {
+  size_t NumClauses = Clauses.size();
+  OMPTileDirective* Dir = createEmpty(C, NumClauses,NumLoops );
+  Dir->setLocStart(StartLoc);
+  Dir->setLocEnd(EndLoc);
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setTransformedStmt(TransformedStmt);
+
+  // FIXME: These may not be necessary, but OMPLoopDirective requires them.
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+#if 0
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+#endif
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+
+
+
+OMPTileDirective *OMPTileDirective::createEmpty(const ASTContext &C,unsigned NumClauses, unsigned NumLoops) {
+  // Memory layout:
+  //   * The OMPTileDirective object 
+  //     * OMPLoopDirective inherited class
+  //     * OMPTileDirective additional members
+  //   * OMPClauses 
+  //     * For tile directive, just OMPSizesClause
+  //   * Stmts
+  //     * Same as OMPForDirective (= numLoopChildren(NumLoops, OMPD_for))
+  //       * [AssociatedStmtOffset] Associated topmost loop, before tiling; the only one returned by children()
+  //       * ...
+  //     * NumSpecialChildren
+  //       * Generated topmost loop, after tiling
+  void *Mem = C.Allocate(totalSizeToAlloc<OMPClause*,Stmt*>(NumClauses, numLoopChildren(NumLoops, OMPD_for) + 1));
+  return new (Mem) OMPTileDirective({}, {},NumClauses, NumLoops);
+}
+
+
+
+
+const Stmt* OMPTileDirective::getUntransformedStmt() const {
+  return getAssociatedStmt();
+}
+
+const Stmt*OMPTileDirective:: getTransformedStmt() const {
+  if (!hasAssociatedStmt())
+    return nullptr;
+  auto Result =  getTrailingObjects<Stmt*>( )[numLoopChildren(getNumAssociatedLoops(), OMPD_for)];
+  assert(Result);
+  return Result;
+}
+
+void OMPTileDirective ::setTransformedStmt(Stmt* S) {
+  assert(isa<ForStmt>(S));
+  getTrailingObjects<Stmt*>()[numLoopChildren(getNumAssociatedLoops(), OMPD_for)] = S;
+}
+
+
 OMPForSimdDirective *
 OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                             SourceLocation EndLoc, unsigned CollapsedNum,

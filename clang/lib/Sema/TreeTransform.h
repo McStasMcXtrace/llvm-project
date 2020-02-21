@@ -8090,6 +8090,16 @@ TreeTransform<Derived>::TransformOMPForDirective(OMPForDirective *D) {
 
 template <typename Derived>
 StmtResult
+TreeTransform<Derived>::TransformOMPTileDirective(OMPTileDirective* D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_tile, DirName, nullptr,  D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
+StmtResult
 TreeTransform<Derived>::TransformOMPForSimdDirective(OMPForSimdDirective *D) {
   DeclarationNameInfo DirName;
   getDerived().getSema().StartOpenMPDSABlock(OMPD_for_simd, DirName, nullptr,
@@ -8706,6 +8716,13 @@ TreeTransform<Derived>::TransformOMPCollapseClause(OMPCollapseClause *C) {
   return getDerived().RebuildOMPCollapseClause(
       E.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPSizesClause(OMPSizesClause *C) {
+  llvm_unreachable("unimplemented: rebuild sizes clause");
+}
+
 
 template <typename Derived>
 OMPClause *
