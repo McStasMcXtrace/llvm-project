@@ -1261,13 +1261,18 @@ void OMPClausePrinter::VisitOMPCollapseClause(OMPCollapseClause *Node) {
 }
 
 
+
 void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
   OS << "sizes(";
-  llvm_unreachable("unimplemented");
+  bool First = true;
+  for (auto Size :  Node->getSizesRefs()) {
+    if (!First)
+      OS << ", ";
+    Size->printPretty(OS, nullptr, Policy, 0);
+    First = false;
+  }
   OS << ")";
 }
-
-
 
 
 void OMPClausePrinter::VisitOMPDefaultClause(OMPDefaultClause *Node) {

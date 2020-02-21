@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fopenmp -ast-print %s | FileCheck %s --check-prefix=ASTPRINT
+// RUN: %clang_cc1 -fopenmp -ast-print %s | FileCheck %s --check-prefix=PRINT
+// RUN: %clang_cc1 -fopenmp -dump-ast %s | FileCheck %s --check-prefix=DUMP
 
 #ifndef HEADER
 #define HEADER
@@ -17,7 +18,7 @@ void foo(int start, int end, int step) {
     for (int j = start; j < end; j+=step)
       ;
 
-// ASTPRINT: #pragma omp tile sizes(5)
+// PRINT: #pragma omp tile sizes(5)
 #pragma omp tile sizes(5,5)
   for (int i = 7; i < 17; i+=3)
     for (int j = 7; j < 17; j+=3)
