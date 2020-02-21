@@ -2413,7 +2413,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       assert(Val.isUsable());
       ValExprs.push_back(Val.get());
       
-      if (Tok.is(tok::r_paren) || Tok.isNot(tok::annot_pragma_openmp_end))
+      if (Tok.is(tok::r_paren) || Tok.is(tok::annot_pragma_openmp_end))
         break;
 
       ExpectAndConsume(tok::comma);

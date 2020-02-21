@@ -72,6 +72,14 @@ protected:
         NumChildren(NumChildren),
         ClausesOffset(llvm::alignTo(sizeof(T), alignof(OMPClause *))) {}
 
+
+  /// This is not the number of elements returned by children()
+  unsigned getNumStmts() const { return NumChildren; }
+
+
+
+
+
   /// Sets the list of variables for this clause.
   ///
   /// \param Clauses The list of clauses for the directive.
@@ -568,11 +576,10 @@ protected:
 
   /// Offset to the start of children expression arrays.
   static unsigned getArraysOffset(OpenMPDirectiveKind Kind) {
-    // TODO: tile directive?
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
-        isOpenMPDistributeDirective(Kind))
+        isOpenMPDistributeDirective(Kind) || isOpenMPLoopTransformationDirective(Kind))
       return WorksharingEnd;
     return DefaultEnd;
   }
@@ -846,6 +853,10 @@ public:
     /// Expressions used when combining OpenMP loop pragmas
     DistCombinedHelperExprs DistCombinedFields;
 
+    SmallVector<Stmt *, 4> Loops;
+    SmallVector<Stmt *, 4> Bodys;
+    Stmt* InnermostBody;
+
     /// Check if all the expressions are built (does not check the
     /// worksharing ones).
     bool builtAll() {
@@ -886,6 +897,8 @@ public:
       DependentCounters.resize(Size);
       DependentInits.resize(Size);
       FinalsConditions.resize(Size);
+      Loops.resize(Size);
+      Bodys.resize(Size);
       for (unsigned i = 0; i < Size; ++i) {
         Counters[i] = nullptr;
         PrivateCounters[i] = nullptr;
@@ -895,6 +908,8 @@ public:
         DependentCounters[i] = nullptr;
         DependentInits[i] = nullptr;
         FinalsConditions[i] = nullptr;
+        Loops[i] = nullptr;
+        Bodys[i] = nullptr;
       }
       PreInits = nullptr;
       DistCombinedFields.LB = nullptr;
@@ -906,6 +921,7 @@ public:
       DistCombinedFields.NUB = nullptr;
       DistCombinedFields.DistCond = nullptr;
       DistCombinedFields.ParForInDistCond = nullptr;
+      InnermostBody = nullptr;
     }
   };
 
@@ -1328,23 +1344,46 @@ public:
 
 
 
-class OMPTileDirective : public OMPLoopDirective, private llvm::TrailingObjects<OMPTileDirective,OMPClause*,Stmt*> {
+class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingObjects<OMPTileDirective, OMPClause*, Stmt*> {
   friend class ASTStmtReader;
+  friend  TrailingObjects;
+
+  size_t numTrailingObjects(OverloadToken<OMPClause*>)const {
+    return getNumClauses();
+  }
+
+  size_t numTrailingObjects(OverloadToken<Stmt*>)const {
+    return getNumStmts();
+  }
 
 
-  OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc,unsigned NumLoops,  unsigned NumClauses)
-    : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile, StartLoc, EndLoc, NumLoops, NumClauses) {}
-
-  explicit OMPTileDirective(unsigned SizesNum, unsigned NumClauses)
+  explicit OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumClauses, unsigned NumLoops)
     : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
-      SourceLocation(), SourceLocation(), SizesNum,   NumClauses) {}
+      StartLoc, EndLoc, NumLoops, NumClauses, /*NumSpecialChildren=*/ 1) {}
 
+  void setTransformedStmt(Stmt* S);
 
 
 public:
-  static OMPTileDirective *create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumLoops,  ArrayRef<OMPClause *> Clauses,  Stmt *AssociatedStmt, const HelperExprs &Exprs);
+  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses,  unsigned NumLoops, Stmt* AssociatedStmt, Stmt *TransformedStmt, const HelperExprs& Exprs);
 
-  static OMPTileDirective *createEmpty(const ASTContext &C, unsigned NumLoops, unsigned NumClauses);
+  static OMPTileDirective* createEmpty(const ASTContext& C, unsigned NumClauses, unsigned NumLoops);
+
+
+
+  unsigned getNumAssociatedLoops() const {
+    // TODO: In this case, the loops are not 'collapsed'. Should rename to getNumAssociatedLoops.
+    return getCollapsedNumber() ;
+  }
+
+
+
+ const  Stmt* getUntransformedStmt() const;
+
+  const Stmt* getTransformedStmt() const;
+
+
+
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTileDirectiveClass;
