@@ -8355,7 +8355,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     Expr* CondExpr = BuildBinOp(CurScope, {}, BO_LT, TileCntRef, NumIterations).get();
 
 
-    Expr* IncrStmt = BuildBinOp(CurScope, {}, BO_AddAssign, TileCntRef, DimTileSize).get();
+    Expr* IncrStmt = BuildBinOp(CurScope, {}, BO_AddAssign , TileCntRef, DimTileSize).get();
 
     auto TileLoop = new (Context) ForStmt(Context, InitStmt, CondExpr, nullptr, IncrStmt, Inner, {}, {}, {});
 

@@ -9,7 +9,7 @@ void foo(int start, int end, int step) {
     for (int i2 = i1; i2 < i1+5 && i2 < end; i2+=1)
       ;
 
-#pragma omp for
+#pragma omp simd
   for (int i = start; i < end; i+=1)
       ;
 
