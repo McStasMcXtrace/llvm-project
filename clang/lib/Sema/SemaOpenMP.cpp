@@ -4572,7 +4572,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   VarsWithInheritedDSAType VarsWithInheritedDSA;
   bool ErrorFound = false;
   ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
-  if (AStmt && !CurContext->isDependentContext()) {
+  if (AStmt && !CurContext->isDependentContext() && !isOpenMPLoopTransformationDirective(Kind)) {
     assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
 
     // Check default data sharing attributes for referenced variables.
@@ -5083,10 +5083,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   if (ErrorFound)
     return StmtError();
 
-  if (!(Res.getAs<OMPExecutableDirective>()->isStandaloneDirective())) {
+  if (!Res.getAs<OMPExecutableDirective>()->isStandaloneDirective() && !isOpenMPLoopTransformationDirective(Kind) ) {
     Res.getAs<OMPExecutableDirective>()
         ->getStructuredBlock()
         ->setIsOMPStructuredBlock(true);
+
   }
 
   if (!CurContext->isDependentContext() &&
@@ -7954,7 +7955,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(IS.CounterVar)->getDecl());
       DeclRefExpr *CounterVar = buildDeclRefExpr(
           SemaRef, VD, IS.CounterVar->getType(), IS.CounterVar->getExprLoc(),
-          /*RefersToCapture=*/true);
+          /*RefersToCapture=*/ !isOpenMPLoopDirective(DKind));
       ExprResult Init =
           buildCounterInit(SemaRef, CurScope, UpdLoc, CounterVar,
                            IS.CounterInit, IS.IsNonRectangularLB, Captures);
@@ -8250,11 +8251,14 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
 
       auto IV = IterationVarRef;
-      Decl* D = IV->getDecl();
-     auto IVInit = buildDeclRefExpr(*this, TileIndVars[i], CntTy, {});
-      AddInitializerToDecl(D, IVInit, /*DirectInit=*/false);
-      Stmt* Stmt = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D ,1),      SourceLocation(), SourceLocation());
-      BodyParts.push_back(Stmt);
+      // Decl* D = IV->getDecl();
+      auto IVInit = buildDeclRefExpr(*this, TileIndVars[i], CntTy, {});
+      auto Stmt = BuildBinOp(CurScope, {} , BO_Assign,  IV, IVInit);
+
+  
+      //AddInitializerToDecl(D, IVInit, /*DirectInit=*/false);
+      //Stmt* Stmt = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D ,1),      SourceLocation(), SourceLocation());
+      BodyParts.push_back(Stmt.get());
 
       BodyParts.push_back(LoopHelper.Updates[0]);
     }
@@ -8334,10 +8338,10 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
   // Floor loops
   for (int i = NumLoops-1; i>=0; --i) {
-    auto DimTileSize=   SizesClause->getSizesRefs()[i];
-    auto& LoopHelper = LoopHelpers[i];
+    auto DimTileSize   = SizesClause->getSizesRefs()[i];
+    auto& LoopHelper   = LoopHelpers[i];
     auto NumIterations = LoopHelper.NumIterations;
-    auto FloorCntDecl = FloorIndVars[i];
+    auto FloorCntDecl  = FloorIndVars[i];
 
     auto OrigCntVar = cast<DeclRefExpr>(LoopHelper.Counters[0]); 
     auto CntTy = OrigCntVar->getType(); 
@@ -8362,9 +8366,19 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     Inner = TileLoop;
   }
 
+#if 0
+  auto UntransformedCapture = cast<CapturedStmt>(AStmt);
+ auto UntransformedCaptureDecl= UntransformedCapture->getCapturedDecl();
+  
+  auto TranformedCaptureDecl = CapturedDecl::Create(Context, UntransformedCaptureDecl->getDeclContext(), UntransformedCaptureDecl->getNumParams() );
+  TranformedCaptureDecl->setBody(Inner);
+  SmallVector<CapturedStmt::Capture, 8> Captures(UntransformedCapture->captures());
+  SmallVector<Expr*, 8> CaptureInits(UntransformedCapture->capture_inits());
+  auto TransformedCapture = CapturedStmt::Create(Context,Inner, UntransformedCapture->getCapturedRegionKind() , Captures, CaptureInits, TranformedCaptureDecl,  const_cast<RecordDecl*>( UntransformedCapture->getCapturedRecordDecl() ));
+#endif 
 
-  auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, AStmt, Inner, NestHelper);
-  Result->dump();
+  auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, Inner, Inner, NestHelper);
+  // Result->dump();
   return Result;
 }
 

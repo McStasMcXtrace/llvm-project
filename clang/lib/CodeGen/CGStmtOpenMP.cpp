@@ -2869,6 +2869,11 @@ void CodeGenFunction::EmitOMPForDirective(const OMPForDirective &S) {
   checkForLastprivateConditionalUpdate(*this, S);
 }
 
+
+void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective& S) {
+  EmitStmt(S.getTransformedCapturedStmt());
+}
+
 void CodeGenFunction::EmitOMPForSimdDirective(const OMPForSimdDirective &S) {
   bool HasLastprivates = false;
   auto &&CodeGen = [&S, &HasLastprivates](CodeGenFunction &CGF,

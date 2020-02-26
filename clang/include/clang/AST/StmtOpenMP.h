@@ -1348,6 +1348,12 @@ class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingOb
   friend class ASTStmtReader;
   friend  TrailingObjects;
 
+  DeclGroup* PreTopmostDecls;
+  Stmt* PreTopmostStmt;
+  Stmt* TransformedStmt;
+  Stmt* PreBodyStmt;
+
+
   size_t numTrailingObjects(OverloadToken<OMPClause*>)const {
     return getNumClauses();
   }
@@ -1359,16 +1365,21 @@ class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingOb
 
   explicit OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumClauses, unsigned NumLoops)
     : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
-      StartLoc, EndLoc, NumLoops, NumClauses, /*NumSpecialChildren=*/ 1) {}
+      StartLoc, EndLoc, NumLoops, NumClauses, /*NumSpecialChildren=*/ 0) {}
 
-  void setTransformedStmt(Stmt* S);
 
 
 public:
-  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses,  unsigned NumLoops, Stmt* AssociatedStmt, Stmt *TransformedStmt, const HelperExprs& Exprs);
+  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses,  unsigned NumLoops, Stmt* AssociatedStmt, Stmt *TransformedStmt, const HelperExprs& Exprs, DeclGroup* PreTopmostDecls,Stmt* PreTopmostStmt,Stmt*PreBodyStmt);
 
   static OMPTileDirective* createEmpty(const ASTContext& C, unsigned NumClauses, unsigned NumLoops);
 
+
+
+  void setPreTopmostDecls(DeclGroup* DG) { PreTopmostDecls = DG; }
+  void setPreTopmostStmt(Stmt* S) { PreTopmostStmt = S; }
+  void setTransformedStmt(Stmt* S) { assert(isa<ForStmt>(S)); TransformedStmt = S; }
+  void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
 
 
   unsigned getNumAssociatedLoops() const {
@@ -1378,10 +1389,10 @@ public:
 
 
 
- const  Stmt* getUntransformedStmt() const;
-
-  const Stmt* getTransformedStmt() const;
-
+ const  Stmt* getUntransformedCapturedStmt() const;
+ const  Stmt* getUntransformedForStmt() const;
+  const Stmt* getTransformedCapturedStmt() const;
+  const Stmt* getTransformedForStmt() const;
 
 
 

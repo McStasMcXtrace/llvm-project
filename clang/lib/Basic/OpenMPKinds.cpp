@@ -1126,6 +1126,9 @@ void clang::getOpenMPCaptureRegions(
     OpenMPDirectiveKind DKind) {
   assert(DKind <= OMPD_unknown);
   switch (DKind) {
+  case OMPD_tile:
+    // loop transformations for not introduce captures.
+    break;
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:
@@ -1190,7 +1193,6 @@ void clang::getOpenMPCaptureRegions(
     break;
   case OMPD_simd:
   case OMPD_for:
-  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_section:
