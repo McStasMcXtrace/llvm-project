@@ -8187,8 +8187,7 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
 
 StmtResult
 Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  SourceLocation StartLoc, SourceLocation EndLoc,  VarsWithInheritedDSAType &VarsWithImplicitDSA) {
-  auto SizesClauses  =
-    OMPExecutableDirective::getClausesOfKind<OMPSizesClause>(Clauses);
+  auto SizesClauses = OMPExecutableDirective::getClausesOfKind<OMPSizesClause>(Clauses);
   assert(SizesClauses.begin() != SizesClauses.end());
   auto SizesClause = *SizesClauses.begin();
   auto NumLoops = SizesClause->getNumSizes();
@@ -8199,7 +8198,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
   // Verify rectangular iteration space
   // Verify perfectly nested
   unsigned NestedLoopCount = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, AStmt, *this, *DSAStack, VarsWithImplicitDSA, NestHelper, NumLoops);
-  assert(NestedLoopCount ==NumLoops );
+  assert(NestedLoopCount == NumLoops);
 
 
   SmallVector<OMPLoopDirective::HelperExprs, 4> LoopHelpers;
@@ -8208,6 +8207,9 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     auto LoopStmt = NestHelper.Loops[i]; // Derive per-loop logical iteration space
     checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt , *this, *DSAStack, VarsWithImplicitDSA, LoopHelpers[i], 1); 
   }
+
+  SmallVector<Decl*, 8> GlobalDecls;
+
 
   SmallVector<VarDecl*, 4> FloorIndVars;
   SmallVector<VarDecl*, 4> TileIndVars;
@@ -8223,13 +8225,17 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
     {
       std::string TileCntName = (Twine(".tile_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
-      auto *TileCntDecl = buildVarDecl(*this, {}, CntTy, TileCntName, nullptr, OrigCntVar);
+      //auto *TileCntDecl = buildVarDecl(*this, {}, CntTy, TileCntName, nullptr, OrigCntVar);
+      auto TileCntDecl =  cast<VarDecl>( IterationVarRef->getDecl());
+      TileCntDecl->setDeclName( PP.getIdentifierTable().get(TileCntName) );
+      GlobalDecls.push_back(TileCntDecl);
       TileIndVars[i] = TileCntDecl;
     }
 
     {
       std::string FloorCntName = (Twine(".floor_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
       auto *FloorCntDecl = buildVarDecl(*this, {}, CntTy, FloorCntName, nullptr, OrigCntVar);
+      GlobalDecls.push_back(FloorCntDecl);
       FloorIndVars[i] = FloorCntDecl;
     }
   }
@@ -8375,9 +8381,19 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
   SmallVector<CapturedStmt::Capture, 8> Captures(UntransformedCapture->captures());
   SmallVector<Expr*, 8> CaptureInits(UntransformedCapture->capture_inits());
   auto TransformedCapture = CapturedStmt::Create(Context,Inner, UntransformedCapture->getCapturedRegionKind() , Captures, CaptureInits, TranformedCaptureDecl,  const_cast<RecordDecl*>( UntransformedCapture->getCapturedRecordDecl() ));
-#endif 
+#endif
 
-  auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, Inner, Inner, NestHelper);
+  
+
+  DeclGroup* PreTopmostDecls = nullptr;
+  if(! GlobalDecls.empty()  ) {
+    PreTopmostDecls = DeclGroup::Create(Context,GlobalDecls.data(), GlobalDecls.size() );
+  }
+
+  Stmt* PreTopmostStmt = nullptr;
+  Stmt* PreBodyStmt = nullptr;
+
+  auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, Inner, Inner, NestHelper, PreTopmostDecls, PreTopmostStmt, PreBodyStmt);
   // Result->dump();
   return Result;
 }
