@@ -373,7 +373,7 @@ const Stmt* OMPTileDirective::getUntransformedCapturedStmt() const {
 
 
 const Stmt* OMPTileDirective::getUntransformedForStmt() const {
- return getCapturedLoop( getUntransformedCapturedStmt ());
+ return getCapturedLoop(getUntransformedCapturedStmt ());
 }
 
 
@@ -381,9 +381,7 @@ const Stmt* OMPTileDirective::getUntransformedForStmt() const {
 const Stmt*OMPTileDirective:: getTransformedCapturedStmt() const {
   if (!hasAssociatedStmt())
     return nullptr;
-  auto Result = getTrailingObjects<Stmt*>()[numLoopChildren(getNumAssociatedLoops(), OMPD_for)];
-  assert(Result);
-  return Result;
+  return TransformedStmt;
 }
 
 

@@ -8227,7 +8227,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
       std::string TileCntName = (Twine(".tile_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
       //auto *TileCntDecl = buildVarDecl(*this, {}, CntTy, TileCntName, nullptr, OrigCntVar);
       auto TileCntDecl =  cast<VarDecl>( IterationVarRef->getDecl());
-      TileCntDecl->setDeclName( PP.getIdentifierTable().get(TileCntName) );
+      TileCntDecl->setDeclName(& PP.getIdentifierTable().get(TileCntName) );
       GlobalDecls.push_back(TileCntDecl);
       TileIndVars[i] = TileCntDecl;
     }
@@ -8240,14 +8240,13 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     }
   }
 
-  Stmt* Inner;
+  Stmt* Inner = NestHelper.InnermostBody;
+  SmallVector<Stmt*, 9> BodyParts;
 
   // Create body
   // Assign original iteration variable before execution of body.
   // FIXME: results in non-perfectly nested loop if innermost body is a loop itself. Possible fix: use original loop variable directly instead of file substitute.
   {
-    SmallVector<Stmt*, 9> BodyParts;
-
     for (int i = 0; i < NumLoops; i += 1) {
       auto& LoopHelper = LoopHelpers[i];
       auto TileCntDecl = TileIndVars[i];
@@ -8268,8 +8267,8 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
       BodyParts.push_back(LoopHelper.Updates[0]);
     }
-    BodyParts.push_back(NestHelper.InnermostBody);
-    Inner = CompoundStmt::Create(Context, BodyParts, {}, {});
+   // BodyParts.push_back(Inner);
+    //Inner = CompoundStmt::Create(Context, BodyParts, {}, {});
   }
 
   // Create loops from the inside to the outside
@@ -8391,7 +8390,11 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
   }
 
   Stmt* PreTopmostStmt = nullptr;
+
   Stmt* PreBodyStmt = nullptr;
+  if (!BodyParts.empty()) {
+    PreBodyStmt =  CompoundStmt::Create(Context, BodyParts, {}, {});
+  }
 
   auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, Inner, Inner, NestHelper, PreTopmostDecls, PreTopmostStmt, PreBodyStmt);
   // Result->dump();

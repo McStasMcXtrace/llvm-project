@@ -1376,9 +1376,12 @@ public:
 
 
 
+  DeclGroup* getPreTopmostDecls() const { return PreTopmostDecls; }
   void setPreTopmostDecls(DeclGroup* DG) { PreTopmostDecls = DG; }
+  Stmt* getPreTopmostStmt() const { return PreTopmostStmt; }
   void setPreTopmostStmt(Stmt* S) { PreTopmostStmt = S; }
   void setTransformedStmt(Stmt* S) { assert(isa<ForStmt>(S)); TransformedStmt = S; }
+  Stmt* getPreBodyStmt() const { return PreBodyStmt; }
   void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
 
 

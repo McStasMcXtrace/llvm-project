@@ -26,6 +26,7 @@
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/AtomicOrdering.h"
+#include "llvm/ADT/Sequence.h"
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
@@ -2871,6 +2872,19 @@ void CodeGenFunction::EmitOMPForDirective(const OMPForDirective &S) {
 
 
 void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective& S) {
+
+  auto X = S.getPreTopmostDecls();
+  if (X)
+    for (auto i : llvm:: seq(0u,X->size())) {
+      auto Y = (*X)[i];
+      EmitDecl(*Y);
+  }
+
+  auto Z = S.getPreTopmostStmt();
+  if (Z) {
+    EmitStmt(Z);
+  }
+
   EmitStmt(S.getTransformedCapturedStmt());
 }
 
