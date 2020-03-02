@@ -813,6 +813,7 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_parallel_master_taskloop_simd:
     case OMPD_requires:
     case OMPD_unknown:
+    case OMPD_tile:
       llvm_unreachable("Unexpected directive.");
     }
   }
@@ -889,6 +890,7 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_parallel_master_taskloop_simd:
   case OMPD_requires:
   case OMPD_unknown:
+  case OMPD_tile:
     break;
   }
   llvm_unreachable(
@@ -1058,6 +1060,7 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_parallel_master_taskloop_simd:
     case OMPD_requires:
     case OMPD_unknown:
+    case OMPD_tile:
       llvm_unreachable("Unexpected directive.");
     }
   }
@@ -1140,6 +1143,7 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_parallel_master_taskloop_simd:
   case OMPD_requires:
   case OMPD_unknown:
+  case OMPD_tile:
     break;
   }
   llvm_unreachable(

@@ -72,6 +72,14 @@ protected:
         NumChildren(NumChildren),
         ClausesOffset(llvm::alignTo(sizeof(T), alignof(OMPClause *))) {}
 
+
+  /// This is not the number of elements returned by children()
+  unsigned getNumStmts() const { return NumChildren; }
+
+
+
+
+
   /// Sets the list of variables for this clause.
   ///
   /// \param Clauses The list of clauses for the directive.
@@ -571,7 +579,7 @@ protected:
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
-        isOpenMPDistributeDirective(Kind))
+        isOpenMPDistributeDirective(Kind) || isOpenMPLoopTransformationDirective(Kind))
       return WorksharingEnd;
     return DefaultEnd;
   }
@@ -845,6 +853,10 @@ public:
     /// Expressions used when combining OpenMP loop pragmas
     DistCombinedHelperExprs DistCombinedFields;
 
+    SmallVector<Stmt *, 4> Loops;
+    SmallVector<Stmt *, 4> Bodys;
+    Stmt* InnermostBody;
+
     /// Check if all the expressions are built (does not check the
     /// worksharing ones).
     bool builtAll() {
@@ -885,6 +897,8 @@ public:
       DependentCounters.resize(Size);
       DependentInits.resize(Size);
       FinalsConditions.resize(Size);
+      Loops.resize(Size);
+      Bodys.resize(Size);
       for (unsigned i = 0; i < Size; ++i) {
         Counters[i] = nullptr;
         PrivateCounters[i] = nullptr;
@@ -894,6 +908,8 @@ public:
         DependentCounters[i] = nullptr;
         DependentInits[i] = nullptr;
         FinalsConditions[i] = nullptr;
+        Loops[i] = nullptr;
+        Bodys[i] = nullptr;
       }
       PreInits = nullptr;
       DistCombinedFields.LB = nullptr;
@@ -905,6 +921,7 @@ public:
       DistCombinedFields.NUB = nullptr;
       DistCombinedFields.DistCond = nullptr;
       DistCombinedFields.ParForInDistCond = nullptr;
+      InnermostBody = nullptr;
     }
   };
 
@@ -1324,6 +1341,69 @@ public:
     return T->getStmtClass() == OMPForDirectiveClass;
   }
 };
+
+
+
+class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingObjects<OMPTileDirective, OMPClause*, Stmt*> {
+  friend class ASTStmtReader;
+  friend  TrailingObjects;
+
+  DeclGroup* PreTopmostDecls;
+  Stmt* PreTopmostStmt;
+  Stmt* TransformedStmt;
+  Stmt* PreBodyStmt;
+
+
+  size_t numTrailingObjects(OverloadToken<OMPClause*>)const {
+    return getNumClauses();
+  }
+
+  size_t numTrailingObjects(OverloadToken<Stmt*>)const {
+    return getNumStmts();
+  }
+
+
+  explicit OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumClauses, unsigned NumLoops)
+    : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
+      StartLoc, EndLoc, NumLoops, NumClauses, /*NumSpecialChildren=*/ 0) {}
+
+
+
+public:
+  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses,  unsigned NumLoops, Stmt* AssociatedStmt, Stmt *TransformedStmt, const HelperExprs& Exprs, DeclGroup* PreTopmostDecls,Stmt* PreTopmostStmt,Stmt*PreBodyStmt);
+
+  static OMPTileDirective* createEmpty(const ASTContext& C, unsigned NumClauses, unsigned NumLoops);
+
+
+
+  DeclGroup* getPreTopmostDecls() const { return PreTopmostDecls; }
+  void setPreTopmostDecls(DeclGroup* DG) { PreTopmostDecls = DG; }
+  Stmt* getPreTopmostStmt() const { return PreTopmostStmt; }
+  void setPreTopmostStmt(Stmt* S) { PreTopmostStmt = S; }
+  void setTransformedStmt(Stmt* S) { assert(isa<ForStmt>(S)); TransformedStmt = S; }
+  Stmt* getPreBodyStmt() const { return PreBodyStmt; }
+  void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
+
+
+  unsigned getNumAssociatedLoops() const {
+    // TODO: In this case, the loops are not 'collapsed'. Should rename to getNumAssociatedLoops.
+    return getCollapsedNumber() ;
+  }
+
+
+
+ const  Stmt* getUntransformedCapturedStmt() const;
+ const  Stmt* getUntransformedForStmt() const;
+  const Stmt* getTransformedCapturedStmt() const;
+  const Stmt* getTransformedForStmt() const;
+
+
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTileDirectiveClass;
+  }
+};
+
 
 /// This represents '#pragma omp for simd' directive.
 ///

@@ -11885,6 +11885,11 @@ void OMPClauseReader::VisitOMPCollapseClause(OMPCollapseClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
 }
 
+
+void OMPClauseReader::VisitOMPSizesClause(OMPSizesClause *C) {
+  llvm_unreachable("not implemented");
+}
+
 void OMPClauseReader::VisitOMPDefaultClause(OMPDefaultClause *C) {
   C->setDefaultKind(static_cast<llvm::omp::DefaultKind>(Record.readInt()));
   C->setLParenLoc(Record.readSourceLocation());
