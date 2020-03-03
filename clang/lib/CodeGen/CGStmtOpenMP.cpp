@@ -171,7 +171,7 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
         Body = CXXFor->getBody();
       }
     }
-    if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
+    if (const auto* PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {      llvm_unreachable("What is this doing?");
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
     }
@@ -2877,6 +2877,7 @@ void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective& S) {
   if (X)
     for (auto i : llvm:: seq(0u,X->size())) {
       auto Y = (*X)[i];
+      //EmitAutoVarAlloca(*Y);
       EmitDecl(*Y);
   }
 

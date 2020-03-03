@@ -8224,19 +8224,19 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     Scope *CurScope = getCurScope();
 
     {
-      std::string TileCntName = (Twine(".tile_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
-      //auto *TileCntDecl = buildVarDecl(*this, {}, CntTy, TileCntName, nullptr, OrigCntVar);
-      auto TileCntDecl =  cast<VarDecl>( IterationVarRef->getDecl());
-      TileCntDecl->setDeclName(& PP.getIdentifierTable().get(TileCntName) );
-      GlobalDecls.push_back(TileCntDecl);
-      TileIndVars[i] = TileCntDecl;
-    }
-
-    {
       std::string FloorCntName = (Twine(".floor_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
       auto *FloorCntDecl = buildVarDecl(*this, {}, CntTy, FloorCntName, nullptr, OrigCntVar);
       GlobalDecls.push_back(FloorCntDecl);
       FloorIndVars[i] = FloorCntDecl;
+    }
+
+    {
+      std::string TileCntName = (Twine(".tile_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
+      //auto *TileCntDecl = buildVarDecl(*this, {}, CntTy, TileCntName, nullptr, OrigCntVar);
+      auto TileCntDecl = cast<VarDecl>(IterationVarRef->getDecl());
+      TileCntDecl->setDeclName(& PP.getIdentifierTable().get(TileCntName) );
+      GlobalDecls.push_back(TileCntDecl);
+      TileIndVars[i] = TileCntDecl;
     }
   }
 
@@ -8253,22 +8253,31 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
       auto FloorCntDecl = FloorIndVars[i];
       auto IterationVarRef = cast<DeclRefExpr>(LoopHelper.IterationVarRef);
       auto CntTy = IterationVarRef->getType();
+      assert(LoopHelper.Counters.size() == 1);
+      auto OrigCntVar = cast<DeclRefExpr>(LoopHelper.Counters[0]);
+      Decl* CounterDecl =  OrigCntVar->getDecl(); // NOTE: The original Decl may have an initializer, which will be overwritten by the 
+      auto Counter = cast<VarDecl>(CounterDecl);
 
 
       auto IV = IterationVarRef;
       // Decl* D = IV->getDecl();
       auto IVInit = buildDeclRefExpr(*this, TileIndVars[i], CntTy, {});
-      auto Stmt = BuildBinOp(CurScope, {} , BO_Assign,  IV, IVInit);
+      auto Stmt = BuildBinOp(CurScope, {}, BO_Assign, IV, IVInit);
 
-  
+
       //AddInitializerToDecl(D, IVInit, /*DirectInit=*/false);
       //Stmt* Stmt = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D ,1),      SourceLocation(), SourceLocation());
-      BodyParts.push_back(Stmt.get());
 
+      auto CounterDeclStmt = new(Context) DeclStmt(DeclGroupRef::Create(Context, &CounterDecl, 1), {}, {});
+
+      BodyParts.push_back(CounterDeclStmt);
+      BodyParts.push_back(Stmt.get());
       BodyParts.push_back(LoopHelper.Updates[0]);
     }
    // BodyParts.push_back(Inner);
-    //Inner = CompoundStmt::Create(Context, BodyParts, {}, {});
+
+    // TODO: Check if Inner also has a canonical loop nest; if yes, sink even further
+    Inner = CompoundStmt::Create(Context, BodyParts, {}, {}); 
   }
 
   // Create loops from the inside to the outside
@@ -8318,12 +8327,17 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
      auto OrigInit = LoopHelper.Inits[0]; // Expect: start (LB of deduced logical iteration space)
     std::string TileCntName = (Twine(".tile_") +  llvm::utostr(i) + ".iv."  + OrigCntVar->getNameInfo().getAsString() ).str();
     
-    Decl* TileCntDeclDecl = TileCntDecl;
+   auto TileCntDeclDecl = cast<VarDecl>( TileCntDecl);
     //assert(cast<BinaryOperator>(OrigInit2)->getOpcode() == BO_Assign); AddInitializerToDecl(TileCntDecl, cast<BinaryOperator>(OrigInit2)->getRHS(), /*DirectInit=*/false);
     //auto IVStart = IntegerLiteral::Create(Context, llvm:: APInt::getNullValue(Context.getTypeSize(CntTy)), CntTy, {});
     auto IVStart = buildDeclRefExpr(*this, FloorIndVars[i], CntTy, {});
-    AddInitializerToDecl(TileCntDecl, IVStart, /*DirectInit=*/false);
-    Stmt* InitStmt = new (Context) DeclStmt(DeclGroupRef::Create(Context, &TileCntDeclDecl ,1),      SourceLocation(), SourceLocation());
+    auto IV = buildDeclRefExpr(*this, TileCntDeclDecl, CntTy, {});
+ 
+
+
+   // AddInitializerToDecl(TileCntDecl, IVStart, /*DirectInit=*/false);
+    Stmt* InitStmt =    BuildBinOp(CurScope, {} , BO_Assign,  IV, IVStart).get();
+      //new (Context) DeclStmt(DeclGroupRef::Create(Context, &TileCntDeclDecl ,1),      SourceLocation(), SourceLocation());
 
     auto TileCntRef=  buildDeclRefExpr(*this, TileCntDecl, CntTy, {});
 
@@ -8354,11 +8368,14 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
     auto OrigInit = LoopHelper.Inits[0]; 
 
-    Decl* CntDeclDecl = FloorCntDecl;
+   auto CntDeclDecl = cast<VarDecl>( FloorCntDecl);
     auto IVStart = IntegerLiteral::Create(Context,llvm:: APInt::getNullValue(Context.getTypeSize(CntTy)), CntTy, {});
-    AddInitializerToDecl(FloorCntDecl, IVStart, /*DirectInit=*/false);
+    //AddInitializerToDecl(FloorCntDecl, IVStart, /*DirectInit=*/false);
+
+    auto IV = buildDeclRefExpr(*this, CntDeclDecl, CntTy, {});
     Decl* TileCntDeclDecl = CntDeclDecl;
-    Stmt* InitStmt = new (Context) DeclStmt(DeclGroupRef::Create(Context, &TileCntDeclDecl, 1), {}, {});
+    Stmt* InitStmt =   BuildBinOp(CurScope, {} , BO_Assign,  IV, IVStart).get();
+      //new (Context) DeclStmt(DeclGroupRef::Create(Context, &TileCntDeclDecl, 1), {}, {});
 
     auto TileCntRef=  buildDeclRefExpr(*this, FloorCntDecl, CntTy, {});
     Expr* CondExpr = BuildBinOp(CurScope, {}, BO_LT, TileCntRef, NumIterations).get();
@@ -8393,7 +8410,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
   Stmt* PreBodyStmt = nullptr;
   if (!BodyParts.empty()) {
-    PreBodyStmt =  CompoundStmt::Create(Context, BodyParts, {}, {});
+    //PreBodyStmt =  CompoundStmt::Create(Context, BodyParts, {}, {});
   }
 
   auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, Inner, Inner, NestHelper, PreTopmostDecls, PreTopmostStmt, PreBodyStmt);
