@@ -32,7 +32,7 @@ void foo2(int start, int end, int step) {
 #endif
 
 #if 1
-void foo3(int start, int end, int step) {
+void foo3() {
 #pragma omp for
 #pragma omp tile sizes(5,5)
   for (int i = 7; i < 17; i += 3)

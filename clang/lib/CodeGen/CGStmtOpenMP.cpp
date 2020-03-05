@@ -129,6 +129,25 @@ public:
 /// of used expression from loop statement.
 class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
   void emitPreInitStmt(CodeGenFunction &CGF, const OMPLoopDirective &S) {
+
+    // Collect loop nest
+    SmallVector<const Stmt*, 4> Loops;
+    {
+      llvm::SmallVector<Stmt*, 8> AssociatedPreInits;
+      const Stmt* Body = S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+      Body = getTopmostAssociatedStructuredBlock(Body, AssociatedPreInits);
+      Loops.push_back(Body);
+      for (unsigned Cnt = 0; Cnt < S.getCollapsedNumber(); ++Cnt) {
+        Body = OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true, AssociatedPreInits);
+        Loops.push_back(Body);
+      }
+
+      // Emit statements required by nested loop transformations. Has to be done before PreCondVars.
+      for (auto APreInit : AssociatedPreInits) {
+        CGF.EmitStmt(APreInit);
+      }
+    }
+
     CodeGenFunction::OMPMapVars PreCondVars;
     llvm::DenseSet<const VarDecl *> EmittedAsPrivate;
     for (const auto *E : S.counters()) {
@@ -152,14 +171,9 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
     (void)PreCondVars.apply(CGF);
+    
     // Emit init, __range and __end variables for C++ range loops.
-    const Stmt *Body =
-        S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
-    llvm::SmallVector<Stmt*, 8> AssociatedPreInits;// TODO: Don't ignore
-    Body=getTopmostAssociatedStructuredBlock(Body, AssociatedPreInits);
-    llvm::SmallVector<Stmt*, 4> InnerPreInits;//TODO: do not ignore
-    for (unsigned Cnt = 0; Cnt < S.getCollapsedNumber(); ++Cnt) {
-      Body = OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true,InnerPreInits );
+    for (auto Body : Loops) {
       if (auto *For = dyn_cast<ForStmt>(Body)) {
         Body = For->getBody();
       } else {
@@ -1525,6 +1539,8 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
                      int MaxLevel, int Level = 0) {
   assert(Level < MaxLevel && "Too deep lookup during loop body codegen.");
   const Stmt *SimplifiedS = S->IgnoreContainers();
+  SmallVector<Stmt*, 8>  AssociatedPreInits; // TODO: Don't ignore
+  SimplifiedS=getTopmostAssociatedStructuredBlock(SimplifiedS,AssociatedPreInits);
   if (const auto *CS = dyn_cast<CompoundStmt>(SimplifiedS)) {
     PrettyStackTraceLoc CrashInfo(
         CGF.getContext().getSourceManager(), CS->getLBracLoc(),

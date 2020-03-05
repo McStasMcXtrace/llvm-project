@@ -3,141 +3,191 @@ source_filename = "C:\\Users\\meinersbur\\src\\llvm-project\\clang\\test\\OpenMP
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-unknown"
 
+%struct.ident_t = type { i32, i32, i32, i32, i8* }
+
+@.str = private unnamed_addr constant [23 x i8] c";unknown;unknown;0;0;;\00", align 1
+@0 = private unnamed_addr global %struct.ident_t { i32 0, i32 514, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* @.str, i32 0, i32 0) }, align 8
+@1 = private unnamed_addr global %struct.ident_t { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* @.str, i32 0, i32 0) }, align 8
+@2 = private unnamed_addr global %struct.ident_t { i32 0, i32 66, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* @.str, i32 0, i32 0) }, align 8
+
 ; Function Attrs: noinline nounwind optnone
-define void @_Z4foo2iii(i32 %start, i32 %end, i32 %step) #0 {
+define void @_Z4foo3v() #0 {
 entry:
-  %start.addr = alloca i32, align 4
-  %end.addr = alloca i32, align 4
-  %step.addr = alloca i32, align 4
+  %.omp.iv = alloca i32, align 4
   %.floor_0.iv.i = alloca i32, align 4
   %.tile_0.iv.i = alloca i32, align 4
   %.floor_1.iv.j = alloca i32, align 4
   %.tile_1.iv.j = alloca i32, align 4
+  %tmp = alloca i32, align 4
+  %.omp.lb = alloca i32, align 4
+  %.omp.ub = alloca i32, align 4
+  %.omp.stride = alloca i32, align 4
+  %.omp.is_last = alloca i32, align 4
+  %.floor_0.iv.i1 = alloca i32, align 4
   %i = alloca i32, align 4
   %j = alloca i32, align 4
-  store i32 %start, i32* %start.addr, align 4
-  store i32 %end, i32* %end.addr, align 4
-  store i32 %step, i32* %step.addr, align 4
-  store i32 0, i32* %.floor_0.iv.i, align 4
-  br label %for.cond
+  %0 = call i32 @__kmpc_global_thread_num(%struct.ident_t* @1)
+  store i32 0, i32* %.omp.lb, align 4
+  store i32 0, i32* %.omp.ub, align 4
+  store i32 1, i32* %.omp.stride, align 4
+  store i32 0, i32* %.omp.is_last, align 4
+  call void @__kmpc_for_static_init_4(%struct.ident_t* @0, i32 %0, i32 34, i32* %.omp.is_last, i32* %.omp.lb, i32* %.omp.ub, i32* %.omp.stride, i32 1, i32 1)
+  %1 = load i32, i32* %.omp.ub, align 4
+  %cmp = icmp sgt i32 %1, 0
+  br i1 %cmp, label %cond.true, label %cond.false
 
-for.cond:                                         ; preds = %for.inc28, %entry
-  %0 = load i32, i32* %.floor_0.iv.i, align 4
-  %cmp = icmp slt i32 %0, 4
-  br i1 %cmp, label %for.body, label %for.end30
-
-for.body:                                         ; preds = %for.cond
-  store i32 0, i32* %.floor_1.iv.j, align 4
-  br label %for.cond1
-
-for.cond1:                                        ; preds = %for.inc25, %for.body
-  %1 = load i32, i32* %.floor_1.iv.j, align 4
-  %cmp2 = icmp slt i32 %1, 4
-  br i1 %cmp2, label %for.body3, label %for.end27
-
-for.body3:                                        ; preds = %for.cond1
-  %2 = load i32, i32* %.floor_0.iv.i, align 4
-  store i32 %2, i32* %.tile_0.iv.i, align 4
-  br label %for.cond4
-
-for.cond4:                                        ; preds = %for.inc22, %for.body3
-  %3 = load i32, i32* %.tile_0.iv.i, align 4
-  %4 = load i32, i32* %.floor_0.iv.i, align 4
-  %add = add nsw i32 %4, 5
-  %cmp5 = icmp slt i32 4, %add
-  br i1 %cmp5, label %cond.true, label %cond.false
-
-cond.true:                                        ; preds = %for.cond4
+cond.true:                                        ; preds = %entry
   br label %cond.end
 
-cond.false:                                       ; preds = %for.cond4
-  %5 = load i32, i32* %.floor_0.iv.i, align 4
-  %add6 = add nsw i32 %5, 5
+cond.false:                                       ; preds = %entry
+  %2 = load i32, i32* %.omp.ub, align 4
   br label %cond.end
 
 cond.end:                                         ; preds = %cond.false, %cond.true
-  %cond = phi i32 [ 4, %cond.true ], [ %add6, %cond.false ]
-  %cmp7 = icmp slt i32 %3, %cond
-  br i1 %cmp7, label %for.body8, label %for.end24
+  %cond = phi i32 [ 0, %cond.true ], [ %2, %cond.false ]
+  store i32 %cond, i32* %.omp.ub, align 4
+  %3 = load i32, i32* %.omp.lb, align 4
+  store i32 %3, i32* %.omp.iv, align 4
+  br label %omp.inner.for.cond
 
-for.body8:                                        ; preds = %cond.end
-  %6 = load i32, i32* %.floor_1.iv.j, align 4
-  store i32 %6, i32* %.tile_1.iv.j, align 4
-  br label %for.cond9
+omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %cond.end
+  %4 = load i32, i32* %.omp.iv, align 4
+  %5 = load i32, i32* %.omp.ub, align 4
+  %cmp2 = icmp sle i32 %4, %5
+  br i1 %cmp2, label %omp.inner.for.body, label %omp.inner.for.end
 
-for.cond9:                                        ; preds = %for.inc, %for.body8
-  %7 = load i32, i32* %.tile_1.iv.j, align 4
-  %8 = load i32, i32* %.floor_1.iv.j, align 4
-  %add10 = add nsw i32 %8, 5
-  %cmp11 = icmp slt i32 4, %add10
-  br i1 %cmp11, label %cond.true12, label %cond.false13
-
-cond.true12:                                      ; preds = %for.cond9
-  br label %cond.end15
-
-cond.false13:                                     ; preds = %for.cond9
-  %9 = load i32, i32* %.floor_1.iv.j, align 4
-  %add14 = add nsw i32 %9, 5
-  br label %cond.end15
-
-cond.end15:                                       ; preds = %cond.false13, %cond.true12
-  %cond16 = phi i32 [ 4, %cond.true12 ], [ %add14, %cond.false13 ]
-  %cmp17 = icmp slt i32 %7, %cond16
-  br i1 %cmp17, label %for.body18, label %for.end
-
-for.body18:                                       ; preds = %cond.end15
-  store i32 7, i32* %i, align 4
-  %10 = load i32, i32* %.tile_0.iv.i, align 4
-  store i32 %10, i32* %.tile_0.iv.i, align 4
-  %11 = load i32, i32* %.tile_0.iv.i, align 4
-  %mul = mul nsw i32 %11, 3
-  %add19 = add nsw i32 7, %mul
-  store i32 %add19, i32* %i, align 4
-  store i32 7, i32* %j, align 4
-  %12 = load i32, i32* %.tile_1.iv.j, align 4
-  store i32 %12, i32* %.tile_1.iv.j, align 4
-  %13 = load i32, i32* %.tile_1.iv.j, align 4
-  %mul20 = mul nsw i32 %13, 3
-  %add21 = add nsw i32 7, %mul20
-  store i32 %add21, i32* %j, align 4
-  br label %for.inc
-
-for.inc:                                          ; preds = %for.body18
-  %14 = load i32, i32* %.tile_1.iv.j, align 4
-  %inc = add nsw i32 %14, 1
-  store i32 %inc, i32* %.tile_1.iv.j, align 4
-  br label %for.cond9
-
-for.end:                                          ; preds = %cond.end15
-  br label %for.inc22
-
-for.inc22:                                        ; preds = %for.end
-  %15 = load i32, i32* %.tile_0.iv.i, align 4
-  %inc23 = add nsw i32 %15, 1
-  store i32 %inc23, i32* %.tile_0.iv.i, align 4
-  br label %for.cond4
-
-for.end24:                                        ; preds = %cond.end
-  br label %for.inc25
-
-for.inc25:                                        ; preds = %for.end24
-  %16 = load i32, i32* %.floor_1.iv.j, align 4
-  %add26 = add nsw i32 %16, 5
-  store i32 %add26, i32* %.floor_1.iv.j, align 4
-  br label %for.cond1
-
-for.end27:                                        ; preds = %for.cond1
-  br label %for.inc28
-
-for.inc28:                                        ; preds = %for.end27
-  %17 = load i32, i32* %.floor_0.iv.i, align 4
-  %add29 = add nsw i32 %17, 5
-  store i32 %add29, i32* %.floor_0.iv.i, align 4
+omp.inner.for.body:                               ; preds = %omp.inner.for.cond
+  %6 = load i32, i32* %.omp.iv, align 4
+  %mul = mul nsw i32 %6, 5
+  %add = add nsw i32 0, %mul
+  store i32 %add, i32* %.floor_0.iv.i1, align 4
+  store i32 0, i32* %.floor_1.iv.j, align 4
   br label %for.cond
 
-for.end30:                                        ; preds = %for.cond
+for.cond:                                         ; preds = %for.inc31, %omp.inner.for.body
+  %7 = load i32, i32* %.floor_1.iv.j, align 4
+  %cmp3 = icmp slt i32 %7, 4
+  br i1 %cmp3, label %for.body, label %for.end33
+
+for.body:                                         ; preds = %for.cond
+  %8 = load i32, i32* %.floor_0.iv.i1, align 4
+  store i32 %8, i32* %.tile_0.iv.i, align 4
+  br label %for.cond4
+
+for.cond4:                                        ; preds = %for.inc28, %for.body
+  %9 = load i32, i32* %.tile_0.iv.i, align 4
+  %10 = load i32, i32* %.floor_0.iv.i1, align 4
+  %add5 = add nsw i32 %10, 5
+  %cmp6 = icmp slt i32 4, %add5
+  br i1 %cmp6, label %cond.true7, label %cond.false8
+
+cond.true7:                                       ; preds = %for.cond4
+  br label %cond.end10
+
+cond.false8:                                      ; preds = %for.cond4
+  %11 = load i32, i32* %.floor_0.iv.i1, align 4
+  %add9 = add nsw i32 %11, 5
+  br label %cond.end10
+
+cond.end10:                                       ; preds = %cond.false8, %cond.true7
+  %cond11 = phi i32 [ 4, %cond.true7 ], [ %add9, %cond.false8 ]
+  %cmp12 = icmp slt i32 %9, %cond11
+  br i1 %cmp12, label %for.body13, label %for.end30
+
+for.body13:                                       ; preds = %cond.end10
+  %12 = load i32, i32* %.floor_1.iv.j, align 4
+  store i32 %12, i32* %.tile_1.iv.j, align 4
+  br label %for.cond14
+
+for.cond14:                                       ; preds = %for.inc, %for.body13
+  %13 = load i32, i32* %.tile_1.iv.j, align 4
+  %14 = load i32, i32* %.floor_1.iv.j, align 4
+  %add15 = add nsw i32 %14, 5
+  %cmp16 = icmp slt i32 4, %add15
+  br i1 %cmp16, label %cond.true17, label %cond.false18
+
+cond.true17:                                      ; preds = %for.cond14
+  br label %cond.end20
+
+cond.false18:                                     ; preds = %for.cond14
+  %15 = load i32, i32* %.floor_1.iv.j, align 4
+  %add19 = add nsw i32 %15, 5
+  br label %cond.end20
+
+cond.end20:                                       ; preds = %cond.false18, %cond.true17
+  %cond21 = phi i32 [ 4, %cond.true17 ], [ %add19, %cond.false18 ]
+  %cmp22 = icmp slt i32 %13, %cond21
+  br i1 %cmp22, label %for.body23, label %for.end
+
+for.body23:                                       ; preds = %cond.end20
+  store i32 7, i32* %i, align 4
+  %16 = load i32, i32* %.tile_0.iv.i, align 4
+  store i32 %16, i32* %.tile_0.iv.i, align 4
+  %17 = load i32, i32* %.tile_0.iv.i, align 4
+  %mul24 = mul nsw i32 %17, 3
+  %add25 = add nsw i32 7, %mul24
+  store i32 %add25, i32* %i, align 4
+  store i32 7, i32* %j, align 4
+  %18 = load i32, i32* %.tile_1.iv.j, align 4
+  store i32 %18, i32* %.tile_1.iv.j, align 4
+  %19 = load i32, i32* %.tile_1.iv.j, align 4
+  %mul26 = mul nsw i32 %19, 3
+  %add27 = add nsw i32 7, %mul26
+  store i32 %add27, i32* %j, align 4
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body23
+  %20 = load i32, i32* %.tile_1.iv.j, align 4
+  %inc = add nsw i32 %20, 1
+  store i32 %inc, i32* %.tile_1.iv.j, align 4
+  br label %for.cond14
+
+for.end:                                          ; preds = %cond.end20
+  br label %for.inc28
+
+for.inc28:                                        ; preds = %for.end
+  %21 = load i32, i32* %.tile_0.iv.i, align 4
+  %inc29 = add nsw i32 %21, 1
+  store i32 %inc29, i32* %.tile_0.iv.i, align 4
+  br label %for.cond4
+
+for.end30:                                        ; preds = %cond.end10
+  br label %for.inc31
+
+for.inc31:                                        ; preds = %for.end30
+  %22 = load i32, i32* %.floor_1.iv.j, align 4
+  %add32 = add nsw i32 %22, 5
+  store i32 %add32, i32* %.floor_1.iv.j, align 4
+  br label %for.cond
+
+for.end33:                                        ; preds = %for.cond
+  br label %omp.body.continue
+
+omp.body.continue:                                ; preds = %for.end33
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %omp.body.continue
+  %23 = load i32, i32* %.omp.iv, align 4
+  %add34 = add nsw i32 %23, 1
+  store i32 %add34, i32* %.omp.iv, align 4
+  br label %omp.inner.for.cond
+
+omp.inner.for.end:                                ; preds = %omp.inner.for.cond
+  br label %omp.loop.exit
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.end
+  call void @__kmpc_for_static_fini(%struct.ident_t* @0, i32 %0)
+  call void @__kmpc_barrier(%struct.ident_t* @2, i32 %0)
   ret void
 }
+
+declare i32 @__kmpc_global_thread_num(%struct.ident_t*)
+
+declare void @__kmpc_for_static_init_4(%struct.ident_t*, i32, i32, i32*, i32*, i32*, i32*, i32, i32)
+
+declare void @__kmpc_for_static_fini(%struct.ident_t*, i32)
+
+declare void @__kmpc_barrier(%struct.ident_t*, i32)
 
 attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-features"="+cx8,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

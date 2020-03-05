@@ -4719,8 +4719,7 @@ public:
 };
 
 Stmt* getTopmostAssociatedStructuredBlock(Stmt* S, llvm::SmallVectorImpl<Stmt*> &PreInits);
-
-const Stmt* getTopmostAssociatedStructuredBlock(const Stmt* S, llvm::SmallVectorImpl<Stmt*>& PreInits) {
+static inline const Stmt* getTopmostAssociatedStructuredBlock(const Stmt* S, llvm::SmallVectorImpl<Stmt*>& PreInits) {
   return getTopmostAssociatedStructuredBlock(const_cast<Stmt*>(S), PreInits);
 }
 
