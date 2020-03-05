@@ -4,7 +4,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-unknown"
 
 ; Function Attrs: noinline nounwind optnone
-define void @_Z4foo1iii(i32 %start, i32 %end, i32 %step) #0 {
+define void @_Z4foo2iii(i32 %start, i32 %end, i32 %step) #0 {
 entry:
   %start.addr = alloca i32, align 4
   %end.addr = alloca i32, align 4

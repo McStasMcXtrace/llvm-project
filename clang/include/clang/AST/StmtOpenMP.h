@@ -857,6 +857,8 @@ public:
     SmallVector<Stmt *, 4> Bodys;
     Stmt* InnermostBody;
 
+    SmallVector<Stmt *, 4> AssociatedPreInits;
+
     /// Check if all the expressions are built (does not check the
     /// worksharing ones).
     bool builtAll() {
@@ -899,6 +901,7 @@ public:
       FinalsConditions.resize(Size);
       Loops.resize(Size);
       Bodys.resize(Size);
+      AssociatedPreInits.clear();
       for (unsigned i = 0; i < Size; ++i) {
         Counters[i] = nullptr;
         PrivateCounters[i] = nullptr;
@@ -1106,12 +1109,9 @@ public:
   /// CurStmt.
   /// \param TryImperfectlyNestedLoops true, if we need to try to look for the
   /// imperfectly nested loop.
-  static Stmt *tryToFindNextInnerLoop(Stmt *CurStmt,
-                                      bool TryImperfectlyNestedLoops);
-  static const Stmt *tryToFindNextInnerLoop(const Stmt *CurStmt,
-                                            bool TryImperfectlyNestedLoops) {
-    return tryToFindNextInnerLoop(const_cast<Stmt *>(CurStmt),
-                                  TryImperfectlyNestedLoops);
+  static Stmt *tryToFindNextInnerLoop(Stmt *CurStmt, bool TryImperfectlyNestedLoops, llvm::SmallVectorImpl<Stmt*> &PreInits);
+  static const Stmt *tryToFindNextInnerLoop(const Stmt *CurStmt, bool TryImperfectlyNestedLoops, llvm::SmallVectorImpl<Stmt*> &PreInits) {
+    return tryToFindNextInnerLoop(const_cast<Stmt *>(CurStmt), TryImperfectlyNestedLoops,PreInits);
   }
   Stmt *getBody();
   const Stmt *getBody() const {
@@ -1348,10 +1348,11 @@ class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingOb
   friend class ASTStmtReader;
   friend  TrailingObjects;
 
-  DeclGroup* PreTopmostDecls;
-  Stmt* PreTopmostStmt;
+  //DeclGroup* PreTopmostDecls;
+  //Stmt* PreTopmostStmt;
+  //SmallVector<Stmt*, 4> PreInits;
   Stmt* TransformedStmt;
-  Stmt* PreBodyStmt;
+  //Stmt* PreBodyStmt;
 
 
   size_t numTrailingObjects(OverloadToken<OMPClause*>)const {
@@ -1370,32 +1371,39 @@ class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingOb
 
 
 public:
-  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses,  unsigned NumLoops, Stmt* AssociatedStmt, Stmt *TransformedStmt, const HelperExprs& Exprs, DeclGroup* PreTopmostDecls,Stmt* PreTopmostStmt,Stmt*PreBodyStmt);
+  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses, unsigned NumLoops, Stmt* AssociatedStmt, Stmt* TransformedStmt, const HelperExprs& Exprs);
 
   static OMPTileDirective* createEmpty(const ASTContext& C, unsigned NumClauses, unsigned NumLoops);
 
 
 
-  DeclGroup* getPreTopmostDecls() const { return PreTopmostDecls; }
-  void setPreTopmostDecls(DeclGroup* DG) { PreTopmostDecls = DG; }
-  Stmt* getPreTopmostStmt() const { return PreTopmostStmt; }
-  void setPreTopmostStmt(Stmt* S) { PreTopmostStmt = S; }
-  void setTransformedStmt(Stmt* S) { assert(isa<ForStmt>(S)); TransformedStmt = S; }
-  Stmt* getPreBodyStmt() const { return PreBodyStmt; }
-  void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
+  //DeclGroup* getPreTopmostDecls() const { return PreTopmostDecls; }
+  //void setPreTopmostDecls(DeclGroup* DG) { PreTopmostDecls = DG; }
+  //Stmt* getPreTopmostStmt() const { return PreTopmostStmt; }
+  //void setPreTopmostStmt(Stmt* S) { PreTopmostStmt = S; }
+
+  auto getPreInits() const {
+    auto C = cast<CompoundStmt>(getTransformedCompoundStmt());
+    return llvm::make_range(C->body_begin(), C->body_begin()+C->size()-1);
+  }
+
+  void setTransformedStmt(Stmt* S) { assert(isa<CompoundStmt>(S)); TransformedStmt = S; }
+  //Stmt* getPreBodyStmt() const { return PreBodyStmt; }
+  //void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
 
 
   unsigned getNumAssociatedLoops() const {
     // TODO: In this case, the loops are not 'collapsed'. Should rename to getNumAssociatedLoops.
-    return getCollapsedNumber() ;
+    return getCollapsedNumber();
   }
 
 
 
- const  Stmt* getUntransformedCapturedStmt() const;
- const  Stmt* getUntransformedForStmt() const;
-  const Stmt* getTransformedCapturedStmt() const;
-  const Stmt* getTransformedForStmt() const;
+  //const  Stmt* getUntransformedCapturedStmt() const;
+  const  Stmt* getUntransformedForStmt() const;
+  // Stmt* getTransformedCapturedStmt() const;
+  Stmt* getTransformedForStmt() const;
+  Stmt* getTransformedCompoundStmt() const;
 
 
 
@@ -4709,6 +4717,12 @@ public:
     return T->getStmtClass() == OMPTargetTeamsDistributeSimdDirectiveClass;
   }
 };
+
+Stmt* getTopmostAssociatedStructuredBlock(Stmt* S, llvm::SmallVectorImpl<Stmt*> &PreInits);
+
+const Stmt* getTopmostAssociatedStructuredBlock(const Stmt* S, llvm::SmallVectorImpl<Stmt*>& PreInits) {
+  return getTopmostAssociatedStructuredBlock(const_cast<Stmt*>(S), PreInits);
+}
 
 } // end namespace clang
 

@@ -155,9 +155,11 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
     // Emit init, __range and __end variables for C++ range loops.
     const Stmt *Body =
         S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+    llvm::SmallVector<Stmt*, 8> AssociatedPreInits;// TODO: Don't ignore
+    Body=getTopmostAssociatedStructuredBlock(Body, AssociatedPreInits);
+    llvm::SmallVector<Stmt*, 4> InnerPreInits;//TODO: do not ignore
     for (unsigned Cnt = 0; Cnt < S.getCollapsedNumber(); ++Cnt) {
-      Body = OMPLoopDirective::tryToFindNextInnerLoop(
-          Body, /*TryImperfectlyNestedLoops=*/true);
+      Body = OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true,InnerPreInits );
       if (auto *For = dyn_cast<ForStmt>(Body)) {
         Body = For->getBody();
       } else {
@@ -1545,8 +1547,9 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
       S = CXXFor->getBody();
     }
     if (Level + 1 < MaxLevel) {
+      llvm::SmallVector<Stmt*, 4> InnerPreInits;//TODO: do not ignore
       NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(
-          S, /*TryImperfectlyNestedLoops=*/true);
+          S, /*TryImperfectlyNestedLoops=*/true,InnerPreInits );
       emitBody(CGF, S, NextLoop, MaxLevel, Level + 1);
       return;
     }
@@ -1587,10 +1590,8 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   const Stmt *Body =
       D.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
   // Emit loop body.
-  emitBody(*this, Body,
-           OMPLoopDirective::tryToFindNextInnerLoop(
-               Body, /*TryImperfectlyNestedLoops=*/true),
-           D.getCollapsedNumber());
+  llvm::SmallVector<Stmt*, 4> InnerPreInits; //TODO: do not ignore
+  emitBody(*this, Body, OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true, InnerPreInits), D.getCollapsedNumber());
 
   // The end (updates/cleanups).
   EmitBlock(Continue.getBlock());
@@ -2872,21 +2873,7 @@ void CodeGenFunction::EmitOMPForDirective(const OMPForDirective &S) {
 
 
 void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective& S) {
-
-  auto X = S.getPreTopmostDecls();
-  if (X)
-    for (auto i : llvm:: seq(0u,X->size())) {
-      auto Y = (*X)[i];
-      //EmitAutoVarAlloca(*Y);
-      EmitDecl(*Y);
-  }
-
-  auto Z = S.getPreTopmostStmt();
-  if (Z) {
-    EmitStmt(Z);
-  }
-
-  EmitStmt(S.getTransformedCapturedStmt());
+  EmitStmt(S.getTransformedCompoundStmt());
 }
 
 void CodeGenFunction::EmitOMPForSimdDirective(const OMPForSimdDirective &S) {

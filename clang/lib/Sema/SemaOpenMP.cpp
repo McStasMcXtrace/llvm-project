@@ -3282,6 +3282,12 @@ public:
       Visit(E->getBase());
     }
   }
+
+  void VisitOMPTileDirective(OMPTileDirective* S) {
+    // #pragma omp tile does not introduce data sharing
+    VisitStmt(S);
+  }
+
   void VisitOMPExecutableDirective(OMPExecutableDirective *S) {
     for (OMPClause *C : S->clauses()) {
       // Skip analysis of arguments of implicitly defined firstprivate clause
@@ -5083,7 +5089,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   if (ErrorFound)
     return StmtError();
 
-  if (!Res.getAs<OMPExecutableDirective>()->isStandaloneDirective() && !isOpenMPLoopTransformationDirective(Kind) ) {
+  if (!Res.getAs<OMPExecutableDirective>()->isStandaloneDirective() && !isOpenMPLoopTransformationDirective(Kind) ) { // TODO: Is the transformed and/or pre-transformed body the structured block?
     Res.getAs<OMPExecutableDirective>()
         ->getStructuredBlock()
         ->setIsOMPStructuredBlock(true);
@@ -7348,6 +7354,9 @@ static Expr *buildPostUpdate(Sema &S, ArrayRef<Expr *> PostUpdates) {
   return PostUpdate;
 }
 
+
+
+
 /// Called on a for stmt to check itself and nested loops (if any).
 /// \return Returns 0 if one of the collapsed stmts is not canonical for loop,
 /// number of collapsed loops otherwise.
@@ -7398,7 +7407,10 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
   auto NumAssocociatedLoops = std::max(OrderedLoopCount, NestedLoopCount );
   SmallVector<LoopIterationSpace, 4> IterSpaces(NumAssocociatedLoops);
-  Stmt *CurStmt = AStmt->IgnoreContainers(/* IgnoreCaptured */ true);
+  //Stmt *CurStmt = AStmt->IgnoreContainers(/* IgnoreCaptured */ true);
+  llvm::SmallVector<Stmt*, 8> InnerPreInits; // TODO: Don't ignore
+ Stmt* CurStmt = getTopmostAssociatedStructuredBlock(AStmt, InnerPreInits);
+ bool SupportsNonPerfectlyNested = (SemaRef.LangOpts.OpenMP >= 50) && !isOpenMPLoopTransformationDirective(DKind);
   for (unsigned Cnt = 0; Cnt < NestedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
@@ -7419,8 +7431,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
              "Expected canonical for or range-based for loops.");
       CurStmt = cast<CXXForRangeStmt>(CurStmt)->getBody();
     }
-    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(
-        CurStmt, SemaRef.LangOpts.OpenMP >= 50);
+    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(CurStmt,SupportsNonPerfectlyNested , InnerPreInits);
   }
   for (unsigned Cnt = NestedLoopCount; Cnt < OrderedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
@@ -7447,8 +7458,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
              "Expected canonical for or range-based for loops.");
       CurStmt = cast<CXXForRangeStmt>(CurStmt)->getBody();
     }
-    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(
-        CurStmt, SemaRef.LangOpts.OpenMP >= 50);
+    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(CurStmt, SupportsNonPerfectlyNested, InnerPreInits);
   }
 
   Built.clear(/* size */ NestedLoopCount);
@@ -8208,8 +8218,8 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt , *this, *DSAStack, VarsWithImplicitDSA, LoopHelpers[i], 1); 
   }
 
-  SmallVector<Decl*, 8> GlobalDecls;
-
+  //SmallVector<Decl*, 8> GlobalDecls;
+  SmallVector<Stmt*, 8> PreInits;
 
   SmallVector<VarDecl*, 4> FloorIndVars;
   SmallVector<VarDecl*, 4> TileIndVars;
@@ -8226,7 +8236,10 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     {
       std::string FloorCntName = (Twine(".floor_") + llvm::utostr(i) + ".iv." + OrigVarName).str();
       auto *FloorCntDecl = buildVarDecl(*this, {}, CntTy, FloorCntName, nullptr, OrigCntVar);
-      GlobalDecls.push_back(FloorCntDecl);
+      Decl* D = FloorCntDecl;
+      auto DeclS =  new (Context) DeclStmt(DeclGroupRef::Create(Context, &D ,1),      SourceLocation(), SourceLocation());
+    //  GlobalDecls.push_back(FloorCntDecl);
+      PreInits.push_back(DeclS);
       FloorIndVars[i] = FloorCntDecl;
     }
 
@@ -8235,7 +8248,10 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
       //auto *TileCntDecl = buildVarDecl(*this, {}, CntTy, TileCntName, nullptr, OrigCntVar);
       auto TileCntDecl = cast<VarDecl>(IterationVarRef->getDecl());
       TileCntDecl->setDeclName(& PP.getIdentifierTable().get(TileCntName) );
-      GlobalDecls.push_back(TileCntDecl);
+      Decl* D = TileCntDecl;
+      auto DeclS =  new (Context) DeclStmt(DeclGroupRef::Create(Context, &D ,1),      SourceLocation(), SourceLocation());
+   //   GlobalDecls.push_back(TileCntDecl);
+      PreInits.push_back(DeclS);
       TileIndVars[i] = TileCntDecl;
     }
   }
@@ -8402,18 +8418,23 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
   
 
   DeclGroup* PreTopmostDecls = nullptr;
-  if(! GlobalDecls.empty()  ) {
-    PreTopmostDecls = DeclGroup::Create(Context,GlobalDecls.data(), GlobalDecls.size() );
-  }
+ // if(! GlobalDecls.empty()  ) {
+ //   PreTopmostDecls = DeclGroup::Create(Context,GlobalDecls.data(), GlobalDecls.size() );
+ // }
 
-  Stmt* PreTopmostStmt = nullptr;
 
-  Stmt* PreBodyStmt = nullptr;
-  if (!BodyParts.empty()) {
+ // Stmt* PreTopmostStmt = nullptr;
+
+  //Stmt* PreBodyStmt = nullptr;
+  //if (!BodyParts.empty()) {
     //PreBodyStmt =  CompoundStmt::Create(Context, BodyParts, {}, {});
-  }
+  //}
 
-  auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, Inner, Inner, NestHelper, PreTopmostDecls, PreTopmostStmt, PreBodyStmt);
+  PreInits.push_back(Inner);
+
+ auto  PreTopmostStmt =  CompoundStmt::Create(Context, PreInits, {}, {});
+
+  auto Result = OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops, AStmt, PreTopmostStmt, NestHelper);
   // Result->dump();
   return Result;
 }

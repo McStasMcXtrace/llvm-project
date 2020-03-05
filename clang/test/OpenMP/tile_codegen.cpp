@@ -5,23 +5,34 @@
 
 void body(int,int);
 
-void foo1(int start, int end, int step) {
 #if 0
+void foo0(int start, int end, int step) {
 #pragma omp for
   for (int i = 7; i < 17; i += 3)
     i;
+}
 #endif
 
-#if 1
+#if 0
+void foo1(int start, int end, int step) {
+#pragma omp for
+  for (int i = 7; i < 17; i += 3)
+    i;
+  }
+#endif
+
+
+#if 0
+void foo2(int start, int end, int step) {
 #pragma omp tile sizes(5,5)
   for (int i = 7; i < 17; i+=3)
     for (int j = 7; j < 17; j+=3)
       body(i,j);
-#endif
 }
+#endif
 
-#if 0
-void foo2(int start, int end, int step) {
+#if 1
+void foo3(int start, int end, int step) {
 #pragma omp for
 #pragma omp tile sizes(5,5)
   for (int i = 7; i < 17; i += 3)
