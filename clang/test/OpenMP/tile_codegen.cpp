@@ -31,9 +31,20 @@ void foo2(int start, int end, int step) {
 }
 #endif
 
-#if 1
+#if 0
 void foo3() {
 #pragma omp for
+#pragma omp tile sizes(5,5)
+    for (int i = 7; i < 17; i += 3)
+      for (int j = 7; j < 17; j += 3)
+        ;
+}
+#endif
+
+#if 1
+void foo4() {
+#pragma omp for collapse(2)
+  for (int k = 7; k < 17; k += 3)
 #pragma omp tile sizes(5,5)
   for (int i = 7; i < 17; i += 3)
     for (int j = 7; j < 17; j += 3)

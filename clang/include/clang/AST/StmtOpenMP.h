@@ -1113,6 +1113,13 @@ public:
   static const Stmt *tryToFindNextInnerLoop(const Stmt *CurStmt, bool TryImperfectlyNestedLoops, llvm::SmallVectorImpl<Stmt*> &PreInits) {
     return tryToFindNextInnerLoop(const_cast<Stmt *>(CurStmt), TryImperfectlyNestedLoops,PreInits);
   }
+
+  void collectAssociatedLoops(llvm::SmallVectorImpl<Stmt*>& Loops, llvm::SmallVectorImpl<Stmt*>& PreInits);
+  void collectAssociatedLoops(llvm::SmallVectorImpl<const Stmt*>& Loops, llvm::SmallVectorImpl< Stmt*>& PreInits) const {
+    const_cast<OMPLoopDirective*>(this)->  collectAssociatedLoops( *reinterpret_cast<llvm::SmallVectorImpl< Stmt*>*> (&Loops), PreInits);
+  }
+
+
   Stmt *getBody();
   const Stmt *getBody() const {
     return const_cast<OMPLoopDirective *>(this)->getBody();

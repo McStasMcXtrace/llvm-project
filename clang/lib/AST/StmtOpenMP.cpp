@@ -105,6 +105,30 @@ Stmt *OMPLoopDirective::tryToFindNextInnerLoop(Stmt *CurStmt, bool TryImperfectl
   return CurStmt;
 }
 
+void OMPLoopDirective::collectAssociatedLoops(llvm::SmallVectorImpl<Stmt*>& Loops, llvm::SmallVectorImpl<Stmt*>& PreInits) {
+   Stmt* Body = getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+
+   // No aux code can appear before the topmost loops.
+
+
+  auto NumLoops = getCollapsedNumber();
+  assert(NumLoops>=1);
+  for (unsigned Cnt = 0; Cnt <NumLoops; ++Cnt) {
+    auto Loop = OMPLoopDirective::tryToFindNextInnerLoop(Body,  /*TryImperfectlyNestedLoops=*/Cnt>0, PreInits);
+    Loops.push_back(Loop);
+
+    // Get body to look next loop in
+    if (auto *For = dyn_cast<ForStmt>(Loop)) {
+      Body = For->getBody();
+    } else {
+      assert(isa<CXXForRangeStmt>(Body) &&  "Expected canonical for loop or range-based for loop.");
+      auto *CXXFor = cast<CXXForRangeStmt>(Loop);
+      Body = CXXFor->getBody();
+    }
+  }
+
+}
+
 Stmt *OMPLoopDirective::getBody() {
   // This relies on the loop form is already checked by Sema.
   Stmt *Body = getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();

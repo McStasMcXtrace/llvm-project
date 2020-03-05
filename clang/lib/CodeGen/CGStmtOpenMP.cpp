@@ -132,21 +132,15 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
 
     // Collect loop nest
     SmallVector<const Stmt*, 4> Loops;
-    {
-      llvm::SmallVector<Stmt*, 8> AssociatedPreInits;
-      const Stmt* Body = S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
-      Body = getTopmostAssociatedStructuredBlock(Body, AssociatedPreInits);
-      Loops.push_back(Body);
-      for (unsigned Cnt = 0; Cnt < S.getCollapsedNumber(); ++Cnt) {
-        Body = OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true, AssociatedPreInits);
-        Loops.push_back(Body);
-      }
+    llvm::SmallVector<Stmt*, 8> AssociatedPreInits;
+    S.collectAssociatedLoops(Loops, AssociatedPreInits);
 
+  
       // Emit statements required by nested loop transformations. Has to be done before PreCondVars.
       for (auto APreInit : AssociatedPreInits) {
         CGF.EmitStmt(APreInit);
       }
-    }
+    
 
     CodeGenFunction::OMPMapVars PreCondVars;
     llvm::DenseSet<const VarDecl *> EmittedAsPrivate;
@@ -174,20 +168,16 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
     
     // Emit init, __range and __end variables for C++ range loops.
     for (auto Body : Loops) {
-      if (auto *For = dyn_cast<ForStmt>(Body)) {
-        Body = For->getBody();
-      } else {
-        assert(isa<CXXForRangeStmt>(Body) &&
-               "Expected canonical for loop or range-based for loop.");
-        auto *CXXFor = cast<CXXForRangeStmt>(Body);
+      if (auto* CXXFor = dyn_cast<CXXForRangeStmt>(Body)) {
         if (const Stmt *Init = CXXFor->getInit())
           CGF.EmitStmt(Init);
         CGF.EmitStmt(CXXFor->getRangeStmt());
         CGF.EmitStmt(CXXFor->getEndStmt());
-        Body = CXXFor->getBody();
       }
     }
-    if (const auto* PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {      llvm_unreachable("What is this doing?");
+
+    if (const auto* PreInits = cast_or_null<DeclStmt>(S.getPreInits())) { 
+      llvm_unreachable("What is this doing?");
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
     }
