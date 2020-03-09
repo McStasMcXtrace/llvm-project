@@ -646,7 +646,9 @@ void StmtPrinter::PrintOMPExecutableDirective(OMPExecutableDirective *S,
       Printer.Visit(Clause);
     }
   OS << NL;
-  if (!ForceNoStmt && S->hasAssociatedStmt())
+  if (auto Tile = dyn_cast<OMPTileDirective>(S))
+    PrintStmt(Tile->getUntransformedForStmt());
+  else  if (!ForceNoStmt && S->hasAssociatedStmt())
     PrintStmt(S->getInnermostCapturedStmt()->getCapturedStmt());
 }
 
@@ -662,6 +664,11 @@ void StmtPrinter::VisitOMPSimdDirective(OMPSimdDirective *Node) {
 
 void StmtPrinter::VisitOMPForDirective(OMPForDirective *Node) {
   Indent() << "#pragma omp for";
+  PrintOMPExecutableDirective(Node);
+}
+
+void StmtPrinter::VisitOMPTileDirective(OMPTileDirective *Node) {
+  Indent() << "#pragma omp tile";
   PrintOMPExecutableDirective(Node);
 }
 

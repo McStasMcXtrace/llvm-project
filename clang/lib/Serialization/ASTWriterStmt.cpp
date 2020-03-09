@@ -2068,6 +2068,10 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.push_back(D->getNumClauses());
   Record.push_back(D->getCollapsedNumber());
   VisitOMPExecutableDirective(D);
+
+  if (isOpenMPLoopTransformationDirective(D->getDirectiveKind()))
+    return;
+
   Record.AddStmt(D->getIterationVariable());
   Record.AddStmt(D->getLastIteration());
   Record.AddStmt(D->getCalcLastIteration());
@@ -2143,6 +2147,12 @@ void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   VisitOMPLoopDirective(D);
   Record.push_back(D->hasCancel() ? 1 : 0);
   Code = serialization::STMT_OMP_FOR_DIRECTIVE;
+}
+ 
+void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
+  VisitOMPLoopDirective(D);
+  Record.AddStmt(D->getTransformedCompoundStmt());
+  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPForSimdDirective(OMPForSimdDirective *D) {

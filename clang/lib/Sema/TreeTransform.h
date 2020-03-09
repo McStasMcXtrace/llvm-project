@@ -1598,6 +1598,10 @@ public:
                                                EndLoc);
   }
 
+  OMPClause *RebuildOMPSizesClause(ArrayRef<Expr*> Sizes, SourceLocation StartLoc,    SourceLocation LParenLoc,    SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPSizesClause(Sizes, StartLoc, LParenLoc, EndLoc);
+  }
+
   /// Build a new OpenMP 'default' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -8029,17 +8033,21 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
     }
   }
   StmtResult AssociatedStmt;
+
+
   if (D->hasAssociatedStmt() && D->getAssociatedStmt()) {
-    getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(),
-                                                  /*CurScope=*/nullptr);
+    getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(), /*CurScope=*/nullptr);
     StmtResult Body;
     {
       Sema::CompoundScopeRAII CompoundScope(getSema());
-      Stmt *CS = D->getInnermostCapturedStmt()->getCapturedStmt();
-      Body = getDerived().TransformStmt(CS);
+      Stmt* CS;
+        if (isOpenMPLoopTransformationDirective(D->getDirectiveKind()))
+          CS = D->getAssociatedStmt();
+      else 
+        CS = D->getInnermostCapturedStmt()->getCapturedStmt();
+        Body = getDerived().TransformStmt(CS);
     }
-    AssociatedStmt =
-        getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
+    AssociatedStmt = getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
     if (AssociatedStmt.isInvalid()) {
       return StmtError();
     }
@@ -8070,8 +8078,7 @@ template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_parallel, DirName, nullptr,
-                                             D->getBeginLoc());
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_parallel, DirName, nullptr,   D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
@@ -8096,6 +8103,16 @@ TreeTransform<Derived>::TransformOMPForDirective(OMPForDirective *D) {
                                              D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPTileDirective(OMPTileDirective* D) {
+  DeclarationNameInfo DirName;
+  //getDerived().getSema().StartOpenMPDSABlock(OMPD_tile, DirName, nullptr,  D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  //getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
 
@@ -8728,6 +8745,32 @@ TreeTransform<Derived>::TransformOMPCollapseClause(OMPCollapseClause *C) {
   return getDerived().RebuildOMPCollapseClause(
       E.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
+
+
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPSizesClause(OMPSizesClause *C) {
+  SmallVector <Expr*, 4> TransformedSizes;
+  TransformedSizes.reserve(C->getNumSizes());
+  bool Changed = false;
+  for (auto E : C->getSizesRefs()) {
+    if (!E) {
+      TransformedSizes.push_back(nullptr);
+      continue;
+    }
+
+    auto T = getDerived().TransformExpr(E);
+    if (T.isInvalid()) return nullptr;
+    if (E != T.get())
+      Changed = true;
+    TransformedSizes.push_back(  T.get() );
+  }
+
+  if (!Changed&& !getDerived().AlwaysRebuild()) return C;
+  return RebuildOMPSizesClause(TransformedSizes, C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+}
+
 
 template <typename Derived>
 OMPClause *

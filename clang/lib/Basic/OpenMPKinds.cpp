@@ -207,6 +207,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_destroy:
+    case OMPC_sizes:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -432,6 +433,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_destroy:
+  case OMPC_sizes:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -474,6 +476,16 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
   case OMPD_for:
     switch (CKind) {
 #define OPENMP_FOR_CLAUSE(Name)                                                \
+  case OMPC_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+    default:
+      break;
+    }
+    break;
+  case OMPD_tile:
+    switch (CKind) {
+#define OPENMP_TILE_CLAUSE(Name)                                           \
   case OMPC_##Name:                                                            \
     return true;
 #include "clang/Basic/OpenMPKinds.def"
@@ -1015,7 +1027,8 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_target_teams_distribute ||
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
-         DKind == OMPD_target_teams_distribute_simd;
+         DKind == OMPD_target_teams_distribute_simd ||
+    DKind == OMPD_tile;
 }
 
 bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
@@ -1031,6 +1044,10 @@ bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd;
+}
+
+bool clang:: isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind) {
+  return DKind == OMPD_tile;
 }
 
 bool clang::isOpenMPTaskLoopDirective(OpenMPDirectiveKind DKind) {
@@ -1147,6 +1164,12 @@ void clang::getOpenMPCaptureRegions(
     OpenMPDirectiveKind DKind) {
   assert(DKind <= OMPD_unknown);
   switch (DKind) {
+  case OMPD_unknown:
+    // Unknown is possible due to loop transformations not being pushed on the DSA stack.
+    llvm_unreachable("Unknown capture region");
+  case OMPD_tile:
+    // loop transformations for not introduce captures.
+    break;
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:
@@ -1242,7 +1265,5 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_requires:
   case OMPD_declare_variant:
     llvm_unreachable("OpenMP Directive is not allowed");
-  case OMPD_unknown:
-    llvm_unreachable("Unknown OpenMP directive");
   }
 }

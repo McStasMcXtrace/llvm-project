@@ -26,6 +26,7 @@
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/AtomicOrdering.h"
+#include "llvm/ADT/Sequence.h"
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
@@ -128,6 +129,19 @@ public:
 /// of used expression from loop statement.
 class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
   void emitPreInitStmt(CodeGenFunction &CGF, const OMPLoopDirective &S) {
+
+    // Collect loop nest
+    SmallVector<const Stmt*, 4> Loops;
+    llvm::SmallVector<Stmt*, 8> AssociatedPreInits;
+    S.collectAssociatedLoops(Loops, AssociatedPreInits);
+
+  
+      // Emit statements required by nested loop transformations. Has to be done before PreCondVars.
+      for (auto APreInit : AssociatedPreInits) {
+        CGF.EmitStmt(APreInit);
+      }
+    
+
     CodeGenFunction::OMPMapVars PreCondVars;
     llvm::DenseSet<const VarDecl *> EmittedAsPrivate;
     for (const auto *E : S.counters()) {
@@ -151,26 +165,19 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
     (void)PreCondVars.apply(CGF);
+    
     // Emit init, __range and __end variables for C++ range loops.
-    const Stmt *Body =
-        S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
-    for (unsigned Cnt = 0; Cnt < S.getCollapsedNumber(); ++Cnt) {
-      Body = OMPLoopDirective::tryToFindNextInnerLoop(
-          Body, /*TryImperfectlyNestedLoops=*/true);
-      if (auto *For = dyn_cast<ForStmt>(Body)) {
-        Body = For->getBody();
-      } else {
-        assert(isa<CXXForRangeStmt>(Body) &&
-               "Expected canonical for loop or range-based for loop.");
-        auto *CXXFor = cast<CXXForRangeStmt>(Body);
+    for (auto Body : Loops) {
+      if (auto* CXXFor = dyn_cast<CXXForRangeStmt>(Body)) {
         if (const Stmt *Init = CXXFor->getInit())
           CGF.EmitStmt(Init);
         CGF.EmitStmt(CXXFor->getRangeStmt());
         CGF.EmitStmt(CXXFor->getEndStmt());
-        Body = CXXFor->getBody();
       }
     }
-    if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
+
+    // Emits captures
+    if (const auto* PreInits = cast_or_null<DeclStmt>(S.getPreInits())) { 
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
     }
@@ -1522,6 +1529,8 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
                      int MaxLevel, int Level = 0) {
   assert(Level < MaxLevel && "Too deep lookup during loop body codegen.");
   const Stmt *SimplifiedS = S->IgnoreContainers();
+  SmallVector<Stmt*, 8>  AssociatedPreInits; // TODO: Don't ignore
+  SimplifiedS=getTopmostAssociatedStructuredBlock(SimplifiedS,AssociatedPreInits);
   if (const auto *CS = dyn_cast<CompoundStmt>(SimplifiedS)) {
     PrettyStackTraceLoc CrashInfo(
         CGF.getContext().getSourceManager(), CS->getLBracLoc(),
@@ -1544,8 +1553,9 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
       S = CXXFor->getBody();
     }
     if (Level + 1 < MaxLevel) {
+      llvm::SmallVector<Stmt*, 4> InnerPreInits;//TODO: do not ignore
       NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(
-          S, /*TryImperfectlyNestedLoops=*/true);
+          S, /*TryImperfectlyNestedLoops=*/true,InnerPreInits );
       emitBody(CGF, S, NextLoop, MaxLevel, Level + 1);
       return;
     }
@@ -1586,10 +1596,8 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   const Stmt *Body =
       D.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
   // Emit loop body.
-  emitBody(*this, Body,
-           OMPLoopDirective::tryToFindNextInnerLoop(
-               Body, /*TryImperfectlyNestedLoops=*/true),
-           D.getCollapsedNumber());
+  llvm::SmallVector<Stmt*, 4> InnerPreInits; //TODO: do not ignore
+  emitBody(*this, Body, OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true, InnerPreInits), D.getCollapsedNumber());
 
   // The end (updates/cleanups).
   EmitBlock(Continue.getBlock());
@@ -2867,6 +2875,11 @@ void CodeGenFunction::EmitOMPForDirective(const OMPForDirective &S) {
     CGM.getOpenMPRuntime().emitBarrierCall(*this, S.getBeginLoc(), OMPD_for);
   // Check for outer lastprivate conditional update.
   checkForLastprivateConditionalUpdate(*this, S);
+}
+
+
+void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective& S) {
+  EmitStmt(S.getTransformedCompoundStmt());
 }
 
 void CodeGenFunction::EmitOMPForSimdDirective(const OMPForSimdDirective &S) {
@@ -4604,6 +4617,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_destroy:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }

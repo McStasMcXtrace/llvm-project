@@ -72,6 +72,14 @@ protected:
         NumChildren(NumChildren),
         ClausesOffset(llvm::alignTo(sizeof(T), alignof(OMPClause *))) {}
 
+
+  /// This is not the number of elements returned by children()
+  unsigned getNumStmts() const { return NumChildren; }
+
+
+
+
+
   /// Sets the list of variables for this clause.
   ///
   /// \param Clauses The list of clauses for the directive.
@@ -281,8 +289,7 @@ public:
 
   /// Get innermost captured statement for the construct.
   CapturedStmt *getInnermostCapturedStmt() {
-    assert(hasAssociatedStmt() && getAssociatedStmt() &&
-           "Must have associated statement.");
+    assert(hasAssociatedStmt() && getAssociatedStmt() &&           "Must have associated statement.");
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
     assert(!CaptureRegions.empty() &&
@@ -485,6 +492,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the counters storage.
   MutableArrayRef<Expr *> getCounters() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &(*(std::next(child_begin(), getArraysOffset(getDirectiveKind())))));
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
@@ -492,6 +500,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the private counters storage.
   MutableArrayRef<Expr *> getPrivateCounters() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(&*std::next(
         child_begin(), getArraysOffset(getDirectiveKind()) + CollapsedNum));
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
@@ -499,6 +508,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the updates storage.
   MutableArrayRef<Expr *> getInits() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 2 * CollapsedNum));
@@ -507,6 +517,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the updates storage.
   MutableArrayRef<Expr *> getUpdates() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 3 * CollapsedNum));
@@ -515,6 +526,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the final counter updates storage.
   MutableArrayRef<Expr *> getFinals() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 4 * CollapsedNum));
@@ -523,6 +535,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the dependent counters storage.
   MutableArrayRef<Expr *> getDependentCounters() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 5 * CollapsedNum));
@@ -531,6 +544,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the dependent inits storage.
   MutableArrayRef<Expr *> getDependentInits() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 6 * CollapsedNum));
@@ -539,6 +553,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the finals conditions storage.
   MutableArrayRef<Expr *> getFinalsConditions() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 7 * CollapsedNum));
@@ -568,10 +583,12 @@ protected:
 
   /// Offset to the start of children expression arrays.
   static unsigned getArraysOffset(OpenMPDirectiveKind Kind) {
+    if (isOpenMPLoopTransformationDirective(Kind))
+      return AssociatedStmtOffset+1;
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
-        isOpenMPDistributeDirective(Kind))
+        isOpenMPDistributeDirective(Kind) || isOpenMPLoopTransformationDirective(Kind))
       return WorksharingEnd;
     return DefaultEnd;
   }
@@ -579,6 +596,8 @@ protected:
   /// Children number.
   static unsigned numLoopChildren(unsigned CollapsedNum,
                                   OpenMPDirectiveKind Kind) {
+    if (isOpenMPLoopTransformationDirective(Kind))
+      return getArraysOffset(Kind);
     return getArraysOffset(Kind) +
            8 * CollapsedNum; // Counters, PrivateCounters, Inits,
                              // Updates, Finals, DependentCounters,
@@ -845,6 +864,12 @@ public:
     /// Expressions used when combining OpenMP loop pragmas
     DistCombinedHelperExprs DistCombinedFields;
 
+    SmallVector<Stmt *, 4> Loops;
+    SmallVector<Stmt *, 4> Bodys;
+    Stmt* InnermostBody;
+
+    SmallVector<Stmt *, 4> AssociatedPreInits;
+
     /// Check if all the expressions are built (does not check the
     /// worksharing ones).
     bool builtAll() {
@@ -885,6 +910,9 @@ public:
       DependentCounters.resize(Size);
       DependentInits.resize(Size);
       FinalsConditions.resize(Size);
+      Loops.resize(Size);
+      Bodys.resize(Size);
+      AssociatedPreInits.clear();
       for (unsigned i = 0; i < Size; ++i) {
         Counters[i] = nullptr;
         PrivateCounters[i] = nullptr;
@@ -894,6 +922,8 @@ public:
         DependentCounters[i] = nullptr;
         DependentInits[i] = nullptr;
         FinalsConditions[i] = nullptr;
+        Loops[i] = nullptr;
+        Bodys[i] = nullptr;
       }
       PreInits = nullptr;
       DistCombinedFields.LB = nullptr;
@@ -905,6 +935,7 @@ public:
       DistCombinedFields.NUB = nullptr;
       DistCombinedFields.DistCond = nullptr;
       DistCombinedFields.ParForInDistCond = nullptr;
+      InnermostBody = nullptr;
     }
   };
 
@@ -912,37 +943,47 @@ public:
   unsigned getCollapsedNumber() const { return CollapsedNum; }
 
   Expr *getIterationVariable() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), IterationVariableOffset)));
   }
   Expr *getLastIteration() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), LastIterationOffset)));
   }
   Expr *getCalcLastIteration() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), CalcLastIterationOffset)));
   }
   Expr *getPreCond() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), PreConditionOffset)));
   }
   Expr *getCond() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), CondOffset)));
   }
   Expr *getInit() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), InitOffset)));
   }
   Expr *getInc() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), IncOffset)));
   }
   const Stmt *getPreInits() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return *std::next(child_begin(), PreInitsOffset);
   }
-  Stmt *getPreInits() { return *std::next(child_begin(), PreInitsOffset); }
+  Stmt *getPreInits() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
+    return *std::next(child_begin(), PreInitsOffset); }
   Expr *getIsLastIterVariable() const {
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
@@ -1089,31 +1130,35 @@ public:
   /// CurStmt.
   /// \param TryImperfectlyNestedLoops true, if we need to try to look for the
   /// imperfectly nested loop.
-  static Stmt *tryToFindNextInnerLoop(Stmt *CurStmt,
-                                      bool TryImperfectlyNestedLoops);
-  static const Stmt *tryToFindNextInnerLoop(const Stmt *CurStmt,
-                                            bool TryImperfectlyNestedLoops) {
-    return tryToFindNextInnerLoop(const_cast<Stmt *>(CurStmt),
-                                  TryImperfectlyNestedLoops);
+  static Stmt *tryToFindNextInnerLoop(Stmt *CurStmt, bool TryImperfectlyNestedLoops, llvm::SmallVectorImpl<Stmt*> &PreInits);
+  static const Stmt *tryToFindNextInnerLoop(const Stmt *CurStmt, bool TryImperfectlyNestedLoops, llvm::SmallVectorImpl<Stmt*> &PreInits) {
+    return tryToFindNextInnerLoop(const_cast<Stmt *>(CurStmt), TryImperfectlyNestedLoops,PreInits);
   }
+
+  void collectAssociatedLoops(llvm::SmallVectorImpl<Stmt*>& Loops, llvm::SmallVectorImpl<Stmt*>& PreInits);
+  void collectAssociatedLoops(llvm::SmallVectorImpl<const Stmt*>& Loops, llvm::SmallVectorImpl< Stmt*>& PreInits) const {
+    const_cast<OMPLoopDirective*>(this)->  collectAssociatedLoops( *reinterpret_cast<llvm::SmallVectorImpl< Stmt*>*> (&Loops), PreInits);
+  }
+
+
   Stmt *getBody();
   const Stmt *getBody() const {
     return const_cast<OMPLoopDirective *>(this)->getBody();
   }
 
-  ArrayRef<Expr *> counters() { return getCounters(); }
+  ArrayRef<Expr *> counters() {     return getCounters(); }
 
   ArrayRef<Expr *> counters() const {
     return const_cast<OMPLoopDirective *>(this)->getCounters();
   }
 
-  ArrayRef<Expr *> private_counters() { return getPrivateCounters(); }
+  ArrayRef<Expr *> private_counters() {    return getPrivateCounters(); }
 
   ArrayRef<Expr *> private_counters() const {
     return const_cast<OMPLoopDirective *>(this)->getPrivateCounters();
   }
 
-  ArrayRef<Expr *> inits() { return getInits(); }
+  ArrayRef<Expr *> inits() {return getInits(); }
 
   ArrayRef<Expr *> inits() const {
     return const_cast<OMPLoopDirective *>(this)->getInits();
@@ -1152,6 +1197,7 @@ public:
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPSimdDirectiveClass ||
            T->getStmtClass() == OMPForDirectiveClass ||
+           T->getStmtClass() == OMPTileDirectiveClass ||
            T->getStmtClass() == OMPForSimdDirectiveClass ||
            T->getStmtClass() == OMPParallelForDirectiveClass ||
            T->getStmtClass() == OMPParallelForSimdDirectiveClass ||
@@ -1170,13 +1216,10 @@ public:
            T->getStmtClass() == OMPTargetSimdDirectiveClass ||
            T->getStmtClass() == OMPTeamsDistributeDirectiveClass ||
            T->getStmtClass() == OMPTeamsDistributeSimdDirectiveClass ||
-           T->getStmtClass() ==
-               OMPTeamsDistributeParallelForSimdDirectiveClass ||
+           T->getStmtClass() == OMPTeamsDistributeParallelForSimdDirectiveClass ||
            T->getStmtClass() == OMPTeamsDistributeParallelForDirectiveClass ||
-           T->getStmtClass() ==
-               OMPTargetTeamsDistributeParallelForDirectiveClass ||
-           T->getStmtClass() ==
-               OMPTargetTeamsDistributeParallelForSimdDirectiveClass ||
+           T->getStmtClass() == OMPTargetTeamsDistributeParallelForDirectiveClass ||
+           T->getStmtClass() == OMPTargetTeamsDistributeParallelForSimdDirectiveClass ||
            T->getStmtClass() == OMPTargetTeamsDistributeDirectiveClass ||
            T->getStmtClass() == OMPTargetTeamsDistributeSimdDirectiveClass;
   }
@@ -1324,6 +1367,78 @@ public:
     return T->getStmtClass() == OMPForDirectiveClass;
   }
 };
+
+
+
+class OMPTileDirective final : public OMPLoopDirective, private llvm::TrailingObjects<OMPTileDirective, OMPClause*, Stmt*> {
+  friend class ASTStmtReader;
+  friend  TrailingObjects;
+
+  //DeclGroup* PreTopmostDecls;
+  //Stmt* PreTopmostStmt;
+  //SmallVector<Stmt*, 4> PreInits;
+  Stmt* TransformedStmt;
+  //Stmt* PreBodyStmt;
+
+
+  size_t numTrailingObjects(OverloadToken<OMPClause*>)const {
+    return getNumClauses();
+  }
+
+  size_t numTrailingObjects(OverloadToken<Stmt*>)const {
+    return getNumStmts();
+  }
+
+
+  explicit OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc, unsigned NumClauses, unsigned NumLoops)
+    : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
+      StartLoc, EndLoc, NumLoops, NumClauses, /*NumSpecialChildren=*/ 0) {}
+
+
+
+public:
+  static OMPTileDirective* create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc, ArrayRef<OMPClause*> Clauses, unsigned NumLoops, Stmt* AssociatedStmt, Stmt* TransformedStmt, const HelperExprs& Exprs);
+
+  static OMPTileDirective* createEmpty(const ASTContext& C, unsigned NumClauses, unsigned NumLoops);
+
+
+
+  //DeclGroup* getPreTopmostDecls() const { return PreTopmostDecls; }
+  //void setPreTopmostDecls(DeclGroup* DG) { PreTopmostDecls = DG; }
+  //Stmt* getPreTopmostStmt() const { return PreTopmostStmt; }
+  //void setPreTopmostStmt(Stmt* S) { PreTopmostStmt = S; }
+
+  auto getPreInits() const {
+    auto C = cast<CompoundStmt>(getTransformedCompoundStmt());
+    return llvm::make_range(C->body_begin(), C->body_begin()+C->size()-1);
+  }
+
+  void setTransformedStmt(Stmt* S) { assert(!S || isa<CompoundStmt>(S)); TransformedStmt = S; }
+  //Stmt* getPreBodyStmt() const { return PreBodyStmt; }
+  //void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
+
+
+  unsigned getNumAssociatedLoops() const {
+    // TODO: In this case, the loops are not 'collapsed'. Should rename to getNumAssociatedLoops.
+    return getCollapsedNumber();
+  }
+
+
+
+  //const  Stmt* getUntransformedCapturedStmt() const;
+  const  Stmt* getUntransformedForStmt() const;
+  Stmt* getUntransformedForStmt();
+  // Stmt* getTransformedCapturedStmt() const;
+  Stmt* getTransformedForStmt() const;
+  Stmt* getTransformedCompoundStmt() const;
+
+
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTileDirectiveClass;
+  }
+};
+
 
 /// This represents '#pragma omp for simd' directive.
 ///
@@ -4687,6 +4802,11 @@ public:
     return T->getStmtClass() == OMPTargetTeamsDistributeSimdDirectiveClass;
   }
 };
+
+Stmt* getTopmostAssociatedStructuredBlock(Stmt* S, llvm::SmallVectorImpl<Stmt*> &PreInits);
+static inline const Stmt* getTopmostAssociatedStructuredBlock(const Stmt* S, llvm::SmallVectorImpl<Stmt*>& PreInits) {
+  return getTopmostAssociatedStructuredBlock(const_cast<Stmt*>(S), PreInits);
+}
 
 } // end namespace clang
 
