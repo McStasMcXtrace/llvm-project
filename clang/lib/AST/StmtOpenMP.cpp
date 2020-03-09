@@ -42,7 +42,11 @@ const Stmt *OMPExecutableDirective::getStructuredBlock() const {
   return getInnermostCapturedStmt()->getCapturedStmt();
 }
 
- Stmt*clang:: getTopmostAssociatedStructuredBlock(Stmt*S, llvm::SmallVectorImpl<Stmt*> &PreInits) {
+Stmt* clang::getTopmostAssociatedStructuredBlock(Stmt* S, llvm::SmallVectorImpl<Stmt*>& PreInits) {
+  assert(S);
+//   if (!S)
+  //   return nullptr;
+
   while (true) {
     S = S->IgnoreContainers(/* IgnoreCaptured */ true);
     if (!isa<OMPExecutableDirective>(S) || !isOpenMPLoopTransformationDirective(cast<OMPExecutableDirective>(S)->getDirectiveKind()))
@@ -344,6 +348,7 @@ OMPTileDirective::create(const ASTContext& C, SourceLocation StartLoc, SourceLoc
   Dir->setTransformedStmt(TransformedStmt);
  // Dir->setPreBodyStmt(PreBodyStmt);
 
+#if 0
   // FIXME: These may not be necessary, but OMPLoopDirective requires them.
   Dir->setIterationVariable(Exprs.IterationVarRef);
   Dir->setLastIteration(Exprs.LastIteration);
@@ -371,6 +376,7 @@ OMPTileDirective::create(const ASTContext& C, SourceLocation StartLoc, SourceLoc
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
+#endif
   return Dir;
 }
 
@@ -390,7 +396,7 @@ OMPTileDirective *OMPTileDirective::createEmpty(const ASTContext &C,unsigned Num
   //       * ...
   //     * NumSpecialChildren
   //       * Generated topmost loop, after tiling
-  void *Mem = C.Allocate(totalSizeToAlloc<OMPClause*,Stmt*>(NumClauses, numLoopChildren(NumLoops, OMPD_for) ));
+  void *Mem = C.Allocate(totalSizeToAlloc<OMPClause*,Stmt*>(NumClauses, numLoopChildren(NumLoops, OMPD_tile)));
   return new (Mem) OMPTileDirective({}, {},NumClauses, NumLoops);
 }
 
@@ -433,7 +439,9 @@ static  Stmt* getCapturedLoop( Stmt *Stmt) {
 const Stmt* OMPTileDirective::getUntransformedForStmt() const {
   return getAssociatedStmt();
 }
-
+ Stmt* OMPTileDirective::getUntransformedForStmt()  {
+  return getAssociatedStmt();
+}
 
  Stmt* OMPTileDirective::getTransformedForStmt() const {
    auto X = cast<CompoundStmt>( getTransformedCompoundStmt());

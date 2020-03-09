@@ -1126,6 +1126,9 @@ void clang::getOpenMPCaptureRegions(
     OpenMPDirectiveKind DKind) {
   assert(DKind <= OMPD_unknown);
   switch (DKind) {
+  case OMPD_unknown:
+    // Unknown is possible due to loop transformations not being pushed on the DSA stack.
+    llvm_unreachable("Unknown capture region");
   case OMPD_tile:
     // loop transformations for not introduce captures.
     break;
@@ -1223,7 +1226,5 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_requires:
   case OMPD_declare_variant:
     llvm_unreachable("OpenMP Directive is not allowed");
-  case OMPD_unknown:
-    llvm_unreachable("Unknown OpenMP directive");
   }
 }

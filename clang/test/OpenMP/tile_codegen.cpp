@@ -41,7 +41,7 @@ void foo3() {
 }
 #endif
 
-#if 1
+#if 0
 void foo4() {
 #pragma omp for collapse(2)
   for (int k = 7; k < 17; k += 3)
@@ -51,5 +51,15 @@ void foo4() {
       ;
 }
 #endif
+
+#if 1
+void foo5() {
+#pragma omp parallel for
+#pragma omp tile sizes(5)
+  for (int i = 7; i < 17; i += 3)
+    ;
+}
+#endif
+
 
 #endif

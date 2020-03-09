@@ -176,8 +176,8 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
 
+    // Emits captures
     if (const auto* PreInits = cast_or_null<DeclStmt>(S.getPreInits())) { 
-      llvm_unreachable("What is this doing?");
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
     }

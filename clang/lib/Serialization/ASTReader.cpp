@@ -2764,7 +2764,7 @@ ASTReader::ReadControlBlock(ModuleFile &F,
       if (StringRef(CurBranch) != ASTBranch && !DisableValidation) {
         if ((ClientLoadCapabilities & ARR_VersionMismatch) == 0)
           Diag(diag::err_pch_different_branch) << ASTBranch << CurBranch;
-        return VersionMismatch;
+        //return VersionMismatch;
       }
       break;
     }
@@ -11629,6 +11629,10 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_collapse:
     C = new (Context) OMPCollapseClause();
     break;
+  case OMPC_sizes: {
+    auto NumSizes = Record.readInt();
+    C = OMPSizesClause::createEmpty(Context, NumSizes);
+  } break;
   case OMPC_default:
     C = new (Context) OMPDefaultClause();
     break;
@@ -11887,7 +11891,9 @@ void OMPClauseReader::VisitOMPCollapseClause(OMPCollapseClause *C) {
 
 
 void OMPClauseReader::VisitOMPSizesClause(OMPSizesClause *C) {
-  llvm_unreachable("not implemented");
+  for (auto& E : C->getSizesRefs())
+    E = Record.readSubExpr();
+  C->setLParenLoc(Record.readSourceLocation());
 }
 
 void OMPClauseReader::VisitOMPDefaultClause(OMPDefaultClause *C) {

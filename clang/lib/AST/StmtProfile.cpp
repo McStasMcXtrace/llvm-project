@@ -473,7 +473,9 @@ void OMPClauseProfiler::VisitOMPCollapseClause(const OMPCollapseClause *C) {
 }
 
 void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
-  llvm_unreachable("unimplemented");
+  for (auto E : C->getSizesRefs())
+    if (E)
+    Profiler->VisitExpr(E);
 }
 
 void OMPClauseProfiler::VisitOMPDefaultClause(const OMPDefaultClause *C) { }

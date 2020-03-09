@@ -6611,6 +6611,7 @@ public:
 
  class OMPSizesClause final : public OMPClause , private llvm::TrailingObjects<OMPSizesClause, Expr *>  {
   friend class OMPClauseReader;
+  friend class llvm::TrailingObjects<OMPSizesClause, Expr*>;
 
   /// Location of '('.
   SourceLocation LParenLoc;

@@ -2152,6 +2152,10 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   // Two fields (NumClauses and CollapsedNum) were read in ReadStmtFromStream.
   Record.skipInts(2);
   VisitOMPExecutableDirective(D);
+
+  if (isOpenMPLoopTransformationDirective(D->getDirectiveKind()))
+    return;
+
   D->setIterationVariable(Record.readSubExpr());
   D->setLastIteration(Record.readSubExpr());
   D->setCalcLastIteration(Record.readSubExpr());
@@ -2242,7 +2246,7 @@ void ASTStmtReader::VisitOMPForDirective(OMPForDirective *D) {
 
 void ASTStmtReader::VisitOMPTileDirective(OMPTileDirective *D) {
   VisitOMPLoopDirective(D);
-  llvm_unreachable("unimplemented");
+  D->setTransformedStmt(Record.readStmt());
 }
 
 
@@ -3098,7 +3102,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
 
 
     case STMT_OMP_TILE_DIRECTIVE: {
-      llvm_unreachable("unimplemented");
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
       unsigned NumLoops = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPTileDirective::createEmpty(Context, NumClauses, NumLoops);

@@ -289,8 +289,7 @@ public:
 
   /// Get innermost captured statement for the construct.
   CapturedStmt *getInnermostCapturedStmt() {
-    assert(hasAssociatedStmt() && getAssociatedStmt() &&
-           "Must have associated statement.");
+    assert(hasAssociatedStmt() && getAssociatedStmt() &&           "Must have associated statement.");
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
     assert(!CaptureRegions.empty() &&
@@ -493,6 +492,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the counters storage.
   MutableArrayRef<Expr *> getCounters() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &(*(std::next(child_begin(), getArraysOffset(getDirectiveKind())))));
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
@@ -500,6 +500,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the private counters storage.
   MutableArrayRef<Expr *> getPrivateCounters() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(&*std::next(
         child_begin(), getArraysOffset(getDirectiveKind()) + CollapsedNum));
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
@@ -507,6 +508,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the updates storage.
   MutableArrayRef<Expr *> getInits() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 2 * CollapsedNum));
@@ -515,6 +517,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the updates storage.
   MutableArrayRef<Expr *> getUpdates() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 3 * CollapsedNum));
@@ -523,6 +526,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the final counter updates storage.
   MutableArrayRef<Expr *> getFinals() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 4 * CollapsedNum));
@@ -531,6 +535,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the dependent counters storage.
   MutableArrayRef<Expr *> getDependentCounters() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 5 * CollapsedNum));
@@ -539,6 +544,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the dependent inits storage.
   MutableArrayRef<Expr *> getDependentInits() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 6 * CollapsedNum));
@@ -547,6 +553,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
 
   /// Get the finals conditions storage.
   MutableArrayRef<Expr *> getFinalsConditions() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
                     getArraysOffset(getDirectiveKind()) + 7 * CollapsedNum));
@@ -576,6 +583,8 @@ protected:
 
   /// Offset to the start of children expression arrays.
   static unsigned getArraysOffset(OpenMPDirectiveKind Kind) {
+    if (isOpenMPLoopTransformationDirective(Kind))
+      return AssociatedStmtOffset+1;
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
@@ -587,6 +596,8 @@ protected:
   /// Children number.
   static unsigned numLoopChildren(unsigned CollapsedNum,
                                   OpenMPDirectiveKind Kind) {
+    if (isOpenMPLoopTransformationDirective(Kind))
+      return getArraysOffset(Kind);
     return getArraysOffset(Kind) +
            8 * CollapsedNum; // Counters, PrivateCounters, Inits,
                              // Updates, Finals, DependentCounters,
@@ -932,37 +943,47 @@ public:
   unsigned getCollapsedNumber() const { return CollapsedNum; }
 
   Expr *getIterationVariable() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), IterationVariableOffset)));
   }
   Expr *getLastIteration() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), LastIterationOffset)));
   }
   Expr *getCalcLastIteration() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), CalcLastIterationOffset)));
   }
   Expr *getPreCond() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), PreConditionOffset)));
   }
   Expr *getCond() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), CondOffset)));
   }
   Expr *getInit() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), InitOffset)));
   }
   Expr *getInc() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), IncOffset)));
   }
   const Stmt *getPreInits() const {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
     return *std::next(child_begin(), PreInitsOffset);
   }
-  Stmt *getPreInits() { return *std::next(child_begin(), PreInitsOffset); }
+  Stmt *getPreInits() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()));
+    return *std::next(child_begin(), PreInitsOffset); }
   Expr *getIsLastIterVariable() const {
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
@@ -1125,19 +1146,19 @@ public:
     return const_cast<OMPLoopDirective *>(this)->getBody();
   }
 
-  ArrayRef<Expr *> counters() { return getCounters(); }
+  ArrayRef<Expr *> counters() {     return getCounters(); }
 
   ArrayRef<Expr *> counters() const {
     return const_cast<OMPLoopDirective *>(this)->getCounters();
   }
 
-  ArrayRef<Expr *> private_counters() { return getPrivateCounters(); }
+  ArrayRef<Expr *> private_counters() {    return getPrivateCounters(); }
 
   ArrayRef<Expr *> private_counters() const {
     return const_cast<OMPLoopDirective *>(this)->getPrivateCounters();
   }
 
-  ArrayRef<Expr *> inits() { return getInits(); }
+  ArrayRef<Expr *> inits() {return getInits(); }
 
   ArrayRef<Expr *> inits() const {
     return const_cast<OMPLoopDirective *>(this)->getInits();
@@ -1176,6 +1197,7 @@ public:
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPSimdDirectiveClass ||
            T->getStmtClass() == OMPForDirectiveClass ||
+           T->getStmtClass() == OMPTileDirectiveClass ||
            T->getStmtClass() == OMPForSimdDirectiveClass ||
            T->getStmtClass() == OMPParallelForDirectiveClass ||
            T->getStmtClass() == OMPParallelForSimdDirectiveClass ||
@@ -1194,13 +1216,10 @@ public:
            T->getStmtClass() == OMPTargetSimdDirectiveClass ||
            T->getStmtClass() == OMPTeamsDistributeDirectiveClass ||
            T->getStmtClass() == OMPTeamsDistributeSimdDirectiveClass ||
-           T->getStmtClass() ==
-               OMPTeamsDistributeParallelForSimdDirectiveClass ||
+           T->getStmtClass() == OMPTeamsDistributeParallelForSimdDirectiveClass ||
            T->getStmtClass() == OMPTeamsDistributeParallelForDirectiveClass ||
-           T->getStmtClass() ==
-               OMPTargetTeamsDistributeParallelForDirectiveClass ||
-           T->getStmtClass() ==
-               OMPTargetTeamsDistributeParallelForSimdDirectiveClass ||
+           T->getStmtClass() == OMPTargetTeamsDistributeParallelForDirectiveClass ||
+           T->getStmtClass() == OMPTargetTeamsDistributeParallelForSimdDirectiveClass ||
            T->getStmtClass() == OMPTargetTeamsDistributeDirectiveClass ||
            T->getStmtClass() == OMPTargetTeamsDistributeSimdDirectiveClass;
   }
@@ -1394,7 +1413,7 @@ public:
     return llvm::make_range(C->body_begin(), C->body_begin()+C->size()-1);
   }
 
-  void setTransformedStmt(Stmt* S) { assert(isa<CompoundStmt>(S)); TransformedStmt = S; }
+  void setTransformedStmt(Stmt* S) { assert(!S || isa<CompoundStmt>(S)); TransformedStmt = S; }
   //Stmt* getPreBodyStmt() const { return PreBodyStmt; }
   //void setPreBodyStmt(Stmt* S) { PreBodyStmt = S; }
 
@@ -1408,6 +1427,7 @@ public:
 
   //const  Stmt* getUntransformedCapturedStmt() const;
   const  Stmt* getUntransformedForStmt() const;
+  Stmt* getUntransformedForStmt();
   // Stmt* getTransformedCapturedStmt() const;
   Stmt* getTransformedForStmt() const;
   Stmt* getTransformedCompoundStmt() const;

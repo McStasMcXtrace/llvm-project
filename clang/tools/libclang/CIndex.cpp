@@ -2207,8 +2207,8 @@ void OMPClauseEnqueue::VisitOMPCollapseClause(const OMPCollapseClause *C) {
 }
 
 void OMPClauseEnqueue::VisitOMPSizesClause(const OMPSizesClause *C) {
-  llvm_unreachable("unimplemented");
-  // TODO: Add all size expressions
+  for (auto E : C->getSizesRefs())
+    Visitor->AddStmt(E);
 }
 
 void OMPClauseEnqueue::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
