@@ -5115,7 +5115,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res.getAs<OMPExecutableDirective>()
         ->getStructuredBlock()
         ->setIsOMPStructuredBlock(true);
-
   }
 
   if (!CurContext->isDependentContext() &&
@@ -7377,9 +7376,6 @@ static Expr *buildPostUpdate(Sema &S, ArrayRef<Expr *> PostUpdates) {
   return PostUpdate;
 }
 
-
-
-
 /// Called on a for stmt to check itself and nested loops (if any).
 /// \return Returns 0 if one of the collapsed stmts is not canonical for loop,
 /// number of collapsed loops otherwise.
@@ -7491,6 +7487,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
 
   // An example of what is generated for the following code:
   //
+  //   #pragma omp simd collapse(2) ordered(2)
   //   for (i = 0; i < NI; ++i)
   //     for (k = 0; k < NK; ++k)
   //       for (j = J0; j < NJ; j+=2) {
@@ -7671,6 +7668,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
         LastIteration.get(), UB.get());
     EUB = SemaRef.BuildBinOp(CurScope, InitLoc, BO_Assign, UB.get(),
                              CondOp.get());
+    EUB = SemaRef.ActOnFinishFullExpr(EUB.get(), /*DiscardedValue*/ false);
 
     // If we have a combined directive that combines 'distribute', 'for' or
     // 'simd' we need to be able to access the bounds of the schedule of the
@@ -8211,10 +8209,8 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
   }
 
   setFunctionHasBranchProtectedScope();
-  auto Result = OMPForDirective::Create(Context, StartLoc, EndLoc, NestedLoopCount,
+  return OMPForDirective::Create(Context, StartLoc, EndLoc, NestedLoopCount,
                                  Clauses, AStmt, B, DSAStack->isCancelRegion());
-  // Result->dump();
-  return Result;
 }
 
 

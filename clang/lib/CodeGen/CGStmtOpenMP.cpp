@@ -27,6 +27,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/ADT/Sequence.h"
+
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
@@ -176,7 +177,7 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
 
-    // Emits captures
+    // Emit captures
     if (const auto* PreInits = cast_or_null<DeclStmt>(S.getPreInits())) { 
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
