@@ -920,7 +920,6 @@ ForStmt::ForStmt(const ASTContext &C, Stmt *Init, Expr *Cond, VarDecl *condVar,
                  SourceLocation RP)
   : Stmt(ForStmtClass), LParenLoc(LP), RParenLoc(RP)
 {
-  assert(!condVar );
   SubExprs[INIT] = Init;
   setConditionVariable(C, condVar);
   SubExprs[COND] = Cond;

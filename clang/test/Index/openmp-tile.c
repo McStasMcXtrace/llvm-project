@@ -1,12 +1,11 @@
 // RUN: c-index-test -test-load-source local %s -fopenmp | FileCheck %s
 
 void test() {
-#pragma omp tile sizes(5,5)
+#pragma omp tile sizes(5)
   for (int i = 0; i < 65; i += 1)
     ;
 }
 
-// CHECK: openmp-tile.c:7:15: TransformExecutableDirective= Extent=[7:15 - 7:44]
-// CHECK: openmp-tile.c:7:40: BinaryOperator= Extent=[7:40 - 7:43]
-// CHECK: openmp-tile.c:7:40: IntegerLiteral= Extent=[7:40 - 7:41]
-// CHECK: openmp-tile.c:7:42: IntegerLiteral= Extent=[7:42 - 7:43]
+// CHECK: openmp-tile.c:4:1: OMPTileDirective= Extent=[4:1 - 4:26]
+// CHECK: openmp-tile.c:4:24: IntegerLiteral= Extent=[4:24 - 4:25]
+// CHECK: openmp-tile.c:5:3: ForStmt= Extent=[5:3 - 6:6]

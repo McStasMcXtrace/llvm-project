@@ -8290,6 +8290,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
     Stmt* Inner = NestHelper.InnermostBody;
     SmallVector<Stmt*, 9> BodyParts;
+    BodyParts.reserve(2*NumLoops+1);
 
     // Create body
     // Assign original iteration variable before execution of body.
@@ -8322,7 +8323,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
         BodyParts.push_back(Stmt.get());
         BodyParts.push_back(LoopHelper.Updates[0]);
       }
-      // BodyParts.push_back(Inner);
+      BodyParts.push_back(Inner);
 
        // TODO: Check if Inner also has a canonical loop nest; if yes, sink even further
       Inner = CompoundStmt::Create(Context, BodyParts, {}, {});

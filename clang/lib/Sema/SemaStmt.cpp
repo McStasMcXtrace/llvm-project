@@ -1764,7 +1764,6 @@ StmtResult Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
                               Stmt *First, ConditionResult Second,
                               FullExprArg third, SourceLocation RParenLoc,
                               Stmt *Body) {
-  assert(!Second.get().first);
   if (Second.isInvalid())
     return StmtError();
 

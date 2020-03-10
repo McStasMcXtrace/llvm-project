@@ -2582,7 +2582,7 @@ enum CXCursorKind {
    */
   CXCursor_OMPTileDirective  = 287,
 
-  CXCursor_LastStmt = CXCursor_OMPDepobjDirective,
+  CXCursor_LastStmt = CXCursor_OMPTileDirective,
 
   /**
    * Cursor that represents the translation unit itself.
