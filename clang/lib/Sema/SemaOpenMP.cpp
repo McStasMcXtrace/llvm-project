@@ -3945,7 +3945,7 @@ static bool checkOrderedOrderSpecified(Sema &S,
 StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
                                       ArrayRef<OMPClause *> Clauses) {
   if (DSAStack->isStackEmpty()) {
-    assert(isOpenMPLoopTransformationDirective  ( cast<OMPExecutableDirective>( S.get())->getDirectiveKind()));
+   // #pragma omp tile has no DSA stack or captures.
     return StmtEmpty();
   }
 

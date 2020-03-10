@@ -448,7 +448,7 @@ const Stmt* OMPTileDirective::getUntransformedForStmt() const {
 }
 
  Stmt*OMPTileDirective:: getTransformedCompoundStmt() const {
-   assert(isa<CompoundStmt>(TransformedStmt));
+   assert(!TransformedStmt || isa<CompoundStmt>(TransformedStmt));
    return TransformedStmt;
  }
 
