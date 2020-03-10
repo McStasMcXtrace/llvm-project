@@ -2578,6 +2578,10 @@ enum CXCursorKind {
    */
   CXCursor_OMPDepobjDirective             = 286,
 
+  /** OpenMP tile directive.
+   */
+  CXCursor_OMPTileDirective  = 287,
+
   CXCursor_LastStmt = CXCursor_OMPDepobjDirective,
 
   /**
