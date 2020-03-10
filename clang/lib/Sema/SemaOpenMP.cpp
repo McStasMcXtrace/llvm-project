@@ -7986,7 +7986,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(IS.CounterVar)->getDecl());
       DeclRefExpr *CounterVar = buildDeclRefExpr(
           SemaRef, VD, IS.CounterVar->getType(), IS.CounterVar->getExprLoc(),
-          /*RefersToCapture=*/ !isOpenMPLoopDirective(DKind));
+          /*RefersToCapture=*/ !isOpenMPLoopTransformationDirective(DKind));
       ExprResult Init =
           buildCounterInit(SemaRef, CurScope, UpdLoc, CounterVar,
                            IS.CounterInit, IS.IsNonRectangularLB, Captures);
