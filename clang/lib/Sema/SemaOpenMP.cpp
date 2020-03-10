@@ -3957,77 +3957,73 @@ StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
     return StmtError();
   }
 
-
-
-    SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
-    getOpenMPCaptureRegions(CaptureRegions, DSAStack->getCurrentDirective());
-    OMPOrderedClause* OC = nullptr;
-    OMPScheduleClause* SC = nullptr;
-    SmallVector<const OMPLinearClause*, 4> LCs;
-    SmallVector<const OMPClauseWithPreInit*, 4> PICs;
-    // This is required for proper codegen.
-    for (OMPClause* Clause : Clauses) {
-      if (isOpenMPTaskingDirective(DSAStack->getCurrentDirective()) &&
+  SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
+  getOpenMPCaptureRegions(CaptureRegions, DSAStack->getCurrentDirective());
+  OMPOrderedClause *OC = nullptr;
+  OMPScheduleClause *SC = nullptr;
+  SmallVector<const OMPLinearClause *, 4> LCs;
+  SmallVector<const OMPClauseWithPreInit *, 4> PICs;
+  // This is required for proper codegen.
+  for (OMPClause *Clause : Clauses) {
+    if (isOpenMPTaskingDirective(DSAStack->getCurrentDirective()) &&
         Clause->getClauseKind() == OMPC_in_reduction) {
-        // Capture taskgroup task_reduction descriptors inside the tasking regions
-        // with the corresponding in_reduction items.
-        auto* IRC = cast<OMPInReductionClause>(Clause);
-        for (Expr* E : IRC->taskgroup_descriptors())
-          if (E)
-            MarkDeclarationsReferencedInExpr(E);
-      }
-      if (isOpenMPPrivate(Clause->getClauseKind()) ||
+      // Capture taskgroup task_reduction descriptors inside the tasking regions
+      // with the corresponding in_reduction items.
+      auto *IRC = cast<OMPInReductionClause>(Clause);
+      for (Expr *E : IRC->taskgroup_descriptors())
+        if (E)
+          MarkDeclarationsReferencedInExpr(E);
+    }
+    if (isOpenMPPrivate(Clause->getClauseKind()) ||
         Clause->getClauseKind() == OMPC_copyprivate ||
         (getLangOpts().OpenMPUseTLS &&
-          getASTContext().getTargetInfo().isTLSSupported() &&
-          Clause->getClauseKind() == OMPC_copyin)) {
-        DSAStack->setForceVarCapturing(Clause->getClauseKind() == OMPC_copyin);
-        // Mark all variables in private list clauses as used in inner region.
-        for (Stmt* VarRef : Clause->children()) {
-          if (auto* E = cast_or_null<Expr>(VarRef)) {
-            MarkDeclarationsReferencedInExpr(E);
-          }
-        }
-        DSAStack->setForceVarCapturing(/*V=*/false);
-      }
-      else if (CaptureRegions.size() > 1) {
-        if (auto* C = OMPClauseWithPreInit::get(Clause))
-          PICs.push_back(C);
-        if (auto* C = OMPClauseWithPostUpdate::get(Clause)) {
-          if (Expr* E = C->getPostUpdateExpr())
-            MarkDeclarationsReferencedInExpr(E);
+         getASTContext().getTargetInfo().isTLSSupported() &&
+         Clause->getClauseKind() == OMPC_copyin)) {
+      DSAStack->setForceVarCapturing(Clause->getClauseKind() == OMPC_copyin);
+      // Mark all variables in private list clauses as used in inner region.
+      for (Stmt *VarRef : Clause->children()) {
+        if (auto *E = cast_or_null<Expr>(VarRef)) {
+          MarkDeclarationsReferencedInExpr(E);
         }
       }
-      if (Clause->getClauseKind() == OMPC_schedule)
-        SC = cast<OMPScheduleClause>(Clause);
-      else if (Clause->getClauseKind() == OMPC_ordered)
-        OC = cast<OMPOrderedClause>(Clause);
-      else if (Clause->getClauseKind() == OMPC_linear)
-        LCs.push_back(cast<OMPLinearClause>(Clause));
+      DSAStack->setForceVarCapturing(/*V=*/false);
+    } else if (CaptureRegions.size() > 1 ||
+               CaptureRegions.back() != OMPD_unknown) {
+      if (auto *C = OMPClauseWithPreInit::get(Clause))
+        PICs.push_back(C);
+      if (auto *C = OMPClauseWithPostUpdate::get(Clause)) {
+        if (Expr *E = C->getPostUpdateExpr())
+          MarkDeclarationsReferencedInExpr(E);
+      }
     }
-    // Capture allocator expressions if used.
-    for (Expr* E : DSAStack->getInnerAllocators())
-      MarkDeclarationsReferencedInExpr(E);
-    // OpenMP, 2.7.1 Loop Construct, Restrictions
-    // The nonmonotonic modifier cannot be specified if an ordered clause is
-    // specified.
-    if (SC &&
+    if (Clause->getClauseKind() == OMPC_schedule)
+      SC = cast<OMPScheduleClause>(Clause);
+    else if (Clause->getClauseKind() == OMPC_ordered)
+      OC = cast<OMPOrderedClause>(Clause);
+    else if (Clause->getClauseKind() == OMPC_linear)
+      LCs.push_back(cast<OMPLinearClause>(Clause));
+  }
+  // Capture allocator expressions if used.
+  for (Expr *E : DSAStack->getInnerAllocators())
+    MarkDeclarationsReferencedInExpr(E);
+  // OpenMP, 2.7.1 Loop Construct, Restrictions
+  // The nonmonotonic modifier cannot be specified if an ordered clause is
+  // specified.
+  if (SC &&
       (SC->getFirstScheduleModifier() == OMPC_SCHEDULE_MODIFIER_nonmonotonic ||
-        SC->getSecondScheduleModifier() ==
-        OMPC_SCHEDULE_MODIFIER_nonmonotonic) &&
+       SC->getSecondScheduleModifier() ==
+           OMPC_SCHEDULE_MODIFIER_nonmonotonic) &&
       OC) {
-      Diag(SC->getFirstScheduleModifier() == OMPC_SCHEDULE_MODIFIER_nonmonotonic
-        ? SC->getFirstScheduleModifierLoc()
-        : SC->getSecondScheduleModifierLoc(),
-        diag::err_omp_simple_clause_incompatible_with_ordered)
+    Diag(SC->getFirstScheduleModifier() == OMPC_SCHEDULE_MODIFIER_nonmonotonic
+             ? SC->getFirstScheduleModifierLoc()
+             : SC->getSecondScheduleModifierLoc(),
+         diag::err_omp_simple_clause_incompatible_with_ordered)
         << getOpenMPClauseName(OMPC_schedule)
         << getOpenMPSimpleClauseTypeName(OMPC_schedule,
-          OMPC_SCHEDULE_MODIFIER_nonmonotonic)
+                                         OMPC_SCHEDULE_MODIFIER_nonmonotonic)
         << SourceRange(OC->getBeginLoc(), OC->getEndLoc());
-      ErrorFound = true;
-    }
-
-
+    ErrorFound = true;
+  }
   // OpenMP 5.0, 2.9.2 Worksharing-Loop Construct, Restrictions.
   // If an order(concurrent) clause is present, an ordered clause may not appear
   // on the same directive.
