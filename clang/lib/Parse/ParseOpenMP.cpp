@@ -2221,10 +2221,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     }
 
     StmtResult AssociatedStmt;
-    if (isOpenMPLoopTransformationDirective(DKind)) {
-      // Dont wrap loop transformations into Captured Stmts.
-      AssociatedStmt = (Sema::CompoundScopeRAII(Actions), ParseStatement());
-    }else if (HasAssociatedStatement) {
+    if (HasAssociatedStatement) {
       // The body is a block scope like in Lambdas and Blocks.
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
       // FIXME: We create a bogus CompoundStmt scope to hold the contents of

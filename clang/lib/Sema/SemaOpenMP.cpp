@@ -2989,7 +2989,7 @@ class DSAAttrChecker final : public StmtVisitor<DSAAttrChecker, void> {
 
   void VisitSubCaptures(OMPExecutableDirective *S) {
     // Check implicitly captured variables.
-    if (!S->hasAssociatedStmt() || !S->getAssociatedStmt())
+    if (!S->hasAssociatedStmt() || !S->getAssociatedStmt() || isOpenMPLoopTransformationDirective(S->getDirectiveKind()))
       return;
     visitSubCaptures(S->getInnermostCapturedStmt());
     // Try to capture inner this->member references to generate correct mappings
@@ -3944,11 +3944,10 @@ static bool checkOrderedOrderSpecified(Sema &S,
 
 StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
                                       ArrayRef<OMPClause *> Clauses) {
-  if (DSAStack->isStackEmpty()) {
-   // #pragma omp tile has no DSA stack or captures.
-    return StmtEmpty();
-  }
-
+  assert(!DSAStack->isStackEmpty());
+  //if (isOpenMPLoopDirective( DSAStack->getCurrentDirective()))
+  //  return 
+  
   bool ErrorFound = false;
   CaptureRegionUnwinderRAII CaptureRegionUnwinder(
       *this, ErrorFound, DSAStack->getCurrentDirective());
@@ -3987,8 +3986,10 @@ StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
         }
       }
       DSAStack->setForceVarCapturing(/*V=*/false);
+    } else if (isOpenMPLoopTransformationDirective(DSAStack->getCurrentDirective())){
+      assert( CaptureRegions.empty());
     } else if (CaptureRegions.size() > 1 ||
-               CaptureRegions.back() != OMPD_unknown) {
+               CaptureRegions.back() != OMPD_unknown) { // Is this intentional???
       if (auto *C = OMPClauseWithPreInit::get(Clause))
         PICs.push_back(C);
       if (auto *C = OMPClauseWithPostUpdate::get(Clause)) {
@@ -5775,6 +5776,9 @@ class OpenMPIterationSpaceChecker {
   Sema &SemaRef;
   /// Data-sharing stack.
   DSAStackTy &Stack;
+
+  bool Capturing;
+
   /// A location for diagnostics (when there is no some better location).
   SourceLocation DefaultLoc;
   /// A location for diagnostics (when increment is not compatible).
@@ -5822,8 +5826,8 @@ class OpenMPIterationSpaceChecker {
 
 public:
   OpenMPIterationSpaceChecker(Sema &SemaRef, DSAStackTy &Stack,
-                              SourceLocation DefaultLoc)
-      : SemaRef(SemaRef), Stack(Stack), DefaultLoc(DefaultLoc),
+                              SourceLocation DefaultLoc, bool Capturing)
+      : SemaRef(SemaRef), Stack(Stack), Capturing(Capturing), DefaultLoc(DefaultLoc),
         ConditionLoc(DefaultLoc) {}
   /// Check init-expr for canonical loop form and save loop counter
   /// variable - #Var and its initialization value - #LB.
@@ -6409,9 +6413,9 @@ bool OpenMPIterationSpaceChecker::checkAndSetInc(Expr *S) {
 
 static ExprResult
 tryBuildCapture(Sema &SemaRef, Expr *Capture,
-                llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) {
-  if (SemaRef.CurContext->isDependentContext())
-    return ExprResult(Capture);
+                llvm::MapVector<const Expr *, DeclRefExpr *> &Captures, bool Capturing) {
+  if (!Capturing || SemaRef.CurContext->isDependentContext())
+    return ExprResult(Capture); 
   if (Capture->isEvaluatable(SemaRef.Context, Expr::SE_AllowSideEffects))
     return SemaRef.PerformImplicitConversion(
         Capture->IgnoreImpCasts(), Capture->getType(), Sema::AA_Converting,
@@ -6484,8 +6488,8 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
       if (!LBMaxVal.isUsable())
         return nullptr;
 
-      Expr *LBMin = tryBuildCapture(SemaRef, LBMinVal.get(), Captures).get();
-      Expr *LBMax = tryBuildCapture(SemaRef, LBMaxVal.get(), Captures).get();
+      Expr *LBMin = tryBuildCapture(SemaRef, LBMinVal.get(), Captures, Capturing).get();
+      Expr *LBMax = tryBuildCapture(SemaRef, LBMaxVal.get(), Captures, Capturing).get();
       if (!LBMin || !LBMax)
         return nullptr;
       // LB(MinVal) < LB(MaxVal)
@@ -6494,7 +6498,7 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
       if (!MinLessMaxRes.isUsable())
         return nullptr;
       Expr *MinLessMax =
-          tryBuildCapture(SemaRef, MinLessMaxRes.get(), Captures).get();
+          tryBuildCapture(SemaRef, MinLessMaxRes.get(), Captures, Capturing).get();
       if (!MinLessMax)
         return nullptr;
       if (TestIsLessOp.getValue()) {
@@ -6564,8 +6568,8 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
       if (!UBMaxVal.isUsable())
         return nullptr;
 
-      Expr *UBMin = tryBuildCapture(SemaRef, UBMinVal.get(), Captures).get();
-      Expr *UBMax = tryBuildCapture(SemaRef, UBMaxVal.get(), Captures).get();
+      Expr *UBMin = tryBuildCapture(SemaRef, UBMinVal.get(), Captures, Capturing).get();
+      Expr *UBMax = tryBuildCapture(SemaRef, UBMaxVal.get(), Captures, Capturing).get();
       if (!UBMin || !UBMax)
         return nullptr;
       // UB(MinVal) > UB(MaxVal)
@@ -6574,7 +6578,7 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
       if (!MinGreaterMaxRes.isUsable())
         return nullptr;
       Expr *MinGreaterMax =
-          tryBuildCapture(SemaRef, MinGreaterMaxRes.get(), Captures).get();
+          tryBuildCapture(SemaRef, MinGreaterMaxRes.get(), Captures, Capturing).get();
       if (!MinGreaterMax)
         return nullptr;
       if (TestIsLessOp.getValue()) {
@@ -6598,8 +6602,8 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
     // Upper - Lower
     Expr *UBExpr = TestIsLessOp.getValue() ? UBVal : LBVal;
     Expr *LBExpr = TestIsLessOp.getValue() ? LBVal : UBVal;
-    Expr *Upper = tryBuildCapture(SemaRef, UBExpr, Captures).get();
-    Expr *Lower = tryBuildCapture(SemaRef, LBExpr, Captures).get();
+    Expr *Upper = tryBuildCapture(SemaRef, UBExpr, Captures, Capturing).get();
+    Expr *Lower = tryBuildCapture(SemaRef, LBExpr, Captures, Capturing).get();
     if (!Upper || !Lower)
       return nullptr;
 
@@ -6626,7 +6630,7 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
     return nullptr;
 
   // Upper - Lower [- 1] + Step
-  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures);
+  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures, Capturing);
   if (!NewStep.isUsable())
     return nullptr;
   Diff = SemaRef.BuildBinOp(S, DefaultLoc, BO_Add, Diff.get(), NewStep.get());
@@ -6701,9 +6705,9 @@ std::pair<Expr *, Expr *> OpenMPIterationSpaceChecker::buildMinMaxValues(
   bool UBNonRect = TestIsLessOp.getValue() ? CondDependOnLC.hasValue()
                                            : InitDependOnLC.hasValue();
   Expr *Lower =
-      LBNonRect ? LBExpr : tryBuildCapture(SemaRef, LBExpr, Captures).get();
+      LBNonRect ? LBExpr : tryBuildCapture(SemaRef, LBExpr, Captures, Capturing).get();
   Expr *Upper =
-      UBNonRect ? UBExpr : tryBuildCapture(SemaRef, UBExpr, Captures).get();
+      UBNonRect ? UBExpr : tryBuildCapture(SemaRef, UBExpr, Captures, Capturing).get();
   if (!Upper || !Lower)
     return std::make_pair(nullptr, nullptr);
 
@@ -6729,7 +6733,7 @@ std::pair<Expr *, Expr *> OpenMPIterationSpaceChecker::buildMinMaxValues(
     return std::make_pair(nullptr, nullptr);
 
   // Upper - Lower [- 1] + Step
-  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures);
+  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures, Capturing);
   if (!NewStep.isUsable())
     return std::make_pair(nullptr, nullptr);
 
@@ -6821,8 +6825,8 @@ Expr *OpenMPIterationSpaceChecker::buildPreCond(
   // Try to build LB <op> UB, where <op> is <, >, <=, or >=.
   Sema::TentativeAnalysisScope Trap(SemaRef);
 
-  ExprResult NewLB = tryBuildCapture(SemaRef, LB, Captures);
-  ExprResult NewUB = tryBuildCapture(SemaRef, UB, Captures);
+  ExprResult NewLB = tryBuildCapture(SemaRef, LB, Captures, Capturing);
+  ExprResult NewUB = tryBuildCapture(SemaRef, UB, Captures, Capturing);
   if (!NewLB.isUsable() || !NewUB.isUsable())
     return nullptr;
 
@@ -6908,9 +6912,9 @@ Expr *OpenMPIterationSpaceChecker::buildOrderedLoopData(
     // Upper - Lower
     Expr *Upper = TestIsLessOp.getValue()
                       ? Cnt
-                      : tryBuildCapture(SemaRef, UB, Captures).get();
+                      : tryBuildCapture(SemaRef, UB, Captures, Capturing).get();
     Expr *Lower = TestIsLessOp.getValue()
-                      ? tryBuildCapture(SemaRef, LB, Captures).get()
+                      ? tryBuildCapture(SemaRef, LB, Captures, Capturing).get()
                       : Cnt;
     if (!Upper || !Lower)
       return nullptr;
@@ -6934,7 +6938,7 @@ Expr *OpenMPIterationSpaceChecker::buildOrderedLoopData(
   if (!Diff.isUsable())
     return nullptr;
 
-  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures);
+  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures, Capturing);
   if (!NewStep.isUsable())
     return nullptr;
   // (Upper - Lower) / Step
@@ -6953,7 +6957,7 @@ void Sema::ActOnOpenMPLoopInitialization(SourceLocation ForLoc, Stmt *Init) {
   if (AssociatedLoops > 0 &&
       isOpenMPLoopDirective(DSAStack->getCurrentDirective())) {
     DSAStack->loopStart();
-    OpenMPIterationSpaceChecker ISC(*this, *DSAStack, ForLoc);
+    OpenMPIterationSpaceChecker ISC(*this, *DSAStack, ForLoc,true);
     if (!ISC.checkAndSetInit(Init, /*EmitDiags=*/false)) {
       if (ValueDecl *D = ISC.getLoopDecl()) {
         auto *VD = dyn_cast<VarDecl>(D);
@@ -7037,7 +7041,7 @@ static bool checkOpenMPIterationSpace(
     Expr *OrderedLoopCountExpr,
     Sema::VarsWithInheritedDSAType &VarsWithImplicitDSA,
     llvm::MutableArrayRef<LoopIterationSpace> ResultIterSpaces,
-    llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) {
+    llvm::MapVector<const Expr *, DeclRefExpr *> &Captures, bool Capturing) {
   // OpenMP [2.9.1, Canonical Loop Form]
   //   for (init-expr; test-expr; incr-expr) structured-block
   //   for (range-decl: range-expr) structured-block
@@ -7072,7 +7076,7 @@ static bool checkOpenMPIterationSpace(
   assert(Body  &&         "No loop body.");
 
   OpenMPIterationSpaceChecker ISC(SemaRef, DSA,
-                                  For ? For->getForLoc() : CXXFor->getForLoc());
+                                  For ? For->getForLoc() : CXXFor->getForLoc(), Capturing);
 
   // Check init.
   Stmt *Init = For ? For->getInit() : CXXFor->getBeginStmt();
@@ -7209,11 +7213,11 @@ static bool checkOpenMPIterationSpace(
 static ExprResult
 buildCounterInit(Sema &SemaRef, Scope *S, SourceLocation Loc, ExprResult VarRef,
                  ExprResult Start, bool IsNonRectangularLB,
-                 llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) {
+                 llvm::MapVector<const Expr *, DeclRefExpr *> &Captures, bool Capturing) {
   // Build 'VarRef = Start.
   ExprResult NewStart = IsNonRectangularLB
                             ? Start.get()
-                            : tryBuildCapture(SemaRef, Start.get(), Captures);
+                            : tryBuildCapture(SemaRef, Start.get(), Captures, Capturing);
   if (!NewStart.isUsable())
     return ExprError();
   if (!SemaRef.Context.hasSameType(NewStart.get()->getType(),
@@ -7244,7 +7248,7 @@ static ExprResult buildCounterUpdate(
 
   ExprResult NewStep = Step;
   if (Captures)
-    NewStep = tryBuildCapture(SemaRef, Step.get(), *Captures);
+    NewStep = tryBuildCapture(SemaRef, Step.get(), *Captures, true);
   if (NewStep.isInvalid())
     return ExprError();
   ExprResult Update =
@@ -7260,7 +7264,7 @@ static ExprResult buildCounterUpdate(
   if (!NewStart.isUsable())
     return ExprError();
   if (Captures && !IsNonRectangularLB)
-    NewStart = tryBuildCapture(SemaRef, Start.get(), *Captures);
+    NewStart = tryBuildCapture(SemaRef, Start.get(), *Captures, true);
   if (NewStart.isInvalid())
     return ExprError();
 
@@ -7388,6 +7392,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   assert(MinLoopCount == 1 || (!CollapseLoopCountExpr &&!OrderedLoopCountExpr  ));
 
   unsigned NestedLoopCount = MinLoopCount;
+  bool Capturing = !isOpenMPLoopTransformationDirective(DKind);
   if (CollapseLoopCountExpr) {
     // Found 'collapse' clause - calculate collapse number.
     Expr::EvalResult Result;
@@ -7434,7 +7439,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
       NumAssocociatedLoops, CollapseLoopCountExpr,
-            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures))
+            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures, Capturing))
       return 0;
     IterSpaces[Cnt].LoopStmt = CurStmt;
 
@@ -7456,7 +7461,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
             std::max(OrderedLoopCount, NestedLoopCount), CollapseLoopCountExpr,
-            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures))
+            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures, Capturing))
       return 0;
     if (Cnt > 0 && IterSpaces[Cnt].CounterVar) {
       // Handle initialization of captured loop iterator variables.
@@ -7612,7 +7617,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   ExprResult CalcLastIteration;
   if (!IsConstant) {
     ExprResult SaveRef =
-        tryBuildCapture(SemaRef, LastIteration.get(), Captures);
+        tryBuildCapture(SemaRef, LastIteration.get(), Captures, Capturing);
     LastIteration = SaveRef;
 
     // Prepare SaveRef + 1.
@@ -7989,14 +7994,14 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           /*RefersToCapture=*/ !isOpenMPLoopTransformationDirective(DKind));
       ExprResult Init =
           buildCounterInit(SemaRef, CurScope, UpdLoc, CounterVar,
-                           IS.CounterInit, IS.IsNonRectangularLB, Captures);
+                           IS.CounterInit, IS.IsNonRectangularLB, Captures, Capturing);
       if (!Init.isUsable()) {
         HasErrors = true;
         break;
       }
       ExprResult Update = buildCounterUpdate(
           SemaRef, CurScope, UpdLoc, CounterVar, IS.CounterInit, Iter,
-          IS.CounterStep, IS.Subtract, IS.IsNonRectangularLB, &Captures);
+          IS.CounterStep, IS.Subtract, IS.IsNonRectangularLB, Capturing ? &Captures:nullptr);
       if (!Update.isUsable()) {
         HasErrors = true;
         break;
@@ -8006,7 +8011,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       ExprResult Final =
           buildCounterUpdate(SemaRef, CurScope, UpdLoc, CounterVar,
                              IS.CounterInit, IS.NumIterations, IS.CounterStep,
-                             IS.Subtract, IS.IsNonRectangularLB, &Captures);
+                             IS.Subtract, IS.IsNonRectangularLB, Capturing ? &Captures:nullptr);
       if (!Final.isUsable()) {
         HasErrors = true;
         break;
@@ -8074,6 +8079,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.DistCond = CombDistCond.get();
   Built.DistCombinedFields.ParForInDistCond = ParForInDistCond.get();
   Built.InnermostBody = IterSpaces.back().Body;
+
+  assert(Capturing || Captures.empty());
 
   return NestedLoopCount;
 }
@@ -12044,7 +12051,7 @@ OMPClause *Sema::ActOnOpenMPIfClause(OpenMPDirectiveKind NameModifier,
     if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
       ValExpr = MakeFullExpr(ValExpr).get();
       llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-      ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+      ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
       HelperValStmt = buildPreInits(Context, Captures);
     }
   }
@@ -12076,7 +12083,7 @@ OMPClause *Sema::ActOnOpenMPFinalClause(Expr *Condition,
     if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
       ValExpr = MakeFullExpr(ValExpr).get();
       llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-      ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+      ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
       HelperValStmt = buildPreInits(Context, Captures);
     }
   }
@@ -12163,7 +12170,7 @@ isNonNegativeIntegerValue(Expr *&ValExpr, Sema &SemaRef, OpenMPClauseKind CKind,
         !SemaRef.CurContext->isDependentContext()) {
       ValExpr = SemaRef.MakeFullExpr(ValExpr).get();
       llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-      ValExpr = tryBuildCapture(SemaRef, ValExpr, Captures).get();
+      ValExpr = tryBuildCapture(SemaRef, ValExpr, Captures, true).get();
       *HelperValStmt = buildPreInits(SemaRef.Context, Captures);
     }
   }
@@ -12189,7 +12196,7 @@ OMPClause *Sema::ActOnOpenMPNumThreadsClause(Expr *NumThreads,
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     ValExpr = MakeFullExpr(ValExpr).get();
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-    ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+    ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
     HelperValStmt = buildPreInits(Context, Captures);
   }
 
@@ -12784,7 +12791,7 @@ OMPClause *Sema::ActOnOpenMPScheduleClause(
                  !CurContext->isDependentContext()) {
         ValExpr = MakeFullExpr(ValExpr).get();
         llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-        ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+        ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
         HelperValStmt = buildPreInits(Context, Captures);
       }
     }
@@ -15857,7 +15864,7 @@ OMPClause *Sema::ActOnOpenMPDeviceClause(Expr *Device, SourceLocation StartLoc,
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     ValExpr = MakeFullExpr(ValExpr).get();
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-    ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+    ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
     HelperValStmt = buildPreInits(Context, Captures);
   }
 
@@ -17403,7 +17410,7 @@ OMPClause *Sema::ActOnOpenMPNumTeamsClause(Expr *NumTeams,
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     ValExpr = MakeFullExpr(ValExpr).get();
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-    ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+    ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
     HelperValStmt = buildPreInits(Context, Captures);
   }
 
@@ -17430,7 +17437,7 @@ OMPClause *Sema::ActOnOpenMPThreadLimitClause(Expr *ThreadLimit,
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     ValExpr = MakeFullExpr(ValExpr).get();
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-    ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+    ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
     HelperValStmt = buildPreInits(Context, Captures);
   }
 
@@ -17556,7 +17563,7 @@ OMPClause *Sema::ActOnOpenMPDistScheduleClause(
                  !CurContext->isDependentContext()) {
         ValExpr = MakeFullExpr(ValExpr).get();
         llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-        ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+        ValExpr = tryBuildCapture(*this, ValExpr, Captures, true).get();
         HelperValStmt = buildPreInits(Context, Captures);
       }
     }

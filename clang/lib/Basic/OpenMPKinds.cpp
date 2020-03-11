@@ -1168,7 +1168,7 @@ void clang::getOpenMPCaptureRegions(
     // Unknown is possible due to loop transformations not being pushed on the DSA stack.
     llvm_unreachable("Unknown capture region");
   case OMPD_tile:
-    // loop transformations for not introduce captures.
+    // loop transformations do not introduce captures.
     break;
   case OMPD_parallel:
   case OMPD_parallel_for:

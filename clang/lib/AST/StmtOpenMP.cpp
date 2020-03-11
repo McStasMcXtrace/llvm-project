@@ -22,6 +22,17 @@ void OMPExecutableDirective::setClauses(ArrayRef<OMPClause *> Clauses) {
   std::copy(Clauses.begin(), Clauses.end(), getClauses().begin());
 }
 
+Stmt *OMPExecutableDirective::ignoreCaptures() {
+  SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
+  getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
+  auto Result = getAssociatedStmt();
+  for (auto ThisCaptureRegion : CaptureRegions) {
+    (void)ThisCaptureRegion;
+    Result = cast<CapturedStmt>(Result)->getCapturedStmt();
+  }
+  return Result;
+}
+
 bool OMPExecutableDirective::isStandaloneDirective() const {
   // Special case: 'omp target enter data', 'omp target exit data',
   // 'omp target update' are stand-alone directives, but for implementation
@@ -38,7 +49,7 @@ const Stmt *OMPExecutableDirective::getStructuredBlock() const {
          "Standalone Executable Directives don't have Structured Blocks.");
   if (auto *LD = dyn_cast<OMPLoopDirective>(this))
     return LD->getBody();
-  return getInnermostCapturedStmt()->getCapturedStmt();
+  return ignoreCaptures(); 
 }
 
 Stmt* clang::getTopmostAssociatedStructuredBlock(Stmt* S, llvm::SmallVectorImpl<Stmt*>& PreInits) {
@@ -109,7 +120,7 @@ Stmt *OMPLoopDirective::tryToFindNextInnerLoop(Stmt *CurStmt, bool TryImperfectl
 }
 
 void OMPLoopDirective::collectAssociatedLoops(llvm::SmallVectorImpl<Stmt*>& Loops, llvm::SmallVectorImpl<Stmt*>& PreInits) {
-   Stmt* Body = getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+   Stmt* Body = ignoreCaptures()->IgnoreContainers();
 
    // No aux code can appear before the topmost loops.
 
@@ -134,7 +145,7 @@ void OMPLoopDirective::collectAssociatedLoops(llvm::SmallVectorImpl<Stmt*>& Loop
 
 Stmt *OMPLoopDirective::getBody() {
   // This relies on the loop form is already checked by Sema.
-  Stmt *Body = getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+  Stmt *Body = ignoreCaptures()->IgnoreContainers();
 
   // If applied to loop transformations, body can be found in the transformed loop.
   SmallVector<Stmt*, 8> PreInits; //TODO: Can safely ignored?

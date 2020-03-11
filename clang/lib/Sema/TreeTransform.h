@@ -8036,18 +8036,14 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
 
 
   if (D->hasAssociatedStmt() && D->getAssociatedStmt()) {
-    getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(), /*CurScope=*/nullptr);
-    StmtResult Body;
-    {
-      Sema::CompoundScopeRAII CompoundScope(getSema());
-      Stmt* CS;
-        if (isOpenMPLoopTransformationDirective(D->getDirectiveKind()))
-          CS = D->getAssociatedStmt();
-      else 
-        CS = D->getInnermostCapturedStmt()->getCapturedStmt();
+          getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(), /*CurScope=*/nullptr);
+      StmtResult Body;
+      {
+        Sema::CompoundScopeRAII CompoundScope(getSema());
+        Stmt*CS = D->ignoreCaptures();
         Body = getDerived().TransformStmt(CS);
-    }
-    AssociatedStmt = getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
+      }
+      AssociatedStmt = getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
     if (AssociatedStmt.isInvalid()) {
       return StmtError();
     }
@@ -8110,9 +8106,9 @@ template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPTileDirective(OMPTileDirective* D) {
   DeclarationNameInfo DirName;
-  //getDerived().getSema().StartOpenMPDSABlock(OMPD_tile, DirName, nullptr,  D->getBeginLoc());
+  getDerived().getSema().StartOpenMPDSABlock(D->getDirectiveKind(), DirName, nullptr,  D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
-  //getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
 

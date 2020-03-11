@@ -649,7 +649,7 @@ void StmtPrinter::PrintOMPExecutableDirective(OMPExecutableDirective *S,
   if (auto Tile = dyn_cast<OMPTileDirective>(S))
     PrintStmt(Tile->getUntransformedForStmt());
   else  if (!ForceNoStmt && S->hasAssociatedStmt())
-    PrintStmt(S->getInnermostCapturedStmt()->getCapturedStmt());
+    PrintStmt(S->ignoreCaptures());
 }
 
 void StmtPrinter::VisitOMPParallelDirective(OMPParallelDirective *Node) {

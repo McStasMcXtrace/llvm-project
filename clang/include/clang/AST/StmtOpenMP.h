@@ -272,6 +272,7 @@ public:
   //
   // \param RegionKind Component region kind.
   const CapturedStmt *getCapturedStmt(OpenMPDirectiveKind RegionKind) const {
+    assert(!isOpenMPLoopTransformationDirective(RegionKind));
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
     assert(std::any_of(
@@ -287,8 +288,10 @@ public:
     llvm_unreachable("Incorrect RegionKind specified for directive.");
   }
 
+#if 1
   /// Get innermost captured statement for the construct.
   CapturedStmt *getInnermostCapturedStmt() {
+    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()) && "consider using ignoreCaptures()");
     assert(hasAssociatedStmt() && getAssociatedStmt() &&           "Must have associated statement.");
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
@@ -303,6 +306,12 @@ public:
   const CapturedStmt *getInnermostCapturedStmt() const {
     return const_cast<OMPExecutableDirective *>(this)
         ->getInnermostCapturedStmt();
+  }
+#endif
+
+  Stmt* ignoreCaptures();
+  const Stmt* ignoreCaptures() const {
+    return const_cast<OMPExecutableDirective *>(this)->ignoreCaptures();
   }
 
   OpenMPDirectiveKind getDirectiveKind() const { return Kind; }
