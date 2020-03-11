@@ -1,23 +1,23 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fopenmp -fopenmp-version=51 -emit-llvm %s | FileCheck
+// Check no warnings/errors
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fopenmp -fopenmp-version=51 -fsyntax-only -verify %s
+// expected-no-diagnostics
+
+// Check code generation
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fopenmp -fopenmp-version=51 -emit-llvm %s -o - | FileCheck %s
 
 #ifndef HEADER
 #define HEADER
 
-void body(int,int);
+// placeholder for loop body code.
+void body(...);
 
-#if 0
-void foo0(int start, int end, int step) {
-#pragma omp for
-  for (int i = 7; i < 17; i += 3)
-    i;
-}
-#endif
 
-#if 0
+#if 1
+// CHECK-LABEL: @foo1(
 void foo1(int start, int end, int step) {
 #pragma omp for
-  for (int i = 7; i < 17; i += 3)
-    i;
+  for (int i = start; i < end; i += step)
+    body(i);
   }
 #endif
 
@@ -52,7 +52,7 @@ void foo4() {
 }
 #endif
 
-#if 1
+#if 0
 void foo5() {
 #pragma omp parallel for
 #pragma omp tile sizes(5)
