@@ -8224,8 +8224,19 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
 StmtResult
 Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  SourceLocation StartLoc, SourceLocation EndLoc,  VarsWithInheritedDSAType &VarsWithImplicitDSA) {
   auto SizesClauses = OMPExecutableDirective::getClausesOfKind<OMPSizesClause>(Clauses);
-  assert(SizesClauses.begin() != SizesClauses.end());
+  if (SizesClauses.begin() == SizesClauses.end())
+    return StmtError();
+
+#if 0
+  auto SizesIt = SizesClauses.begin();
+  if (SizesIt == SizesClauses.end()) {
+    Diag(StartLoc, diag::err_omp_required_clause) << getOpenMPDirectiveName(OMPD_tile) << "sizes";
+    return StmtError();
+  }
+#endif
   auto SizesClause = *SizesClauses.begin();
+
+
   auto NumLoops = SizesClause->getNumSizes();
 
   // Empty statement should only be possible if there already was an error.
@@ -8238,7 +8249,9 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
   // Verify rectangular iteration space
   // Verify perfectly nested
   unsigned NestedLoopCount = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, AStmt, *this, *DSAStack, VarsWithImplicitDSA, NestHelper, NumLoops);
-  assert(NestedLoopCount == NumLoops);
+  if (NestedLoopCount != NumLoops) {
+    return StmtError();
+  }
 
   // Delay tiling to when template is completely instantiated.
   if (CurContext->isDependentContext()) {
@@ -12347,7 +12360,16 @@ OMPClause *Sema::ActOnOpenMPCollapseClause(Expr *NumForLoops,
 
 
 OMPClause* Sema::ActOnOpenMPSizesClause(ArrayRef<Expr*> SizeExprs,  SourceLocation StartLoc,  SourceLocation LParenLoc,  SourceLocation EndLoc) {
-  // TODO: Verify args
+  
+  for (auto SizeExpr : SizeExprs) {
+    ExprResult NumForLoopsResult = VerifyPositiveIntegerConstantInClause(SizeExpr, OMPC_sizes, true);
+    if (!NumForLoopsResult.isUsable())
+      return nullptr;
+  }
+
+
+  DSAStack->setAssociatedLoops(SizeExprs.size());
+
   return OMPSizesClause::create(Context, StartLoc, LParenLoc, EndLoc, SizeExprs);
 }
 

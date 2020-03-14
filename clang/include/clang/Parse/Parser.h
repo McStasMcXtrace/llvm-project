@@ -3019,6 +3019,9 @@ private:
   ///
   OMPClause *ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          bool ParseOnly);
+
+  OMPClause* ParseOpenMPSizesClause();
+
   /// Parses simple clause of a kind \a Kind.
   ///
   /// \param Kind Kind of current clause.

@@ -1955,7 +1955,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   // Name of critical directive.
   DeclarationNameInfo DirName;
   StmtResult Directive = StmtError();
-  bool HasAssociatedStatement = true;
+  bool HasAssociatedStatement = true; bool ErrorFound = false;
 
   switch (DKind) {
   case OMPD_threadprivate: {
@@ -2195,7 +2195,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       if (Clause) {
         FirstClauses[CKind].setPointer(Clause);
         Clauses.push_back(Clause);
-      }
+      }  else ErrorFound = true;
 
       // Skip ',' if any.
       if (Tok.is(tok::comma))
@@ -2218,6 +2218,10 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
             << getOpenMPClauseName(OMPC_depend);
       }
       HasAssociatedStatement = false;
+    }
+
+    if (DKind == OMPD_tile && !FirstClauses[OMPC_sizes].getInt()) {
+      Diag(Loc, diag::err_omp_required_clause) << getOpenMPDirectiveName(OMPD_tile) << "sizes";
     }
 
     StmtResult AssociatedStmt;
@@ -2326,6 +2330,53 @@ bool Parser::ParseOpenMPSimpleVarList(
   return !IsCorrect;
 }
 
+
+ OMPClause* Parser:: ParseOpenMPSizesClause() {
+  SourceLocation ClauseNameLoc =  ConsumeToken();
+  SmallVector<Expr*, 4> ValExprs;
+
+  
+    BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+    if (T.consumeOpen()) {
+      Diag(Tok, diag::err_expected) << tok::l_paren;
+      return nullptr;
+    }
+
+
+    //SourceLocation Loc = Tok.getLocation();
+    //SourceLocation LOpen = ConsumeToken();
+    //SmallVector<Expr*, 4> Vals;
+    //OpenMPVarListDataTy Data;
+
+ 
+
+    while (true) {
+      //SourceLocation Loc = ConsumeToken();
+      //SourceLocation LLoc = Tok.getLocation();
+
+      ExprResult Val = ParseConstantExpression();
+      if (!Val.isUsable()) {
+        // TODO: emit diagnostics
+        T.skipToEnd();
+        return nullptr;
+      }
+      //Actions.ActOnFinishFullExpr(Val.get(), {}, true, true);
+
+      ValExprs.push_back(Val.get());
+
+      if (Tok.is(tok::r_paren) || Tok.is(tok::annot_pragma_openmp_end))
+        break;
+
+      ExpectAndConsume(tok::comma);
+    }
+
+    T.consumeClose();
+
+  
+
+return  Actions. ActOnOpenMPSizesClause(ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
+}
+
 /// Parsing of OpenMP clauses.
 ///
 ///    clause:
@@ -2407,40 +2458,15 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;
-  case OMPC_sizes: {
-    SourceLocation ClauseNameLoc =  ConsumeToken();
-   
-
-    BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
-    T.consumeOpen(); 
-    
-
-    //SourceLocation Loc = Tok.getLocation();
-    //SourceLocation LOpen = ConsumeToken();
-    SmallVector<Expr *, 4> Vals;
-    //OpenMPVarListDataTy Data;
-
-    SmallVector<Expr*, 4> ValExprs;
-
-    while (true) {
-      //SourceLocation Loc = ConsumeToken();
-      //SourceLocation LLoc = Tok.getLocation();
-
-      ExprResult Val =      ParseConstantExpression();
-      assert(Val.isUsable());
-      ValExprs.push_back(Val.get());
-      
-      if (Tok.is(tok::r_paren) || Tok.is(tok::annot_pragma_openmp_end))
-        break;
-
-      ExpectAndConsume(tok::comma);
+  case OMPC_sizes: 
+    if (!FirstClause) {
+      Diag(Tok, diag::err_omp_more_one_clause) << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+      ErrorFound = true;
     }
 
 
-    T.consumeClose();
-
-    Clause = Actions. ActOnOpenMPSizesClause(ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
-  } break;
+     Clause = ParseOpenMPSizesClause();
+     break;
   case OMPC_default:
   case OMPC_proc_bind:
   case OMPC_atomic_default_mem_order:
