@@ -4268,6 +4268,14 @@ LValue CodeGenFunction::EmitCompoundLiteralLValue(const CompoundLiteralExpr *E){
   EmitAnyExprToMem(InitExpr, DeclPtr, E->getType().getQualifiers(),
                    /*Init*/ true);
 
+  // Block-scope compound literals are destroyed at the end of the enclosing
+  // scope in C.
+  if (!getLangOpts().CPlusPlus)
+    if (QualType::DestructionKind DtorKind = E->getType().isDestructedType())
+      pushLifetimeExtendedDestroy(getCleanupKind(DtorKind), DeclPtr,
+                                  E->getType(), getDestroyer(DtorKind),
+                                  DtorKind & EHCleanup);
+
   return Result;
 }
 
@@ -4670,12 +4678,12 @@ CGCallee CodeGenFunction::EmitCallee(const Expr *E) {
   // Resolve direct calls.
   } else if (auto DRE = dyn_cast<DeclRefExpr>(E)) {
     if (auto FD = dyn_cast<FunctionDecl>(DRE->getDecl())) {
-      return EmitDirectCallee(*this, FD);
+      return EmitDirectCallee(*this, CGM.getGlobalDecl(FD));
     }
   } else if (auto ME = dyn_cast<MemberExpr>(E)) {
     if (auto FD = dyn_cast<FunctionDecl>(ME->getMemberDecl())) {
       EmitIgnoredExpr(ME->getBase());
-      return EmitDirectCallee(*this, FD);
+      return EmitDirectCallee(*this, CGM.getGlobalDecl(FD));
     }
 
   // Look through template substitutions.

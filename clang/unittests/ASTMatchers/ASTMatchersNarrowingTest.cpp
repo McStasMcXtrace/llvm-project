@@ -898,6 +898,12 @@ TEST(Matcher, HasOperatorNameForOverloadedOperatorCall) {
   DeclarationMatcher AnyOpStar = functionDecl(hasOverloadedOperatorName("*"));
   EXPECT_TRUE(matches("class Y; int operator*(Y &);", AnyOpStar));
   EXPECT_TRUE(matches("class Y { int operator*(); };", AnyOpStar));
+  DeclarationMatcher AnyAndOp =
+      functionDecl(hasAnyOverloadedOperatorName("&", "&&"));
+  EXPECT_TRUE(matches("class Y; Y operator&(Y &, Y &);", AnyAndOp));
+  EXPECT_TRUE(matches("class Y; Y operator&&(Y &, Y &);", AnyAndOp));
+  EXPECT_TRUE(matches("class Y { Y operator&(Y &); };", AnyAndOp));
+  EXPECT_TRUE(matches("class Y { Y operator&&(Y &); };", AnyAndOp));
 }
 
 
@@ -2738,26 +2744,6 @@ void x() {
 #pragma omp taskyield
 })";
   EXPECT_TRUE(matchesWithOpenMP(Source1, Matcher));
-}
-
-TEST(Stmt, isOMPStructuredBlock) {
-  const std::string Source0 = R"(
-void x() {
-#pragma omp parallel
-;
-})";
-  EXPECT_TRUE(
-      matchesWithOpenMP(Source0, stmt(nullStmt(), isOMPStructuredBlock())));
-
-  const std::string Source1 = R"(
-void x() {
-#pragma omp parallel
-{;}
-})";
-  EXPECT_TRUE(
-      notMatchesWithOpenMP(Source1, stmt(nullStmt(), isOMPStructuredBlock())));
-  EXPECT_TRUE(
-      matchesWithOpenMP(Source1, stmt(compoundStmt(), isOMPStructuredBlock())));
 }
 
 TEST(OMPExecutableDirective, hasStructuredBlock) {
