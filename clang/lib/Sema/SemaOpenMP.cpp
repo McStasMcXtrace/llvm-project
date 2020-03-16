@@ -5778,6 +5778,7 @@ class OpenMPIterationSpaceChecker {
   DSAStackTy &Stack;
 
   bool Capturing;
+  bool SupportsNonRectangular;
 
   /// A location for diagnostics (when there is no some better location).
   SourceLocation DefaultLoc;
@@ -5826,15 +5827,15 @@ class OpenMPIterationSpaceChecker {
 
 public:
   OpenMPIterationSpaceChecker(Sema &SemaRef, DSAStackTy &Stack,
-                              SourceLocation DefaultLoc, bool Capturing)
-      : SemaRef(SemaRef), Stack(Stack), Capturing(Capturing), DefaultLoc(DefaultLoc),
+                              SourceLocation DefaultLoc, bool Capturing,bool SupportsNonRectangular)
+      : SemaRef(SemaRef), Stack(Stack), Capturing(Capturing), SupportsNonRectangular(SupportsNonRectangular), DefaultLoc(DefaultLoc),
         ConditionLoc(DefaultLoc) {}
   /// Check init-expr for canonical loop form and save loop counter
   /// variable - #Var and its initialization value - #LB.
   bool checkAndSetInit(Stmt *S, bool EmitDiags = true);
   /// Check test-expr for canonical form, save upper-bound (#UB), flags
   /// for less/greater and for strict/non-strict comparison.
-  bool checkAndSetCond(Expr *S);
+  bool checkAndSetCond(Expr *S, bool EmitDiags);
   /// Check incr-expr for canonical loop form and return true if it
   /// does not conform, otherwise save loop step (#Step).
   bool checkAndSetInc(Expr *S);
@@ -5903,7 +5904,7 @@ private:
                       bool EmitDiags);
   /// Helper to set upper bound.
   bool setUB(Expr *NewUB, llvm::Optional<bool> LessOp, bool StrictOp,
-             SourceRange SR, SourceLocation SL);
+             SourceRange SR, SourceLocation SL, bool EmitDiags);
   /// Helper to set loop increment.
   bool setStep(Expr *NewStep, bool Subtract);
 };
@@ -5943,7 +5944,7 @@ bool OpenMPIterationSpaceChecker::setLCDeclAndLB(ValueDecl *NewLCDecl,
 bool OpenMPIterationSpaceChecker::setUB(Expr *NewUB,
                                         llvm::Optional<bool> LessOp,
                                         bool StrictOp, SourceRange SR,
-                                        SourceLocation SL) {
+                                        SourceLocation SL, bool EmitDiags) {
   // State consistency checking to ensure correct usage.
   assert(LCDecl != nullptr && LB != nullptr && UB == nullptr &&
          Step == nullptr && !TestIsLessOp && !TestIsStrictOp);
@@ -5955,6 +5956,7 @@ bool OpenMPIterationSpaceChecker::setUB(Expr *NewUB,
   TestIsStrictOp = StrictOp;
   ConditionSrcRange = SR;
   ConditionLoc = SL;
+  if (EmitDiags)
   CondDependOnLC = doesDependOnLoopCounter(UB, /*IsInitializer=*/false);
   return false;
 }
@@ -6032,6 +6034,7 @@ class LoopCounterRefChecker final
   const ValueDecl *DepDecl = nullptr;
   const ValueDecl *PrevDepDecl = nullptr;
   bool IsInitializer = true;
+  bool SupportsNonRectangular;
   unsigned BaseLoopId = 0;
   bool checkDecl(const Expr *E, const ValueDecl *VD) {
     if (getCanonicalDecl(VD) == getCanonicalDecl(CurLCDecl)) {
@@ -6054,6 +6057,10 @@ class LoopCounterRefChecker final
       SemaRef.Diag(VD->getLocation(), diag::note_previous_decl) << VD;
       return false;
     }
+    if (Data.first && !SupportsNonRectangular) {
+      SemaRef.Diag(E->getExprLoc(), diag::err_omp_invariant_dependency); 
+      return false;
+    }
     if (Data.first &&
         (DepDecl || (PrevDepDecl &&
                      getCanonicalDecl(VD) != getCanonicalDecl(PrevDepDecl)))) {
@@ -6065,7 +6072,7 @@ class LoopCounterRefChecker final
                                     /*Qualified=*/true);
       SemaRef.Diag(E->getExprLoc(),
                    diag::err_omp_invariant_or_linear_dependency)
-          << OS.str();
+          << OS.str(); 
       return false;
     }
     if (Data.first) {
@@ -6098,9 +6105,9 @@ public:
   }
   explicit LoopCounterRefChecker(Sema &SemaRef, DSAStackTy &Stack,
                                  const ValueDecl *CurLCDecl, bool IsInitializer,
-                                 const ValueDecl *PrevDepDecl = nullptr)
+                                 const ValueDecl *PrevDepDecl = nullptr, bool SupportsNonRectangular=true)
       : SemaRef(SemaRef), Stack(Stack), CurLCDecl(CurLCDecl),
-        PrevDepDecl(PrevDepDecl), IsInitializer(IsInitializer) {}
+        PrevDepDecl(PrevDepDecl), IsInitializer(IsInitializer) , SupportsNonRectangular(SupportsNonRectangular){}
   unsigned getBaseLoopId() const {
     assert(CurLCDecl && "Expected loop dependency.");
     return BaseLoopId;
@@ -6117,7 +6124,7 @@ OpenMPIterationSpaceChecker::doesDependOnLoopCounter(const Stmt *S,
                                                      bool IsInitializer) {
   // Check for the non-rectangular loops.
   LoopCounterRefChecker LoopStmtChecker(SemaRef, Stack, LCDecl, IsInitializer,
-                                        DepDecl);
+                                        DepDecl, SupportsNonRectangular);
   if (LoopStmtChecker.Visit(S)) {
     DepDecl = LoopStmtChecker.getDepDecl();
     return LoopStmtChecker.getBaseLoopId();
@@ -6232,7 +6239,7 @@ static const ValueDecl *getInitLCDecl(const Expr *E) {
   return nullptr;
 }
 
-bool OpenMPIterationSpaceChecker::checkAndSetCond(Expr *S) {
+bool OpenMPIterationSpaceChecker::checkAndSetCond(Expr *S, bool EmitDiags) {
   // Check test-expr for canonical form, save upper-bound UB, flags for
   // less/greater and for strict/non-strict comparison.
   // OpenMP [2.9] Canonical loop form. Test-expr may be one of the following:
@@ -6254,17 +6261,17 @@ bool OpenMPIterationSpaceChecker::checkAndSetCond(Expr *S) {
         return setUB(BO->getRHS(),
                      (BO->getOpcode() == BO_LT || BO->getOpcode() == BO_LE),
                      (BO->getOpcode() == BO_LT || BO->getOpcode() == BO_GT),
-                     BO->getSourceRange(), BO->getOperatorLoc());
+                     BO->getSourceRange(), BO->getOperatorLoc(),EmitDiags);
       if (getInitLCDecl(BO->getRHS()) == LCDecl)
         return setUB(BO->getLHS(),
                      (BO->getOpcode() == BO_GT || BO->getOpcode() == BO_GE),
                      (BO->getOpcode() == BO_LT || BO->getOpcode() == BO_GT),
-                     BO->getSourceRange(), BO->getOperatorLoc());
+                     BO->getSourceRange(), BO->getOperatorLoc(),EmitDiags);
     } else if (IneqCondIsCanonical && BO->getOpcode() == BO_NE)
       return setUB(
           getInitLCDecl(BO->getLHS()) == LCDecl ? BO->getRHS() : BO->getLHS(),
           /*LessOp=*/llvm::None,
-          /*StrictOp=*/true, BO->getSourceRange(), BO->getOperatorLoc());
+          /*StrictOp=*/true, BO->getSourceRange(), BO->getOperatorLoc(),EmitDiags);
   } else if (auto *CE = dyn_cast<CXXOperatorCallExpr>(S)) {
     if (CE->getNumArgs() == 2) {
       auto Op = CE->getOperator();
@@ -6276,11 +6283,11 @@ bool OpenMPIterationSpaceChecker::checkAndSetCond(Expr *S) {
         if (getInitLCDecl(CE->getArg(0)) == LCDecl)
           return setUB(CE->getArg(1), Op == OO_Less || Op == OO_LessEqual,
                        Op == OO_Less || Op == OO_Greater, CE->getSourceRange(),
-                       CE->getOperatorLoc());
+                       CE->getOperatorLoc(),EmitDiags);
         if (getInitLCDecl(CE->getArg(1)) == LCDecl)
           return setUB(CE->getArg(0), Op == OO_Greater || Op == OO_GreaterEqual,
                        Op == OO_Less || Op == OO_Greater, CE->getSourceRange(),
-                       CE->getOperatorLoc());
+                       CE->getOperatorLoc(),EmitDiags);
         break;
       case OO_ExclaimEqual:
         if (IneqCondIsCanonical)
@@ -6288,7 +6295,7 @@ bool OpenMPIterationSpaceChecker::checkAndSetCond(Expr *S) {
                                                               : CE->getArg(0),
                        /*LessOp=*/llvm::None,
                        /*StrictOp=*/true, CE->getSourceRange(),
-                       CE->getOperatorLoc());
+                       CE->getOperatorLoc(),EmitDiags);
         break;
       default:
         break;
@@ -6957,7 +6964,7 @@ void Sema::ActOnOpenMPLoopInitialization(SourceLocation ForLoc, Stmt *Init) {
   if (AssociatedLoops > 0 &&
       isOpenMPLoopDirective(DSAStack->getCurrentDirective())) {
     DSAStack->loopStart();
-    OpenMPIterationSpaceChecker ISC(*this, *DSAStack, ForLoc,true);
+    OpenMPIterationSpaceChecker ISC(*this, *DSAStack, ForLoc,true,true);
     if (!ISC.checkAndSetInit(Init, /*EmitDiags=*/false)) {
       if (ValueDecl *D = ISC.getLoopDecl()) {
         auto *VD = dyn_cast<VarDecl>(D);
@@ -7035,13 +7042,13 @@ void Sema::ActOnOpenMPLoopInitialization(SourceLocation ForLoc, Stmt *Init) {
 /// Called on a for stmt to check and extract its iteration space
 /// for further processing (such as collapsing).
 static bool checkOpenMPIterationSpace(
-    OpenMPDirectiveKind DKind, Stmt *S, Sema &SemaRef, DSAStackTy &DSA,
-    unsigned CurrentNestedLoopCount, unsigned NestedLoopCount,
-    unsigned TotalNestedLoopCount, Expr *CollapseLoopCountExpr,
-    Expr *OrderedLoopCountExpr,
-    Sema::VarsWithInheritedDSAType &VarsWithImplicitDSA,
-    llvm::MutableArrayRef<LoopIterationSpace> ResultIterSpaces,
-    llvm::MapVector<const Expr *, DeclRefExpr *> &Captures, bool Capturing) {
+  OpenMPDirectiveKind DKind, Stmt* S, Sema& SemaRef, DSAStackTy& DSA,
+  unsigned CurrentNestedLoopCount, unsigned NestedLoopCount,
+  unsigned TotalNestedLoopCount, Expr* CollapseLoopCountExpr,
+  Expr* OrderedLoopCountExpr,
+  Sema::VarsWithInheritedDSAType& VarsWithImplicitDSA,
+  llvm::MutableArrayRef<LoopIterationSpace> ResultIterSpaces,
+  llvm::MapVector<const Expr*, DeclRefExpr*>& Captures, bool Capturing, bool SupportsNonRectangular, bool EmitDiags) {
   // OpenMP [2.9.1, Canonical Loop Form]
   //   for (init-expr; test-expr; incr-expr) structured-block
   //   for (range-decl: range-expr) structured-block
@@ -7076,11 +7083,11 @@ static bool checkOpenMPIterationSpace(
   assert(Body  &&         "No loop body.");
 
   OpenMPIterationSpaceChecker ISC(SemaRef, DSA,
-                                  For ? For->getForLoc() : CXXFor->getForLoc(), Capturing);
+                                  For ? For->getForLoc() : CXXFor->getForLoc(), Capturing, SupportsNonRectangular);
 
   // Check init.
   Stmt *Init = For ? For->getInit() : CXXFor->getBeginStmt();
-  if (ISC.checkAndSetInit(Init))
+  if (ISC.checkAndSetInit(Init, EmitDiags))
     return true;
 
   bool HasErrors = false;
@@ -7115,7 +7122,7 @@ static bool checkOpenMPIterationSpace(
     assert(isOpenMPLoopDirective(DKind) && "DSA for non-loop vars");
 
     // Check test-expr.
-    HasErrors |= ISC.checkAndSetCond(For ? For->getCond() : CXXFor->getCond());
+    HasErrors |= ISC.checkAndSetCond(For ? For->getCond() : CXXFor->getCond(),EmitDiags);
 
     // Check incr-expr.
     HasErrors |= ISC.checkAndSetInc(For ? For->getInc() : CXXFor->getInc());
@@ -7388,7 +7395,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
                 Expr *OrderedLoopCountExpr, Stmt *AStmt, Sema &SemaRef,
                 DSAStackTy &DSA,
                 Sema::VarsWithInheritedDSAType &VarsWithImplicitDSA,
-                OMPLoopDirective::HelperExprs &Built, unsigned MinLoopCount = 1) {
+                OMPLoopDirective::HelperExprs &Built, unsigned MinLoopCount = 1, bool EmitDiags=true) {
   assert(MinLoopCount == 1 || (!CollapseLoopCountExpr &&!OrderedLoopCountExpr  ));
 
   unsigned NestedLoopCount = MinLoopCount;
@@ -7435,13 +7442,14 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   llvm::SmallVector<Stmt*, 8> InnerPreInits; // TODO: Don't ignore
  Stmt* CurStmt = getTopmostAssociatedStructuredBlock(AStmt, InnerPreInits);
  bool SupportsNonPerfectlyNested = (SemaRef.LangOpts.OpenMP >= 50) && !isOpenMPLoopTransformationDirective(DKind);
-  for (unsigned Cnt = 0; Cnt < NestedLoopCount; ++Cnt) {
+ bool SupportsNonRectangular = !isOpenMPLoopTransformationDirective(DKind);
+ for (unsigned Cnt = 0; Cnt < NestedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
       NumAssocociatedLoops, CollapseLoopCountExpr,
-            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures, Capturing))
+            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures, Capturing, SupportsNonRectangular, EmitDiags))
       return 0;
-    IterSpaces[Cnt].LoopStmt = CurStmt;
+      IterSpaces[Cnt].LoopStmt = CurStmt; // TODO: Should be set in checkOpenMPIterationSpace (if needed at all)
 
     // Move on to the next nested for loop, or to the loop body.
     // OpenMP [2.8.1, simd construct, Restrictions]
@@ -7455,13 +7463,13 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
              "Expected canonical for or range-based for loops.");
       CurStmt = cast<CXXForRangeStmt>(CurStmt)->getBody();
     }
-    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(CurStmt,SupportsNonPerfectlyNested , InnerPreInits);
+    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(CurStmt,SupportsNonPerfectlyNested , InnerPreInits); // TODO: Don't call speculatively
   }
   for (unsigned Cnt = NestedLoopCount; Cnt < OrderedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
             DKind, CurStmt, SemaRef, DSA, Cnt, NestedLoopCount,
             std::max(OrderedLoopCount, NestedLoopCount), CollapseLoopCountExpr,
-            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures, Capturing))
+            OrderedLoopCountExpr, VarsWithImplicitDSA, IterSpaces, Captures, Capturing, SupportsNonRectangular, EmitDiags))
       return 0;
     if (Cnt > 0 && IterSpaces[Cnt].CounterVar) {
       // Handle initialization of captured loop iterator variables.
@@ -7482,8 +7490,19 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
              "Expected canonical for or range-based for loops.");
       CurStmt = cast<CXXForRangeStmt>(CurStmt)->getBody();
     }
-    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(CurStmt, SupportsNonPerfectlyNested, InnerPreInits);
+    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(CurStmt, SupportsNonPerfectlyNested, InnerPreInits);// TODO: Don't call speculatively
   }
+
+#if 0
+  if (!SupportsNonRectangular) {
+    for (auto &IterSpace : IterSpaces) {
+      if (!IterSpace.IsNonRectangularLB && IterSpace.IsNonRectangularUB)
+        continue;
+
+     SemaRef. Diag(IterSpace.);
+    }
+  }
+#endif
 
   Built.clear(/* size */ NestedLoopCount);
 
@@ -8248,7 +8267,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
   // Derive loop nest
   // Verify rectangular iteration space
   // Verify perfectly nested
-  unsigned NestedLoopCount = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, AStmt, *this, *DSAStack, VarsWithImplicitDSA, NestHelper, NumLoops);
+  unsigned NestedLoopCount = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, AStmt, *this, *DSAStack, VarsWithImplicitDSA, NestHelper, NumLoops, true);
   if (NestedLoopCount != NumLoops) {
     return StmtError();
   }
@@ -8259,11 +8278,15 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
     return Result;
   }
 
+
+ 
+
   SmallVector<OMPLoopDirective::HelperExprs, 4> LoopHelpers;
   LoopHelpers.resize(NumLoops);
   for (int i =  0; i < NumLoops; ++i) {
     auto LoopStmt = NestHelper.Loops[i]; // Derive per-loop logical iteration space
-    auto SingleNumLoops = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt , *this, *DSAStack, VarsWithImplicitDSA, LoopHelpers[i], 1); 
+    VarsWithInheritedDSAType Dummy;
+    auto SingleNumLoops = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt , *this, *DSAStack, Dummy, LoopHelpers[i], 1, false); 
     assert(SingleNumLoops==1);
   }
 
@@ -8413,7 +8436,13 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
 
       auto EndOfTile = BuildBinOp(CurScope, {}, BO_Add, IVStart, DimTileSize).get();
       auto EndOfIterSpace = NumIterations;
-      Expr* IsPartialTile = BuildBinOp(CurScope, {}, BO_LT, EndOfIterSpace, EndOfTile).get();
+
+      Expr* EndOfTileInt = EndOfTile;
+      //if (!Context.hasSameType(EndOfTile->getType(), EndOfIterSpace->getType())) {
+      //  EndOfTileInt = PerformImplicitConversion(EndOfTileInt->IgnoreImpCasts(), EndOfIterSpace->getType(), Sema::AA_Converting,          /*AllowExplicit=*/true).get();
+      //}
+
+      Expr* IsPartialTile = BuildBinOp(CurScope, {}, BO_LT, EndOfIterSpace, EndOfTileInt).get();
       auto MinTileAndIterSpace = ActOnConditionalOp({}, {}, IsPartialTile, EndOfIterSpace, EndOfTile).get();
       Expr* CondExpr = BuildBinOp(CurScope, {}, BO_LT, TileCntRef, MinTileAndIterSpace).get();
 

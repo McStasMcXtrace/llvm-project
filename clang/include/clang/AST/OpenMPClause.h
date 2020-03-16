@@ -6888,7 +6888,7 @@ public:
     return const_child_range(reinterpret_cast<Stmt*const *>(Sizes.begin()),reinterpret_cast<Stmt*const*>(  Sizes.end() ));
   }
 
-#if 0
+#if 1
   child_range used_children() {
     return child_range(child_iterator(), child_iterator());
   }
