@@ -1729,7 +1729,7 @@ private:
                                 llvm::Function *Fn);
 
 public:
-  CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
+  CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext = false);
   ~CodeGenFunction();
 
   CodeGenTypes &getTypes() const { return CGM.getTypes(); }

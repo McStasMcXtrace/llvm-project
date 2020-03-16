@@ -864,7 +864,8 @@ cxcursor::getCursorVariableRef(CXCursor C) {
                         SourceLocation::getFromPtrEncoding(C.data[1]));
 }
 
-CXCursor cxcursor::MakeCursorMemberRef(const FieldDecl *Field, SourceLocation Loc,
+CXCursor cxcursor::MakeCursorMemberRef(const FieldDecl *Field,
+                                       SourceLocation Loc,
                                        CXTranslationUnit TU) {
 
   assert(Field && TU && "Invalid arguments!");
@@ -984,9 +985,7 @@ CXCursor cxcursor::MakeCursorOverloadedDeclRef(const OverloadExpr *E,
   OverloadedDeclRefStorage Storage(E);
   void *RawLoc = E->getNameLoc().getPtrEncoding();
   CXCursor C = {
-                 CXCursor_OverloadedDeclRef, 0,
-                 { Storage.getOpaqueValue(), RawLoc, TU }
-               };
+      CXCursor_OverloadedDeclRef, 0, {Storage.getOpaqueValue(), RawLoc, TU}};
   return C;
 }
 
@@ -997,9 +996,7 @@ CXCursor cxcursor::MakeCursorOverloadedDeclRef(const Decl *D,
   void *RawLoc = Loc.getPtrEncoding();
   OverloadedDeclRefStorage Storage(D);
   CXCursor C = {
-    CXCursor_OverloadedDeclRef, 0,
-    { Storage.getOpaqueValue(), RawLoc, TU }
-  };
+      CXCursor_OverloadedDeclRef, 0, {Storage.getOpaqueValue(), RawLoc, TU}};
   return C;
 }
 
@@ -1010,9 +1007,7 @@ CXCursor cxcursor::MakeCursorOverloadedDeclRef(TemplateName Name,
   void *RawLoc = Loc.getPtrEncoding();
   OverloadedDeclRefStorage Storage(Name.getAsOverloadedTemplate());
   CXCursor C = {
-    CXCursor_OverloadedDeclRef, 0,
-    { Storage.getOpaqueValue(), RawLoc, TU }
-  };
+      CXCursor_OverloadedDeclRef, 0, {Storage.getOpaqueValue(), RawLoc, TU}};
   return C;
 }
 

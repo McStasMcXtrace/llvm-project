@@ -23,14 +23,23 @@ namespace cxcursor {
 
 class VisitorJob {
 public:
-  enum Kind { DeclVisitKind, StmtVisitKind, MemberExprPartsKind,
-              TypeLocVisitKind, OverloadExprPartsKind,
-              DeclRefExprPartsKind, LabelRefVisitKind,
-              ExplicitTemplateArgsVisitKind,
-              NestedNameSpecifierLocVisitKind,
-              DeclarationNameInfoVisitKind,
-              MemberRefVisitKind, SizeOfPackExprPartsKind,
-              LambdaExprPartsKind, PostChildrenVisitKind };
+  enum Kind {
+    DeclVisitKind,
+    StmtVisitKind,
+    MemberExprPartsKind,
+    TypeLocVisitKind,
+    OverloadExprPartsKind,
+    DeclRefExprPartsKind,
+    LabelRefVisitKind,
+    ExplicitTemplateArgsVisitKind,
+    NestedNameSpecifierLocVisitKind,
+    DeclarationNameInfoVisitKind,
+    MemberRefVisitKind,
+    SizeOfPackExprPartsKind,
+    LambdaExprPartsKind,
+    PostChildrenVisitKind
+  };
+
 protected:
   const void *data[3];
   CXCursor parent;
@@ -46,7 +55,7 @@ public:
   Kind getKind() const { return K; }
   const CXCursor &getParent() const { return parent; }
 };
-  
+
 typedef SmallVector<VisitorJob, 10> VisitorWorkList;
 
 // Cursor visitor.
@@ -79,14 +88,14 @@ private:
   /// The opaque client data, to be passed along to the visitor.
   CXClientData ClientData;
 
-  /// Whether we should visit the preprocessing record entries last, 
+  /// Whether we should visit the preprocessing record entries last,
   /// after visiting other declarations.
   bool VisitPreprocessorLast;
 
   /// Whether we should visit declarations or preprocessing record
   /// entries that are #included inside the \arg RegionOfInterest.
   bool VisitIncludedEntities;
-  
+
   /// When valid, a source range to which the cursor should restrict
   /// its search.
   SourceRange RegionOfInterest;
@@ -179,7 +188,7 @@ public:
   /// Visit declarations and preprocessed entities for the file region
   /// designated by \see RegionOfInterest.
   bool visitFileRegion();
-  
+
   bool visitPreprocessedEntitiesInRegion();
 
   bool shouldVisitIncludedEntities() const {
@@ -244,12 +253,12 @@ public:
   bool VisitDeclarationNameInfo(DeclarationNameInfo Name);
   bool VisitNestedNameSpecifier(NestedNameSpecifier *NNS, SourceRange Range);
   bool VisitNestedNameSpecifierLoc(NestedNameSpecifierLoc NNS);
-  
+
   // Template visitors
   bool VisitTemplateParameters(const TemplateParameterList *Params);
   bool VisitTemplateName(TemplateName Name, SourceLocation Loc);
   bool VisitTemplateArgumentLoc(const TemplateArgumentLoc &TAL);
-  
+
   // Type visitors
 #define ABSTRACT_TYPELOC(CLASS, PARENT)
 #define TYPELOC(CLASS, PARENT) \
