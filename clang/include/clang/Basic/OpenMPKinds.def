@@ -23,9 +23,6 @@
 #ifndef OPENMP_FOR_CLAUSE
 #  define OPENMP_FOR_CLAUSE(Name)
 #endif
-#ifndef OPENMP_TILE_CLAUSE
-#  define OPENMP_TILE_CLAUSE(Name)
-#endif
 #ifndef OPENMP_FOR_SIMD_CLAUSE
 #  define OPENMP_FOR_SIMD_CLAUSE(Name)
 #endif
@@ -215,6 +212,9 @@
 #ifndef OPENMP_DEPOBJ_CLAUSE
 #define OPENMP_DEPOBJ_CLAUSE(Name)
 #endif
+#ifndef OPENMP_TILE_CLAUSE
+#  define OPENMP_TILE_CLAUSE(Name)
+#endif
 
 // OpenMP clauses.
 OPENMP_CLAUSE(allocator, OMPAllocatorClause)
@@ -320,9 +320,6 @@ OPENMP_FOR_CLAUSE(nowait)
 OPENMP_FOR_CLAUSE(linear)
 OPENMP_FOR_CLAUSE(allocate)
 OPENMP_FOR_CLAUSE(order)
-
-// Clauses allowed for directive 'omp tile'.
-OPENMP_TILE_CLAUSE(sizes)
 
 // Clauses allowed for directive 'omp for simd'.
 OPENMP_FOR_SIMD_CLAUSE(private)
@@ -1095,6 +1092,9 @@ OPENMP_FLUSH_CLAUSE(release)
 OPENMP_DEPOBJ_CLAUSE(depend)
 OPENMP_DEPOBJ_CLAUSE(destroy)
 OPENMP_DEPOBJ_CLAUSE(update)
+
+// Clauses allowed for directive 'omp tile'.
+OPENMP_TILE_CLAUSE(sizes)
 
 #undef OPENMP_DEPOBJ_CLAUSE
 #undef OPENMP_FLUSH_CLAUSE

@@ -6827,6 +6827,13 @@ public:
   }
 };
 
+/// This represents the 'sizes' clause in the '#pragma omp tile' directive.
+///
+/// \code
+/// #pragma omp tile sizes(5,5)
+/// for (int i = 0; i < 64; ++i)
+///   for (int j = 0; j < 64; ++j)
+/// \endcode
 class OMPSizesClause final
     : public OMPClause,
       private llvm::TrailingObjects<OMPSizesClause, Expr *> {
@@ -6836,6 +6843,7 @@ class OMPSizesClause final
   /// Location of '('.
   SourceLocation LParenLoc;
 
+/// Number of tile sizes in the clause.
   unsigned NumSizes;
 
   OMPSizesClause(SourceLocation StartLoc, SourceLocation LParenLoc,
@@ -6849,9 +6857,21 @@ class OMPSizesClause final
         NumSizes(NumSizes) {}
 
 public:
+/// Build a 'sizes' AST node.
+///
+/// \param C         Context of the AST.
+/// \param StartLoc  Location of the 'sizes' identifier.
+/// \param LParenLoc Location of '('.
+/// \param EndLoc    Location of ')'.
+/// \param Sizes     Content of the clause.
   static OMPSizesClause *create(const ASTContext &C, SourceLocation StartLoc,
                                 SourceLocation LParenLoc, SourceLocation EndLoc,
                                 ArrayRef<Expr *> Sizes);
+
+/// Build an empty 'sizes' AST node for deserialization.
+///
+/// \param C     Context of the AST.
+/// \param Sizes Number of items in the clause.
   static OMPSizesClause *createEmpty(const ASTContext &C, unsigned NumSizes);
 
   /// Sets the location of '('.
@@ -6860,20 +6880,22 @@ public:
   /// Returns the location of '('.
   SourceLocation getLParenLoc() const { return LParenLoc; }
 
+  /// Returns the number of list items.
   unsigned getNumSizes() const { return NumSizes; }
 
+/// Returns the tile size expressions.
   MutableArrayRef<Expr *> getSizesRefs() {
     return MutableArrayRef<Expr *>(static_cast<OMPSizesClause *>(this)
                                        ->template getTrailingObjects<Expr *>(),
                                    NumSizes);
   }
-
   ArrayRef<Expr *> getSizesRefs() const {
     return ArrayRef<Expr *>(static_cast<const OMPSizesClause *>(this)
                                 ->template getTrailingObjects<Expr *>(),
                             NumSizes);
   }
 
+/// Sets the tile size expressions.
   void setSizesRefs(ArrayRef<Expr *> VL) {
     assert(VL.size() == NumSizes);
     std::copy(VL.begin(), VL.end(),
@@ -6886,21 +6908,18 @@ public:
     return child_range(reinterpret_cast<Stmt **>(Sizes.begin()),
                        reinterpret_cast<Stmt **>(Sizes.end()));
   }
-
   const_child_range children() const {
     ArrayRef<Expr *> Sizes = getSizesRefs();
     return const_child_range(reinterpret_cast<Stmt *const *>(Sizes.begin()),
                              reinterpret_cast<Stmt *const *>(Sizes.end()));
   }
 
-#if 1
   child_range used_children() {
     return child_range(child_iterator(), child_iterator());
   }
   const_child_range used_children() const {
     return const_child_range(const_child_iterator(), const_child_iterator());
   }
-#endif
 
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == OMPC_sizes;

@@ -1530,9 +1530,7 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
                      int MaxLevel, int Level = 0) {
   assert(Level < MaxLevel && "Too deep lookup during loop body codegen.");
   const Stmt *SimplifiedS = S->IgnoreContainers();
-  SmallVector<Stmt *, 8> AssociatedPreInits; // TODO: Don't ignore
-  SimplifiedS =
-      getTopmostAssociatedStructuredBlock(SimplifiedS, AssociatedPreInits);
+  SimplifiedS = getTopmostAssociatedStructuredBlock(SimplifiedS, nullptr);
   if (const auto *CS = dyn_cast<CompoundStmt>(SimplifiedS)) {
     PrettyStackTraceLoc CrashInfo(
         CGF.getContext().getSourceManager(), CS->getLBracLoc(),
@@ -1555,9 +1553,7 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
       S = CXXFor->getBody();
     }
     if (Level + 1 < MaxLevel) {
-      llvm::SmallVector<Stmt *, 4> InnerPreInits; // TODO: do not ignore
-      NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(
-          S, /*TryImperfectlyNestedLoops=*/true, InnerPreInits);
+      NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(S, /*TryImperfectlyNestedLoops=*/true, nullptr);
       emitBody(CGF, S, NextLoop, MaxLevel, Level + 1);
       return;
     }
@@ -1598,10 +1594,9 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   const Stmt *Body =
       D.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
   // Emit loop body.
-  llvm::SmallVector<Stmt *, 4> InnerPreInits; // TODO: do not ignore
+
   emitBody(*this, Body,
-           OMPLoopDirective::tryToFindNextInnerLoop(
-               Body, /*TryImperfectlyNestedLoops=*/true, InnerPreInits),
+           OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true, nullptr),
            D.getCollapsedNumber());
 
   // The end (updates/cleanups).

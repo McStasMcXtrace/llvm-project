@@ -3019,9 +3019,6 @@ private:
   ///
   OMPClause *ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          bool ParseOnly);
-
-  OMPClause *ParseOpenMPSizesClause();
-
   /// Parses simple clause of a kind \a Kind.
   ///
   /// \param Kind Kind of current clause.
@@ -3038,6 +3035,10 @@ private:
   ///
   OMPClause *ParseOpenMPSingleExprWithArgClause(OpenMPClauseKind Kind,
                                                 bool ParseOnly);
+
+/// Parses the 'sizes' clause of a '#pragma omp tile' directive.
+  OMPClause *ParseOpenMPSizesClause();
+
   /// Parses clause without any additional arguments.
   ///
   /// \param Kind Kind of current clause.

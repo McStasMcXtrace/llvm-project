@@ -3132,7 +3132,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_OMP_TILE_DIRECTIVE: {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
       unsigned NumLoops = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPTileDirective::createEmpty(Context, NumClauses, NumLoops);
+      S = OMPTileDirective::CreateEmpty(Context, NumClauses, NumLoops);
       break;
     }
 

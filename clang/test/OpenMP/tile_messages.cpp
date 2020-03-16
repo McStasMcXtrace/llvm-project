@@ -131,6 +131,12 @@ void func() {
 
 
 
+#pragma omp for
+  for (int i = 0; i < 7; ++i)
+#pragma omp tile sizes(5)
+    for (int j = i; j < 7; ++j);
+
+
 
 #if 0
   // TODO

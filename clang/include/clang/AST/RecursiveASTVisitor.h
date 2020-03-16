@@ -2793,9 +2793,6 @@ DEF_TRAVERSE_STMT(OMPSimdDirective,
 DEF_TRAVERSE_STMT(OMPForDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
-DEF_TRAVERSE_STMT(OMPTileDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
-
 DEF_TRAVERSE_STMT(OMPForSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -2948,6 +2945,9 @@ DEF_TRAVERSE_STMT(OMPTargetTeamsDistributeParallelForSimdDirective,
 DEF_TRAVERSE_STMT(OMPTargetTeamsDistributeSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPTileDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 // OpenMP clauses.
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {
@@ -3036,13 +3036,6 @@ template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPCollapseClause(OMPCollapseClause *C) {
   TRY_TO(TraverseStmt(C->getNumForLoops()));
-  return true;
-}
-
-template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPSizesClause(OMPSizesClause *C) {
-  // TODO: Traverse subexpression
-  llvm_unreachable("not implemented");
   return true;
 }
 
@@ -3495,6 +3488,13 @@ bool RecursiveASTVisitor<Derived>::VisitOMPNontemporalClause(
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPOrderClause(OMPOrderClause *) {
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPSizesClause(OMPSizesClause *C) {
+  for (Expr *E : C->getSizesRefs()) 
+    TRY_TO(TraverseStmt(E));
   return true;
 }
 

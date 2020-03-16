@@ -190,8 +190,6 @@ bool isOpenMPLoopDirective(OpenMPDirectiveKind DKind);
 /// otherwise - false.
 bool isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind);
 
-bool isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind);
-
 /// Checks if the specified directive is a taskloop directive.
 /// \param DKind Specified directive.
 /// \return true - the directive is a worksharing directive like 'omp taskloop',
@@ -275,6 +273,11 @@ bool isOpenMPTaskingDirective(OpenMPDirectiveKind Kind);
 /// directives that need loop bound sharing across loops outlined in nested
 /// functions
 bool isOpenMPLoopBoundSharingDirective(OpenMPDirectiveKind Kind);
+
+/// Checks if the specified directive is a loop transformation directive.
+/// \param DKind Specified directive.
+/// \return True iff the directive is a loop transformation.
+bool isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind);
 
 /// Return the captured regions of an OpenMP directive.
 void getOpenMPCaptureRegions(

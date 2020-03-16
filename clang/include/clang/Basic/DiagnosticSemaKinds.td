@@ -10145,10 +10145,6 @@ def note_omp_flush_order_clause_here : Note<
 def err_omp_non_lvalue_in_map_or_motion_clauses: Error<
   "expected addressable lvalue in '%0' clause"
   >;
-  
-def err_omp_mandatory_clause : Error<
-  "The '%1' clause is mandatory for '#pragma omp %1' directive">;
-
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

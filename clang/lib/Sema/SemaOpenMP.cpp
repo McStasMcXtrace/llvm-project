@@ -7567,8 +7567,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   auto NumAssocociatedLoops = std::max(OrderedLoopCount, NestedLoopCount);
   SmallVector<LoopIterationSpace, 4> IterSpaces(NumAssocociatedLoops);
   // Stmt *CurStmt = AStmt->IgnoreContainers(/* IgnoreCaptured */ true);
-  llvm::SmallVector<Stmt *, 8> InnerPreInits; // TODO: Don't ignore
-  Stmt *CurStmt = getTopmostAssociatedStructuredBlock(AStmt, InnerPreInits);
+  Stmt *CurStmt = getTopmostAssociatedStructuredBlock(AStmt, nullptr);
   bool SupportsNonPerfectlyNested = (SemaRef.LangOpts.OpenMP >= 50) &&
                                     !isOpenMPLoopTransformationDirective(DKind);
   bool SupportsNonRectangular = !isOpenMPLoopTransformationDirective(DKind);
@@ -7597,7 +7596,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     }
     CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(
         CurStmt, SupportsNonPerfectlyNested,
-        InnerPreInits); // TODO: Don't call speculatively
+        nullptr); // TODO: Don't call speculatively
   }
   for (unsigned Cnt = NestedLoopCount; Cnt < OrderedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
@@ -7627,19 +7626,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     }
     CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(
         CurStmt, SupportsNonPerfectlyNested,
-        InnerPreInits); // TODO: Don't call speculatively
+        nullptr); // TODO: Don't call speculatively
   }
-
-#if 0
-  if (!SupportsNonRectangular) {
-    for (auto &IterSpace : IterSpaces) {
-      if (!IterSpace.IsNonRectangularLB && IterSpace.IsNonRectangularUB)
-        continue;
-
-     SemaRef. Diag(IterSpace.);
-    }
-  }
-#endif
 
   Built.clear(/* size */ NestedLoopCount);
 
@@ -8092,7 +8080,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DependentCounters.resize(NestedLoopCount);
   Built.DependentInits.resize(NestedLoopCount);
   Built.FinalsConditions.resize(NestedLoopCount);
-  Built.Bodys.resize(NestedLoopCount);
+  //Built.Bodys.resize(NestedLoopCount);
   {
     // We implement the following algorithm for obtaining the
     // original loop iteration variable values based on the
@@ -8198,8 +8186,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
             Built.Inits[NestedLoopCount - 1 - IS.LoopDependentIdx];
         Built.FinalsConditions[Cnt] = IS.FinalCondition;
       }
-      Built.Loops[Cnt] = IS.LoopStmt;
-      Built.Bodys[Cnt] = IS.Body;
+      //Built.Loops[Cnt] = IS.LoopStmt;
+      //Built.Bodys[Cnt] = IS.Body;
     }
   }
 
@@ -8239,7 +8227,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.NUB = CombNextUB.get();
   Built.DistCombinedFields.DistCond = CombDistCond.get();
   Built.DistCombinedFields.ParForInDistCond = ParForInDistCond.get();
-  Built.InnermostBody = IterSpaces.back().Body;
+  //Built.InnermostBody = IterSpaces.back().Body;
 
   assert(Capturing || Captures.empty());
 
@@ -8390,13 +8378,6 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
   if (SizesClauses.begin() == SizesClauses.end())
     return StmtError();
 
-#if 0
-  auto SizesIt = SizesClauses.begin();
-  if (SizesIt == SizesClauses.end()) {
-    Diag(StartLoc, diag::err_omp_required_clause) << getOpenMPDirectiveName(OMPD_tile) << "sizes";
-    return StmtError();
-  }
-#endif
   auto SizesClause = *SizesClauses.begin();
 
   auto NumLoops = SizesClause->getNumSizes();
@@ -8420,21 +8401,20 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
   // Delay tiling to when template is completely instantiated.
   if (CurContext->isDependentContext()) {
     auto Result =
-        OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops,
-                                 AStmt, nullptr, NestHelper);
+        OMPTileDirective::Create(Context, StartLoc, EndLoc, Clauses, NumLoops,
+                                 AStmt, nullptr);
     return Result;
   }
 
   SmallVector<OMPLoopDirective::HelperExprs, 4> LoopHelpers;
   LoopHelpers.resize(NumLoops);
   for (int i = 0; i < NumLoops; ++i) {
-    auto LoopStmt =
-        NestHelper.Loops[i]; // Derive per-loop logical iteration space
+    // Derive per-loop logical iteration space.
+    auto LoopStmt = NestHelper.Loops[i];
     VarsWithInheritedDSAType Dummy;
-    auto SingleNumLoops =
-        checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt, *this, *DSAStack,
-                        Dummy, LoopHelpers[i], 1, false);
+    auto SingleNumLoops = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt, *this, *DSAStack, Dummy, LoopHelpers[i], 1, false);
     assert(SingleNumLoops == 1);
+    (void)SingleNumLoops;
   }
 
   // Sema::CompoundScopeRAII CompoundScope(*this);
@@ -8461,7 +8441,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
           buildVarDecl(*this, {}, CntTy, FloorCntName, nullptr, OrigCntVar);
       Decl *D = FloorCntDecl;
       auto DeclS = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D, 1),
-                                          SourceLocation(), SourceLocation());
+        {}, {});
       //  GlobalDecls.push_back(FloorCntDecl);
       PreInits.push_back(DeclS);
       FloorIndVars[i] = FloorCntDecl;
@@ -8476,14 +8456,16 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
       TileCntDecl->setDeclName(&PP.getIdentifierTable().get(TileCntName));
       Decl *D = TileCntDecl;
       auto DeclS = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D, 1),
-                                          SourceLocation(), SourceLocation());
+        {}, {});
       //   GlobalDecls.push_back(TileCntDecl);
       PreInits.push_back(DeclS);
       TileIndVars[i] = TileCntDecl;
     }
   }
 
-  Stmt *Inner = NestHelper.InnermostBody;
+
+
+  Stmt* Inner = NestHelper.Bodys.back();
   SmallVector<Stmt *, 9> BodyParts;
   BodyParts.reserve(2 * NumLoops + 1);
 
@@ -8701,8 +8683,8 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
   auto PreTopmostStmt = CompoundStmt::Create(Context, PreInits, {}, {});
 
   auto Result =
-      OMPTileDirective::create(Context, StartLoc, EndLoc, Clauses, NumLoops,
-                               AStmt, PreTopmostStmt, NestHelper);
+      OMPTileDirective::Create(Context, StartLoc, EndLoc, Clauses, NumLoops,
+                               AStmt, PreTopmostStmt);
   // Result->dump();
   return Result;
 }
