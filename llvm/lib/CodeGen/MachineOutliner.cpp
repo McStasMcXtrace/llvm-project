@@ -56,6 +56,7 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/CodeGen/MachineOutliner.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -311,26 +312,31 @@ private:
 
   /// Set the suffix indices of the leaves to the start indices of their
   /// respective suffixes.
-  ///
-  /// \param[in] CurrNode The node currently being visited.
-  /// \param CurrNodeLen The concatenation of all node sizes from the root to
-  /// this node. Used to produce suffix indices.
-  void setSuffixIndices(SuffixTreeNode &CurrNode, unsigned CurrNodeLen) {
+  void setSuffixIndices() {
+    // List of nodes we need to visit along with the current length of the
+    // string.
+    std::vector<std::pair<SuffixTreeNode *, unsigned>> ToVisit;
 
-    bool IsLeaf = CurrNode.Children.size() == 0 && !CurrNode.isRoot();
+    // Current node being visited.
+    SuffixTreeNode *CurrNode = Root;
 
-    // Store the concatenation of lengths down from the root.
-    CurrNode.ConcatLen = CurrNodeLen;
-    // Traverse the tree depth-first.
-    for (auto &ChildPair : CurrNode.Children) {
-      assert(ChildPair.second && "Node had a null child!");
-      setSuffixIndices(*ChildPair.second,
-                       CurrNodeLen + ChildPair.second->size());
+    // Sum of the lengths of the nodes down the path to the current one.
+    unsigned CurrNodeLen = 0;
+    ToVisit.push_back({CurrNode, CurrNodeLen});
+    while (!ToVisit.empty()) {
+      std::tie(CurrNode, CurrNodeLen) = ToVisit.back();
+      ToVisit.pop_back();
+      CurrNode->ConcatLen = CurrNodeLen;
+      for (auto &ChildPair : CurrNode->Children) {
+        assert(ChildPair.second && "Node had a null child!");
+        ToVisit.push_back(
+            {ChildPair.second, CurrNodeLen + ChildPair.second->size()});
+      }
+
+      // No children, so we are at the end of the string.
+      if (CurrNode->Children.size() == 0 && !CurrNode->isRoot())
+        CurrNode->SuffixIdx = Str.size() - CurrNodeLen;
     }
-
-    // Is this node a leaf? If it is, give it a suffix index.
-    if (IsLeaf)
-      CurrNode.SuffixIdx = Str.size() - CurrNodeLen;
   }
 
   /// Construct the suffix tree for the prefix of the input ending at
@@ -486,7 +492,7 @@ public:
 
     // Set the suffix indices of each leaf.
     assert(Root && "Root node can't be nullptr!");
-    setSuffixIndices(*Root, 0);
+    setSuffixIndices();
   }
 
   /// Iterator for finding all repeated substrings in the suffix tree.
@@ -1240,31 +1246,53 @@ bool MachineOutliner::outline(Module &M,
       // make sure that the ranges we yank things out of aren't wrong.
       if (MBB.getParent()->getProperties().hasProperty(
               MachineFunctionProperties::Property::TracksLiveness)) {
-        // Helper lambda for adding implicit def operands to the call
+        // The following code is to add implicit def operands to the call
         // instruction. It also updates call site information for moved
         // code.
-        auto CopyDefsAndUpdateCalls = [&CallInst](MachineInstr &MI) {
-          for (MachineOperand &MOP : MI.operands()) {
-            // Skip over anything that isn't a register.
-            if (!MOP.isReg())
-              continue;
-
-            // If it's a def, add it to the call instruction.
-            if (MOP.isDef())
-              CallInst->addOperand(MachineOperand::CreateReg(
-                  MOP.getReg(), true, /* isDef = true */
-                  true /* isImp = true */));
-          }
-          if (MI.isCall())
-            MI.getMF()->eraseCallSiteInfo(&MI);
-        };
+        SmallSet<Register, 2> UseRegs, DefRegs;
         // Copy over the defs in the outlined range.
         // First inst in outlined range <-- Anything that's defined in this
         // ...                           .. range has to be added as an
         // implicit Last inst in outlined range  <-- def to the call
         // instruction. Also remove call site information for outlined block
-        // of code.
-        std::for_each(CallInst, std::next(EndIt), CopyDefsAndUpdateCalls);
+        // of code. The exposed uses need to be copied in the outlined range.
+        for (MachineBasicBlock::reverse_iterator Iter = EndIt.getReverse(),
+             Last = std::next(CallInst.getReverse());
+             Iter != Last; Iter++) {
+          MachineInstr *MI = &*Iter;
+          for (MachineOperand &MOP : MI->operands()) {
+            // Skip over anything that isn't a register.
+            if (!MOP.isReg())
+              continue;
+
+            if (MOP.isDef()) {
+              // Introduce DefRegs set to skip the redundant register.
+              DefRegs.insert(MOP.getReg());
+              if (UseRegs.count(MOP.getReg()))
+                // Since the regiester is modeled as defined,
+                // it is not necessary to be put in use register set.
+                UseRegs.erase(MOP.getReg());
+            } else if (!MOP.isUndef()) {
+              // Any register which is not undefined should
+              // be put in the use register set.
+              UseRegs.insert(MOP.getReg());
+            }
+          }
+          if (MI->isCandidateForCallSiteEntry())
+            MI->getMF()->eraseCallSiteInfo(MI);
+        }
+
+        for (const Register &I : DefRegs)
+           // If it's a def, add it to the call instruction.
+          CallInst->addOperand(MachineOperand::CreateReg(
+                  I, true, /* isDef = true */
+                  true /* isImp = true */));
+
+        for (const Register &I : UseRegs)
+          // If it's a exposed use, add it to the call instruction.
+          CallInst->addOperand(
+              MachineOperand::CreateReg(I, false, /* isDef = false */
+                                        true /* isImp = true */));
       }
 
       // Erase from the point after where the call was inserted up to, and
@@ -1297,12 +1325,6 @@ void MachineOutliner::populateMapper(InstructionMapper &Mapper, Module &M,
     // If there's nothing in F, then there's no reason to try and outline from
     // it.
     if (F.empty())
-      continue;
-
-    // Disable outlining from noreturn functions right now. Noreturn requires
-    // special handling for the case where what we are outlining could be a
-    // tail call.
-    if (F.hasFnAttribute(Attribute::NoReturn))
       continue;
 
     // There's something in F. Check if it has a MachineFunction associated with
@@ -1378,7 +1400,7 @@ void MachineOutliner::emitInstrCountChangedRemark(
     if (!MF)
       continue;
 
-    std::string Fname = F.getName();
+    std::string Fname = std::string(F.getName());
     unsigned FnCountAfter = MF->getInstructionCount();
     unsigned FnCountBefore = 0;
 

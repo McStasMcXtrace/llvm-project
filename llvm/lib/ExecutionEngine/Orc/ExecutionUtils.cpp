@@ -42,7 +42,7 @@ int runAsMain(int (*Main)(int, char *[]), ArrayRef<std::string> Args,
   }
   ArgV.push_back(nullptr);
 
-  return Main(Args.size(), ArgV.data());
+  return Main(Args.size() + !!ProgramName, ArgV.data());
 }
 
 CtorDtorIterator::CtorDtorIterator(const GlobalVariable *GV, bool End)
@@ -113,6 +113,26 @@ iterator_range<CtorDtorIterator> getDestructors(const Module &M) {
                     CtorDtorIterator(DtorsList, true));
 }
 
+bool StaticInitGVIterator::isStaticInitGlobal(GlobalValue &GV) {
+  if (GV.isDeclaration())
+    return false;
+
+  if (GV.hasName() && (GV.getName() == "llvm.global_ctors" ||
+                       GV.getName() == "llvm.global_dtors"))
+    return true;
+
+  if (ObjFmt == Triple::MachO) {
+    // FIXME: These section checks are too strict: We should match first and
+    // second word split by comma.
+    if (GV.hasSection() &&
+        (GV.getSection().startswith("__DATA,__objc_classlist") ||
+         GV.getSection().startswith("__DATA,__objc_selrefs")))
+      return true;
+  }
+
+  return false;
+}
+
 void CtorDtorRunner::add(iterator_range<CtorDtorIterator> CtorDtors) {
   if (CtorDtors.empty())
     return;
@@ -121,7 +141,7 @@ void CtorDtorRunner::add(iterator_range<CtorDtorIterator> CtorDtors) {
       JD.getExecutionSession(),
       (*CtorDtors.begin()).Func->getParent()->getDataLayout());
 
-  for (const auto &CtorDtor : CtorDtors) {
+  for (auto CtorDtor : CtorDtors) {
     assert(CtorDtor.Func && CtorDtor.Func->hasName() &&
            "Ctor/Dtor function must be named to be runnable under the JIT");
 
@@ -196,6 +216,30 @@ Error LocalCXXRuntimeOverrides::enable(JITDylib &JD,
                        JITSymbolFlags::Exported);
 
   return JD.define(absoluteSymbols(std::move(RuntimeInterposes)));
+}
+
+void ItaniumCXAAtExitSupport::registerAtExit(void (*F)(void *), void *Ctx,
+                                             void *DSOHandle) {
+  std::lock_guard<std::mutex> Lock(AtExitsMutex);
+  AtExitRecords[DSOHandle].push_back({F, Ctx});
+}
+
+void ItaniumCXAAtExitSupport::runAtExits(void *DSOHandle) {
+  std::vector<AtExitRecord> AtExitsToRun;
+
+  {
+    std::lock_guard<std::mutex> Lock(AtExitsMutex);
+    auto I = AtExitRecords.find(DSOHandle);
+    if (I != AtExitRecords.end()) {
+      AtExitsToRun = std::move(I->second);
+      AtExitRecords.erase(I);
+    }
+  }
+
+  while (!AtExitsToRun.empty()) {
+    AtExitsToRun.back().F(AtExitsToRun.back().Ctx);
+    AtExitsToRun.pop_back();
+  }
 }
 
 DynamicLibrarySearchGenerator::DynamicLibrarySearchGenerator(

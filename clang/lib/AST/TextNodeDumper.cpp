@@ -15,6 +15,8 @@
 #include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/LocInfoType.h"
+#include "clang/Basic/Module.h"
+#include "clang/Basic/SourceManager.h"
 
 using namespace clang;
 
@@ -120,9 +122,6 @@ void TextNodeDumper::Visit(const Stmt *Node) {
   }
   dumpPointer(Node);
   dumpSourceRange(Node->getSourceRange());
-
-  if (Node->isOMPStructuredBlock())
-    OS << " openmp_structured_block";
 
   if (const auto *E = dyn_cast<Expr>(Node)) {
     dumpType(E->getType());
@@ -447,6 +446,23 @@ void TextNodeDumper::dumpAccessSpecifier(AccessSpecifier AS) {
   }
 }
 
+void TextNodeDumper::dumpCleanupObject(
+    const ExprWithCleanups::CleanupObject &C) {
+  if (auto *BD = C.dyn_cast<BlockDecl *>())
+    dumpDeclRef(BD, "cleanup");
+  else if (auto *CLE = C.dyn_cast<CompoundLiteralExpr *>())
+    AddChild([=] {
+      OS << "cleanup ";
+      {
+        ColorScope Color(OS, ShowColors, StmtColor);
+        OS << CLE->getStmtClassName();
+      }
+      dumpPointer(CLE);
+    });
+  else
+    llvm_unreachable("unexpected cleanup type");
+}
+
 void TextNodeDumper::dumpDeclRef(const Decl *D, StringRef Label) {
   if (!D)
     return;
@@ -488,6 +504,9 @@ void TextNodeDumper::visitInlineCommandComment(
     break;
   case comments::InlineCommandComment::RenderEmphasized:
     OS << " RenderEmphasized";
+    break;
+  case comments::InlineCommandComment::RenderAnchor:
+    OS << " RenderAnchor";
     break;
   }
 
@@ -946,7 +965,7 @@ void TextNodeDumper::VisitMaterializeTemporaryExpr(
 
 void TextNodeDumper::VisitExprWithCleanups(const ExprWithCleanups *Node) {
   for (unsigned i = 0, e = Node->getNumObjects(); i != e; ++i)
-    dumpDeclRef(Node->getObject(i), "cleanup");
+    dumpCleanupObject(Node->getObject(i));
 }
 
 void TextNodeDumper::VisitSizeOfPackExpr(const SizeOfPackExpr *Node) {
@@ -1198,6 +1217,11 @@ void TextNodeDumper::VisitAutoType(const AutoType *T) {
     OS << " decltype(auto)";
   if (!T->isDeduced())
     OS << " undeduced";
+  if (T->isConstrained()) {
+    dumpDeclRef(T->getTypeConstraintConcept());
+    for (const auto &Arg : T->getTypeConstraintArguments())
+      VisitTemplateArgument(Arg);
+  }
 }
 
 void TextNodeDumper::VisitTemplateSpecializationType(
@@ -1691,7 +1715,16 @@ void TextNodeDumper::VisitBuiltinTemplateDecl(const BuiltinTemplateDecl *D) {
 }
 
 void TextNodeDumper::VisitTemplateTypeParmDecl(const TemplateTypeParmDecl *D) {
-  if (D->wasDeclaredWithTypename())
+  if (const auto *TC = D->getTypeConstraint()) {
+    OS << " ";
+    dumpBareDeclRef(TC->getNamedConcept());
+    if (TC->getNamedConcept() != TC->getFoundDecl()) {
+      OS << " (";
+      dumpBareDeclRef(TC->getFoundDecl());
+      OS << ")";
+    }
+    Visit(TC->getImmediatelyDeclaredConstraint());
+  } else if (D->wasDeclaredWithTypename())
     OS << " typename";
   else
     OS << " class";

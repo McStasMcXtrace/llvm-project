@@ -238,6 +238,16 @@ static cl::opt<bool>
                      cl::desc("Emit functions into separate sections"),
                      cl::init(false));
 
+static cl::opt<std::string>
+    BBSections("basicblock-sections",
+               cl::desc("Emit basic blocks into separate sections"),
+               cl::value_desc("all | <function list (file)> | labels | none"),
+               cl::init("none"));
+
+static cl::opt<unsigned> TLSSize("tls-size",
+                                 cl::desc("Bit size of immediate TLS offsets"),
+                                 cl::init(0));
+
 static cl::opt<bool> EmulatedTLS("emulated-tls",
                                  cl::desc("Use emulated TLS model"),
                                  cl::init(false));
@@ -246,6 +256,11 @@ static cl::opt<bool>
     UniqueSectionNames("unique-section-names",
                        cl::desc("Give unique names to every section"),
                        cl::init(true));
+
+static cl::opt<bool> UniqueBBSectionNames(
+    "unique-bb-section-names",
+    cl::desc("Give unique names to every basic block section"),
+    cl::init(false));
 
 static cl::opt<llvm::EABI>
     EABIVersion("meabi", cl::desc("Set EABI type (default depends on triple):"),
@@ -271,6 +286,12 @@ static cl::opt<bool>
     EnableAddrsig("addrsig", cl::desc("Emit an address-significance table"),
                   cl::init(false));
 
+static cl::opt<bool> EmitCallSiteInfo(
+    "emit-call-site-info",
+    cl::desc(
+        "Emit call site debug information, if debug information is enabled."),
+    cl::init(false));
+
 static cl::opt<bool>
     EnableDebugEntryValues("debug-entry-values",
                            cl::desc("Emit debug info about parameter's entry values"),
@@ -280,6 +301,27 @@ static cl::opt<bool>
     ForceDwarfFrameSection("force-dwarf-frame-section",
                            cl::desc("Always emit a debug frame section."),
                            cl::init(false));
+
+static llvm::BasicBlockSection
+getBBSectionsMode(llvm::TargetOptions &Options) {
+  if (BBSections == "all")
+    return BasicBlockSection::All;
+  else if (BBSections == "labels")
+    return BasicBlockSection::Labels;
+  else if (BBSections == "none")
+    return BasicBlockSection::None;
+  else {
+    ErrorOr<std::unique_ptr<MemoryBuffer>> MBOrErr =
+        MemoryBuffer::getFile(BBSections);
+    if (!MBOrErr) {
+      errs() << "Error loading basic block sections function list file: "
+             << MBOrErr.getError().message() << "\n";
+    } else {
+      Options.BBSectionsFuncListBuf = std::move(*MBOrErr);
+    }
+    return BasicBlockSection::List;
+  }
+}
 
 // Common utility function tightly tied to the options listed here. Initializes
 // a TargetOptions object with CodeGen flags and returns it.
@@ -304,12 +346,16 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.RelaxELFRelocations = RelaxELFRelocations;
   Options.DataSections = DataSections;
   Options.FunctionSections = FunctionSections;
+  Options.BBSections = getBBSectionsMode(Options);
   Options.UniqueSectionNames = UniqueSectionNames;
+  Options.UniqueBBSectionNames = UniqueBBSectionNames;
+  Options.TLSSize = TLSSize;
   Options.EmulatedTLS = EmulatedTLS;
   Options.ExplicitEmulatedTLS = EmulatedTLS.getNumOccurrences() > 0;
   Options.ExceptionModel = ExceptionModel;
   Options.EmitStackSizeSection = EnableStackSizeSection;
   Options.EmitAddrsig = EnableAddrsig;
+  Options.EmitCallSiteInfo = EmitCallSiteInfo;
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
   Options.ForceDwarfFrameSection = ForceDwarfFrameSection;
 
@@ -326,8 +372,7 @@ LLVM_ATTRIBUTE_UNUSED static std::string getCPUStr() {
   // If user asked for the 'native' CPU, autodetect here. If autodection fails,
   // this will set the CPU to an empty string which tells the target to
   // pick a basic default.
-  if (MCPU == "native")
-    return sys::getHostCPUName();
+  if (MCPU == "native") return std::string(sys::getHostCPUName());
 
   return MCPU;
 }
@@ -372,46 +417,80 @@ LLVM_ATTRIBUTE_UNUSED static std::vector<std::string> getFeatureList() {
   return Features.getFeatures();
 }
 
+static void renderBoolStringAttr(AttrBuilder &B, StringRef Name, bool Val) {
+  B.addAttribute(Name, Val ? "true" : "false");
+}
+
+#define HANDLE_BOOL_ATTR(CL, AttrName)                              \
+  do {                                                              \
+    if (CL.getNumOccurrences() > 0 && !F.hasFnAttribute(AttrName))  \
+      renderBoolStringAttr(NewAttrs, AttrName, CL);                 \
+  } while (0)
+
+
+/// Set function attributes of function \p F based on CPU, Features, and command
+/// line flags.
+LLVM_ATTRIBUTE_UNUSED static void
+setFunctionAttributes(StringRef CPU, StringRef Features, Function &F) {
+  auto &Ctx = F.getContext();
+  AttributeList Attrs = F.getAttributes();
+  AttrBuilder NewAttrs;
+
+  if (!CPU.empty() && !F.hasFnAttribute("target-cpu"))
+    NewAttrs.addAttribute("target-cpu", CPU);
+  if (!Features.empty()) {
+    // Append the command line features to any that are already on the function.
+    StringRef OldFeatures
+      = F.getFnAttribute("target-features").getValueAsString();
+    if (OldFeatures.empty())
+      NewAttrs.addAttribute("target-features", Features);
+    else {
+      SmallString<256> Appended(OldFeatures);
+      Appended.push_back(',');
+      Appended.append(Features);
+      NewAttrs.addAttribute("target-features", Appended);
+    }
+  }
+  if (FramePointerUsage.getNumOccurrences() > 0 &&
+      !F.hasFnAttribute("frame-pointer")) {
+    if (FramePointerUsage == llvm::FramePointer::All)
+      NewAttrs.addAttribute("frame-pointer", "all");
+    else if (FramePointerUsage == llvm::FramePointer::NonLeaf)
+      NewAttrs.addAttribute("frame-pointer", "non-leaf");
+    else if (FramePointerUsage == llvm::FramePointer::None)
+      NewAttrs.addAttribute("frame-pointer", "none");
+  }
+  if (DisableTailCalls.getNumOccurrences() > 0)
+    NewAttrs.addAttribute("disable-tail-calls",
+                          toStringRef(DisableTailCalls));
+  if (StackRealign)
+    NewAttrs.addAttribute("stackrealign");
+
+  HANDLE_BOOL_ATTR(EnableUnsafeFPMath, "unsafe-fp-math");
+  HANDLE_BOOL_ATTR(EnableNoInfsFPMath, "no-infs-fp-math");
+  HANDLE_BOOL_ATTR(EnableNoNaNsFPMath, "no-nans-fp-math");
+  HANDLE_BOOL_ATTR(EnableNoSignedZerosFPMath, "no-signed-zeros-fp-math");
+
+  if (TrapFuncName.getNumOccurrences() > 0)
+    for (auto &B : F)
+      for (auto &I : B)
+        if (auto *Call = dyn_cast<CallInst>(&I))
+          if (const auto *F = Call->getCalledFunction())
+            if (F->getIntrinsicID() == Intrinsic::debugtrap ||
+                F->getIntrinsicID() == Intrinsic::trap)
+              Call->addAttribute(
+                llvm::AttributeList::FunctionIndex,
+                Attribute::get(Ctx, "trap-func-name", TrapFuncName));
+
+  // Let NewAttrs override Attrs.
+  F.setAttributes(
+    Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
+}
+
 /// Set function attributes of functions in Module M based on CPU,
 /// Features, and command line flags.
 LLVM_ATTRIBUTE_UNUSED static void
 setFunctionAttributes(StringRef CPU, StringRef Features, Module &M) {
-  for (auto &F : M) {
-    auto &Ctx = F.getContext();
-    AttributeList Attrs = F.getAttributes();
-    AttrBuilder NewAttrs;
-
-    if (!CPU.empty())
-      NewAttrs.addAttribute("target-cpu", CPU);
-    if (!Features.empty())
-      NewAttrs.addAttribute("target-features", Features);
-    if (FramePointerUsage.getNumOccurrences() > 0) {
-      if (FramePointerUsage == llvm::FramePointer::All)
-        NewAttrs.addAttribute("frame-pointer", "all");
-      else if (FramePointerUsage == llvm::FramePointer::NonLeaf)
-        NewAttrs.addAttribute("frame-pointer", "non-leaf");
-      else if (FramePointerUsage == llvm::FramePointer::None)
-        NewAttrs.addAttribute("frame-pointer", "none");
-    }
-    if (DisableTailCalls.getNumOccurrences() > 0)
-      NewAttrs.addAttribute("disable-tail-calls",
-                            toStringRef(DisableTailCalls));
-    if (StackRealign)
-      NewAttrs.addAttribute("stackrealign");
-
-    if (TrapFuncName.getNumOccurrences() > 0)
-      for (auto &B : F)
-        for (auto &I : B)
-          if (auto *Call = dyn_cast<CallInst>(&I))
-            if (const auto *F = Call->getCalledFunction())
-              if (F->getIntrinsicID() == Intrinsic::debugtrap ||
-                  F->getIntrinsicID() == Intrinsic::trap)
-                Call->addAttribute(
-                    llvm::AttributeList::FunctionIndex,
-                    Attribute::get(Ctx, "trap-func-name", TrapFuncName));
-
-    // Let NewAttrs override Attrs.
-    F.setAttributes(
-        Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
-  }
+  for (Function &F : M)
+    setFunctionAttributes(CPU, Features, F);
 }

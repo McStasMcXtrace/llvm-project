@@ -1046,7 +1046,8 @@ public:
 
   /// Get all conversion functions visible in current class,
   /// including conversion function templates.
-  llvm::iterator_range<conversion_iterator> getVisibleConversionFunctions();
+  llvm::iterator_range<conversion_iterator>
+  getVisibleConversionFunctions() const;
 
   /// Determine whether this class is an aggregate (C++ [dcl.init.aggr]),
   /// which is a class with no user-declared constructors, no private
@@ -1516,14 +1517,8 @@ public:
   /// returns false if the class has non-computable base classes.
   ///
   /// \param BaseMatches Callback invoked for each (direct or indirect) base
-  /// class of this type, or if \p AllowShortCircuit is true then until a call
-  /// returns false.
-  ///
-  /// \param AllowShortCircuit if false, forces the callback to be called
-  /// for every base class, even if a dependent or non-matching base was
-  /// found.
-  bool forallBases(ForallBasesCallback BaseMatches,
-                   bool AllowShortCircuit = true) const;
+  /// class of this type until a call returns false.
+  bool forallBases(ForallBasesCallback BaseMatches) const;
 
   /// Function type used by lookupInBases() to determine whether a
   /// specific base class subobject matches the lookup criteria.
@@ -1695,6 +1690,10 @@ public:
   /// actually abstract.
   bool mayBeAbstract() const;
 
+  /// Determine whether it's impossible for a class to be derived from this
+  /// class. This is best-effort, and may conservatively return false.
+  bool isEffectivelyFinal() const;
+
   /// If this is the closure type of a lambda expression, retrieve the
   /// number to be used for name mangling in the Itanium C++ ABI.
   ///
@@ -1782,7 +1781,7 @@ public:
 };
 
 /// Store information needed for an explicit specifier.
-/// used by CXXDeductionGuideDecl, CXXConstructorDecl and CXXConversionDecl.
+/// Used by CXXDeductionGuideDecl, CXXConstructorDecl and CXXConversionDecl.
 class ExplicitSpecifier {
   llvm::PointerIntPair<Expr *, 2, ExplicitSpecKind> ExplicitSpec{
       nullptr, ExplicitSpecKind::ResolvedFalse};
@@ -1795,20 +1794,22 @@ public:
   const Expr *getExpr() const { return ExplicitSpec.getPointer(); }
   Expr *getExpr() { return ExplicitSpec.getPointer(); }
 
-  /// Return true if the ExplicitSpecifier isn't defaulted.
+  /// Determine if the declaration had an explicit specifier of any kind.
   bool isSpecified() const {
     return ExplicitSpec.getInt() != ExplicitSpecKind::ResolvedFalse ||
            ExplicitSpec.getPointer();
   }
 
-  /// Check for Equivalence of explicit specifiers.
-  /// Return True if the explicit specifier are equivalent false otherwise.
+  /// Check for equivalence of explicit specifiers.
+  /// \return true if the explicit specifier are equivalent, false otherwise.
   bool isEquivalent(const ExplicitSpecifier Other) const;
-  /// Return true if the explicit specifier is already resolved to be explicit.
+  /// Determine whether this specifier is known to correspond to an explicit
+  /// declaration. Returns false if the specifier is absent or has an
+  /// expression that is value-dependent or evaluates to false.
   bool isExplicit() const {
     return ExplicitSpec.getInt() == ExplicitSpecKind::ResolvedTrue;
   }
-  /// Return true if the ExplicitSpecifier isn't valid.
+  /// Determine if the explicit specifier is invalid.
   /// This state occurs after a substitution failures.
   bool isInvalid() const {
     return ExplicitSpec.getInt() == ExplicitSpecKind::Unresolved &&
@@ -1816,9 +1817,7 @@ public:
   }
   void setKind(ExplicitSpecKind Kind) { ExplicitSpec.setInt(Kind); }
   void setExpr(Expr *E) { ExplicitSpec.setPointer(E); }
-  // getFromDecl - retrieve the explicit specifier in the given declaration.
-  // if the given declaration has no explicit. the returned explicit specifier
-  // is defaulted. .isSpecified() will be false.
+  // Retrieve the explicit specifier in the given declaration, if any.
   static ExplicitSpecifier getFromDecl(FunctionDecl *Function);
   static const ExplicitSpecifier getFromDecl(const FunctionDecl *Function) {
     return getFromDecl(const_cast<FunctionDecl *>(Function));
@@ -1892,6 +1891,37 @@ public:
   static bool classofKind(Kind K) { return K == CXXDeductionGuide; }
 };
 
+/// \brief Represents the body of a requires-expression.
+///
+/// This decl exists merely to serve as the DeclContext for the local
+/// parameters of the requires expression as well as other declarations inside
+/// it.
+///
+/// \code
+/// template<typename T> requires requires (T t) { {t++} -> regular; }
+/// \endcode
+///
+/// In this example, a RequiresExpr object will be generated for the expression,
+/// and a RequiresExprBodyDecl will be created to hold the parameter t and the
+/// template argument list imposed by the compound requirement.
+class RequiresExprBodyDecl : public Decl, public DeclContext {
+  RequiresExprBodyDecl(ASTContext &C, DeclContext *DC, SourceLocation StartLoc)
+      : Decl(RequiresExprBody, DC, StartLoc), DeclContext(RequiresExprBody) {}
+
+public:
+  friend class ASTDeclReader;
+  friend class ASTDeclWriter;
+
+  static RequiresExprBodyDecl *Create(ASTContext &C, DeclContext *DC,
+                                      SourceLocation StartLoc);
+
+  static RequiresExprBodyDecl *CreateDeserialized(ASTContext &C, unsigned ID);
+
+  // Implement isa/cast/dyncast/etc.
+  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+  static bool classofKind(Kind K) { return K == RequiresExprBody; }
+};
+
 /// Represents a static or instance method of a struct/union/class.
 ///
 /// In the terminology of the C++ Standard, these are the (static and
@@ -1904,9 +1934,10 @@ protected:
                 SourceLocation StartLoc, const DeclarationNameInfo &NameInfo,
                 QualType T, TypeSourceInfo *TInfo, StorageClass SC,
                 bool isInline, ConstexprSpecKind ConstexprKind,
-                SourceLocation EndLocation)
+                SourceLocation EndLocation,
+                Expr *TrailingRequiresClause = nullptr)
       : FunctionDecl(DK, C, RD, StartLoc, NameInfo, T, TInfo, SC, isInline,
-                     ConstexprKind) {
+                     ConstexprKind, TrailingRequiresClause) {
     if (EndLocation.isValid())
       setRangeEnd(EndLocation);
   }
@@ -1917,7 +1948,8 @@ public:
                                const DeclarationNameInfo &NameInfo, QualType T,
                                TypeSourceInfo *TInfo, StorageClass SC,
                                bool isInline, ConstexprSpecKind ConstexprKind,
-                               SourceLocation EndLocation);
+                               SourceLocation EndLocation,
+                               Expr *TrailingRequiresClause = nullptr);
 
   static CXXMethodDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
@@ -2122,8 +2154,8 @@ class CXXCtorInitializer final {
   /// Either the base class name/delegating constructor type (stored as
   /// a TypeSourceInfo*), an normal field (FieldDecl), or an anonymous field
   /// (IndirectFieldDecl*) being initialized.
-  llvm::PointerUnion3<TypeSourceInfo *, FieldDecl *, IndirectFieldDecl *>
-    Initializee;
+  llvm::PointerUnion<TypeSourceInfo *, FieldDecl *, IndirectFieldDecl *>
+      Initializee;
 
   /// The source location for the field name or, for a base initializer
   /// pack expansion, the location of the ellipsis.
@@ -2362,7 +2394,8 @@ class CXXConstructorDecl final
                      const DeclarationNameInfo &NameInfo, QualType T,
                      TypeSourceInfo *TInfo, ExplicitSpecifier ES, bool isInline,
                      bool isImplicitlyDeclared, ConstexprSpecKind ConstexprKind,
-                     InheritedConstructor Inherited);
+                     InheritedConstructor Inherited,
+                     Expr *TrailingRequiresClause);
 
   void anchor() override;
 
@@ -2415,7 +2448,8 @@ public:
          const DeclarationNameInfo &NameInfo, QualType T, TypeSourceInfo *TInfo,
          ExplicitSpecifier ES, bool isInline, bool isImplicitlyDeclared,
          ConstexprSpecKind ConstexprKind,
-         InheritedConstructor Inherited = InheritedConstructor());
+         InheritedConstructor Inherited = InheritedConstructor(),
+         Expr *TrailingRequiresClause = nullptr);
 
   ExplicitSpecifier getExplicitSpecifier() {
     return getCanonicalDecl()->getExplicitSpecifierInternal();
@@ -2622,9 +2656,11 @@ class CXXDestructorDecl : public CXXMethodDecl {
   CXXDestructorDecl(ASTContext &C, CXXRecordDecl *RD, SourceLocation StartLoc,
                     const DeclarationNameInfo &NameInfo, QualType T,
                     TypeSourceInfo *TInfo, bool isInline,
-                    bool isImplicitlyDeclared, ConstexprSpecKind ConstexprKind)
+                    bool isImplicitlyDeclared, ConstexprSpecKind ConstexprKind,
+                    Expr *TrailingRequiresClause = nullptr)
       : CXXMethodDecl(CXXDestructor, C, RD, StartLoc, NameInfo, T, TInfo,
-                      SC_None, isInline, ConstexprKind, SourceLocation()) {
+                      SC_None, isInline, ConstexprKind, SourceLocation(),
+                      TrailingRequiresClause) {
     setImplicit(isImplicitlyDeclared);
   }
 
@@ -2636,7 +2672,8 @@ public:
                                    const DeclarationNameInfo &NameInfo,
                                    QualType T, TypeSourceInfo *TInfo,
                                    bool isInline, bool isImplicitlyDeclared,
-                                   ConstexprSpecKind ConstexprKind);
+                                   ConstexprSpecKind ConstexprKind,
+                                   Expr *TrailingRequiresClause = nullptr);
   static CXXDestructorDecl *CreateDeserialized(ASTContext & C, unsigned ID);
 
   void setOperatorDelete(FunctionDecl *OD, Expr *ThisArg);
@@ -2675,15 +2712,15 @@ class CXXConversionDecl : public CXXMethodDecl {
   CXXConversionDecl(ASTContext &C, CXXRecordDecl *RD, SourceLocation StartLoc,
                     const DeclarationNameInfo &NameInfo, QualType T,
                     TypeSourceInfo *TInfo, bool isInline, ExplicitSpecifier ES,
-                    ConstexprSpecKind ConstexprKind, SourceLocation EndLocation)
+                    ConstexprSpecKind ConstexprKind, SourceLocation EndLocation,
+                    Expr *TrailingRequiresClause = nullptr)
       : CXXMethodDecl(CXXConversion, C, RD, StartLoc, NameInfo, T, TInfo,
-                      SC_None, isInline, ConstexprKind, EndLocation),
+                      SC_None, isInline, ConstexprKind, EndLocation,
+                      TrailingRequiresClause),
         ExplicitSpec(ES) {}
   void anchor() override;
 
   ExplicitSpecifier ExplicitSpec;
-
-  void setExplicitSpecifier(ExplicitSpecifier ES) { ExplicitSpec = ES; }
 
 public:
   friend class ASTDeclReader;
@@ -2693,7 +2730,7 @@ public:
   Create(ASTContext &C, CXXRecordDecl *RD, SourceLocation StartLoc,
          const DeclarationNameInfo &NameInfo, QualType T, TypeSourceInfo *TInfo,
          bool isInline, ExplicitSpecifier ES, ConstexprSpecKind ConstexprKind,
-         SourceLocation EndLocation);
+         SourceLocation EndLocation, Expr *TrailingRequiresClause = nullptr);
   static CXXConversionDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
   ExplicitSpecifier getExplicitSpecifier() {
@@ -2706,6 +2743,7 @@ public:
 
   /// Return true if the declartion is already resolved to be explicit.
   bool isExplicit() const { return getExplicitSpecifier().isExplicit(); }
+  void setExplicitSpecifier(ExplicitSpecifier ES) { ExplicitSpec = ES; }
 
   /// Returns the type that this conversion function is converting to.
   QualType getConversionType() const {

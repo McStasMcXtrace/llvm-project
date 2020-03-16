@@ -4,22 +4,46 @@ include "spec/linux.td"
 include "spec/posix.td"
 include "spec/stdc.td"
 
-def FloatT : TypeDecl<"float_t"> {
-  let Decl = [{
-    #if __FLT_EVAL_METHOD__ == 1
-      typedef float float_t
-    #elif __FLT_EVAL_METHOD__ == 2
-      ...
-    #else
-      ...
-    #endif
-  }]; // This is only an example and not exactly how it will appear
-}
-
 def SizeT : TypeDecl<"size_t"> {
   let Decl = [{
     #define __need_size_t
     #include <stddef.h>
+  }];
+}
+
+def OffT : TypeDecl<"off_t"> {
+  let Decl = [{
+    #define __need_off_t
+    #include <__posix-types.h>
+  }];
+}
+
+def AssertMacro : MacroDef<"assert"> {
+  let Defn = [{
+    #undef assert
+
+    #ifdef NDEBUG
+    #define assert(e) (void)0
+    #else
+
+    #ifdef __cplusplus
+    extern "C"
+    #endif
+    _Noreturn void __assert_fail(const char *, const char *, unsigned, const char *);
+
+    #define assert(e)  \
+      ((e) ? (void)0 : __assert_fail(#e, __FILE__, __LINE__, __PRETTY_FUNCTION__))
+
+    #endif
+  }];
+}
+
+def StaticAssertMacro : MacroDef<"static_assert"> {
+  let Defn = [{
+    #ifndef __cplusplus
+    #undef static_assert
+    #define static_assert _Static_assert
+    #endif
   }];
 }
 
@@ -32,19 +56,25 @@ def NullMacro : MacroDef<"NULL"> {
 
 def ErrnoMacro : MacroDef<"errno"> {
   let Defn = [{
+    #ifdef __cplusplus
+    extern "C"
+    #endif
     int *__errno_location();
     #define errno (*__errno_location())
   }];
+}
+
+def AssertAPI : PublicAPI<"assert.h"> {
+  let Macros = [
+    AssertMacro,
+    StaticAssertMacro,
+  ];
 }
 
 def MathAPI : PublicAPI<"math.h"> {
   let Functions = [
    "acos",
    "acosl",
-  ];
-
-  let TypeDeclarations = [
-    FloatT,
   ];
 }
 
@@ -93,6 +123,13 @@ def StdIOAPI : PublicAPI<"stdio.h"> {
   ];
 }
 
+def StdlibAPI : PublicAPI<"stdlib.h"> {
+  let Functions = [
+    "_Exit",
+    "abort",
+  ];
+}
+
 def ErrnoAPI : PublicAPI<"errno.h"> {
   let Macros = [
     ErrnoMacro,
@@ -109,5 +146,84 @@ def ErrnoAPI : PublicAPI<"errno.h"> {
     MacroDefineIfNot<"ENOTRECOVERABLE", "131">,
     MacroDefineIfNot<"ERFKILL", "132">,
     MacroDefineIfNot<"EHWPOISON", "133">,
+  ];
+}
+
+def SysMManAPI : PublicAPI<"sys/mman.h"> {
+  let Macros = [
+    SimpleMacroDef<"PROT_NONE", "0">,
+    SimpleMacroDef<"PROT_READ", "1">,
+    SimpleMacroDef<"PROT_WRITE", "2">,
+    SimpleMacroDef<"PROT_EXEC", "4">,
+
+    SimpleMacroDef<"MAP_FIXED", "1">,
+    SimpleMacroDef<"MAP_PRIVATE", "2">,
+    SimpleMacroDef<"MAP_SHARED", "4">,
+
+    SimpleMacroDef<"MAP_FAILED", "((void*)-1)">,
+
+    // TODO: The value of 0x20 is good for x86_64, but has to be extended
+    // in some manner to accommodate other machine architectures.
+    SimpleMacroDef<"MAP_ANONYMOUS", "0x20">
+
+    // TODO: Add other MAP_* macros used by Linux.
+  ];
+
+  let TypeDeclarations = [
+    SizeT,
+    OffT,
+  ];
+
+  let Functions = [
+    "mmap",
+    "munmap",
+  ];
+}
+
+def SignalAPI : PublicAPI<"signal.h"> {
+  let Functions = [
+    "raise",
+    "sigprocmask",
+    "sigemptyset",
+    "sigaddset",
+  ];
+}
+
+def MtxT : TypeDecl<"mtx_t"> {
+  let Decl = [{
+    typedef struct {
+      unsigned char __internal_data[4];
+      int __mtx_type;
+    } mtx_t;
+  }];
+}
+
+def ThreadStartT : TypeDecl<"thrd_start_t"> {
+  let Decl = "typedef int (*thrd_start_t)(void *);";
+}
+
+def ThreadsAPI : PublicAPI<"threads.h"> {
+  let TypeDeclarations = [
+    MtxT,
+    ThreadStartT,
+  ];
+
+  let Enumerations = [
+    "mtx_plain",
+    "mtx_recursive",
+    "mtx_timed",
+    "thrd_timedout",
+    "thrd_success",
+    "thrd_busy",
+    "thrd_error",
+    "thrd_nomem",
+  ];
+
+  let Functions = [
+    "mtx_init",
+    "mtx_lock",
+    "mtx_unlock",
+    "thrd_create",
+    "thrd_join",
   ];
 }

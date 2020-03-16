@@ -1,4 +1,4 @@
-//===-- CommandObjectBreakpointCommand.cpp ----------------------*- C++ -*-===//
+//===-- CommandObjectBreakpointCommand.cpp --------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,7 +19,6 @@
 #include "lldb/Interpreter/OptionGroupPythonClassWithDict.h"
 #include "lldb/Target/Target.h"
 
-
 using namespace lldb;
 using namespace lldb_private;
 
@@ -38,7 +37,12 @@ static constexpr OptionEnumValueElement g_script_option_enumeration[] = {
         "Commands are in the Python language.",
     },
     {
-        eSortOrderByName,
+        eScriptLanguageLua,
+        "lua",
+        "Commands are in the Lua language.",
+    },
+    {
+        eScriptLanguageDefault,
         "default-script",
         "Commands are in the default scripting language.",
     },
@@ -252,7 +256,6 @@ are no syntax errors may indicate that a function was declared but never called.
     m_interpreter.GetLLDBCommandsFromIOHandler(
         "> ",             // Prompt
         *this,            // IOHandlerDelegate
-        true,             // Run IOHandler in async mode
         &bp_options_vec); // Baton for the "io_handler" that will be passed back
                           // into our IOHandlerDelegate functions
   }
@@ -289,7 +292,7 @@ are no syntax errors may indicate that a function was declared but never called.
       switch (short_option) {
       case 'o':
         m_use_one_liner = true;
-        m_one_liner = option_arg;
+        m_one_liner = std::string(option_arg);
         break;
 
       case 's':
@@ -297,12 +300,15 @@ are no syntax errors may indicate that a function was declared but never called.
             option_arg,
             g_breakpoint_command_add_options[option_idx].enum_values,
             eScriptLanguageNone, error);
-
-        if (m_script_language == eScriptLanguagePython ||
-            m_script_language == eScriptLanguageDefault) {
+        switch (m_script_language) {
+        case eScriptLanguagePython:
+        case eScriptLanguageLua:
           m_use_script_language = true;
-        } else {
+          break;
+        case eScriptLanguageNone:
+        case eScriptLanguageUnknown:
           m_use_script_language = false;
+          break;
         }
         break;
 
@@ -369,7 +375,10 @@ protected:
 
     if (!m_func_options.GetName().empty()) {
       m_options.m_use_one_liner = false;
-      m_options.m_use_script_language = true;
+      if (!m_options.m_use_script_language) {
+        m_options.m_script_language = GetDebugger().GetScriptLanguage();
+        m_options.m_use_script_language = true;
+      }
     }
 
     BreakpointIDList valid_bp_ids;
@@ -408,7 +417,8 @@ protected:
       // to set or collect command callback.  Otherwise, call the methods
       // associated with this object.
       if (m_options.m_use_script_language) {
-        ScriptInterpreter *script_interp = GetDebugger().GetScriptInterpreter();
+        ScriptInterpreter *script_interp = GetDebugger().GetScriptInterpreter(
+            /*can_create=*/true, m_options.m_script_language);
         // Special handling for one-liner specified inline.
         if (m_options.m_use_one_liner) {
           script_interp->SetBreakpointCommandCallback(

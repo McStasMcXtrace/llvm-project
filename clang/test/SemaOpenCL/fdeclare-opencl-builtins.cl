@@ -44,8 +44,14 @@ kernel void test_pointers(volatile global void *global_p, global const int4 *a) 
 
 // There are two potential definitions of the function "atom_add", both are
 // currently disabled because the associated extension is disabled.
-// expected-note@-6{{candidate unavailable as it requires OpenCL extension 'cl_khr_global_int32_base_atomics' to be enabled}}
-// expected-note@-7{{candidate unavailable as it requires OpenCL extension 'cl_khr_global_int32_base_atomics' to be enabled}}
+// expected-note@-6{{candidate function not viable: cannot pass pointer to address space '__global' as a pointer to address space '__local' in 1st argument}}
+// expected-note@-7{{candidate function not viable: no known conversion}}
+// expected-note@-8{{candidate function not viable: no known conversion}}
+// expected-note@-9{{candidate function not viable: no known conversion}}
+// expected-note@-10{{candidate unavailable as it requires OpenCL extension 'cl_khr_global_int32_base_atomics' to be enabled}}
+// expected-note@-11{{candidate unavailable as it requires OpenCL extension 'cl_khr_global_int32_base_atomics' to be enabled}}
+// expected-note@-12{{candidate unavailable as it requires OpenCL extension 'cl_khr_int64_base_atomics' to be enabled}}
+// expected-note@-13{{candidate unavailable as it requires OpenCL extension 'cl_khr_int64_base_atomics' to be enabled}}
 #endif
 
 #if __OPENCL_C_VERSION__ < CL_VERSION_1_1
@@ -65,9 +71,23 @@ kernel void basic_conversion() {
   int4 i4;
 
   f = convert_float(d);
-  d = convert_double_sat_rtp(f);
+  d = convert_double_rtp(f);
   l2 = convert_long2_rtz(c2);
   i4 = convert_int4_sat(f4);
+}
+
+kernel void basic_conversion_neg() {
+  int i;
+  float f;
+
+  f = convert_float_sat(i);
+#if !defined(__OPENCL_CPP_VERSION__)
+  // expected-error@-2{{implicit declaration of function 'convert_float_sat' is invalid in OpenCL}}
+  // expected-error@-3{{implicit conversion from 'int' to 'float' may lose precision}}
+#else
+  // expected-error@-5{{use of undeclared identifier 'convert_float_sat'; did you mean 'convert_float'?}}
+  // expected-note@-6{{'convert_float' declared here}}
+#endif
 }
 
 char4 test_int(char c, char4 c4) {

@@ -13,6 +13,8 @@
 #define _TARGET_IMPL_H_
 
 #include <cuda.h>
+#include <stdlib.h>
+
 #include "nvptx_interface.h"
 
 #define DEVICE __device__
@@ -100,15 +102,15 @@ INLINE uint32_t __kmpc_impl_smid() {
   return id;
 }
 
-INLINE double __target_impl_get_wtick() {
+INLINE double __kmpc_impl_get_wtick() {
   // Timer precision is 1ns
   return ((double)1E-9);
 }
 
-INLINE double __target_impl_get_wtime() {
+INLINE double __kmpc_impl_get_wtime() {
   unsigned long long nsecs;
   asm("mov.u64  %0, %%globaltimer;" : "=l"(nsecs));
-  return (double)nsecs * __target_impl_get_wtick();
+  return (double)nsecs * __kmpc_impl_get_wtick();
 }
 
 INLINE uint32_t __kmpc_impl_ffs(uint32_t x) { return __ffs(x); }
@@ -187,6 +189,17 @@ INLINE int GetThreadIdInBlock() { return threadIdx.x; }
 INLINE int GetBlockIdInKernel() { return blockIdx.x; }
 INLINE int GetNumberOfBlocksInKernel() { return gridDim.x; }
 INLINE int GetNumberOfThreadsInBlock() { return blockDim.x; }
+INLINE unsigned GetWarpId() { return GetThreadIdInBlock() / WARPSIZE; }
+INLINE unsigned GetLaneId() { return GetThreadIdInBlock() & (WARPSIZE - 1); }
+
+// Return true if this is the first active thread in the warp.
+INLINE bool __kmpc_impl_is_first_active_thread() {
+  unsigned long long Mask = __kmpc_impl_activemask();
+  unsigned long long ShNum = WARPSIZE - (GetThreadIdInBlock() % WARPSIZE);
+  unsigned long long Sh = Mask << ShNum;
+  // Truncate Sh to the 32 lower bits
+  return (unsigned)Sh == 0;
+}
 
 // Locks
 EXTERN void __kmpc_impl_init_lock(omp_lock_t *lock);
@@ -194,5 +207,9 @@ EXTERN void __kmpc_impl_destroy_lock(omp_lock_t *lock);
 EXTERN void __kmpc_impl_set_lock(omp_lock_t *lock);
 EXTERN void __kmpc_impl_unset_lock(omp_lock_t *lock);
 EXTERN int __kmpc_impl_test_lock(omp_lock_t *lock);
+
+// Memory
+INLINE void *__kmpc_impl_malloc(size_t x) { return malloc(x); }
+INLINE void __kmpc_impl_free(void *x) { free(x); }
 
 #endif

@@ -159,6 +159,18 @@ protected:
   unsigned ZeroLengthBitfieldBoundary;
 };
 
+/// OpenCL type kinds.
+enum OpenCLTypeKind : uint8_t {
+  OCLTK_Default,
+  OCLTK_ClkEvent,
+  OCLTK_Event,
+  OCLTK_Image,
+  OCLTK_Pipe,
+  OCLTK_Queue,
+  OCLTK_ReserveID,
+  OCLTK_Sampler,
+};
+
 /// Exposes information about the current target.
 ///
 class TargetInfo : public virtual TransferrableTargetInfo,
@@ -197,6 +209,8 @@ protected:
   unsigned IsRenderScriptTarget : 1;
 
   unsigned HasAArch64SVETypes : 1;
+
+  unsigned ARMCDECoprocMask : 8;
 
   // TargetInfo Constructor.  Default initializes all fields.
   TargetInfo(const llvm::Triple &T);
@@ -796,6 +810,10 @@ public:
   /// available on this target.
   bool hasAArch64SVETypes() const { return HasAArch64SVETypes; }
 
+  /// For ARM targets returns a mask defining which coprocessors are configured
+  /// as Custom Datapath.
+  uint32_t getARMCDECoprocMask() const { return ARMCDECoprocMask; }
+
   /// Returns whether the passed in string is a valid clobber in an
   /// inline asm statement.
   ///
@@ -815,6 +833,8 @@ public:
   /// ReturnCanonical = true and Name = "rax", will return "ax".
   StringRef getNormalizedGCCRegisterName(StringRef Name,
                                          bool ReturnCanonical = false) const;
+
+  virtual bool isSPRegName(StringRef) const { return false; }
 
   /// Extracts a register from the passed constraint (if it is a
   /// single-register constraint) and the asm label expression related to a
@@ -945,12 +965,14 @@ public:
   bool validateInputConstraint(MutableArrayRef<ConstraintInfo> OutputConstraints,
                                ConstraintInfo &info) const;
 
-  virtual bool validateOutputSize(StringRef /*Constraint*/,
+  virtual bool validateOutputSize(const llvm::StringMap<bool> &FeatureMap,
+                                  StringRef /*Constraint*/,
                                   unsigned /*Size*/) const {
     return true;
   }
 
-  virtual bool validateInputSize(StringRef /*Constraint*/,
+  virtual bool validateInputSize(const llvm::StringMap<bool> &FeatureMap,
+                                 StringRef /*Constraint*/,
                                  unsigned /*Size*/) const {
     return true;
   }
@@ -1144,10 +1166,7 @@ public:
 
   /// Identify whether this target supports multiversioning of functions,
   /// which requires support for cpu_supports and cpu_is functionality.
-  bool supportsMultiVersioning() const {
-    return getTriple().getArch() == llvm::Triple::x86 ||
-           getTriple().getArch() == llvm::Triple::x86_64;
-  }
+  bool supportsMultiVersioning() const { return getTriple().isX86(); }
 
   /// Identify whether this target supports IFuncs.
   bool supportsIFunc() const { return getTriple().isOSBinFormatELF(); }
@@ -1212,8 +1231,7 @@ public:
   /// Whether the target supports SEH __try.
   bool isSEHTrySupported() const {
     return getTriple().isOSWindows() &&
-           (getTriple().getArch() == llvm::Triple::x86 ||
-            getTriple().getArch() == llvm::Triple::x86_64 ||
+           (getTriple().isX86() ||
             getTriple().getArch() == llvm::Triple::aarch64);
   }
 
@@ -1346,17 +1364,6 @@ public:
   const OpenCLOptions &getSupportedOpenCLOpts() const {
       return getTargetOpts().SupportedOpenCLOptions;
   }
-
-  enum OpenCLTypeKind {
-    OCLTK_Default,
-    OCLTK_ClkEvent,
-    OCLTK_Event,
-    OCLTK_Image,
-    OCLTK_Pipe,
-    OCLTK_Queue,
-    OCLTK_ReserveID,
-    OCLTK_Sampler,
-  };
 
   /// Get address space for OpenCL type.
   virtual LangAS getOpenCLTypeAddrSpace(OpenCLTypeKind TK) const;

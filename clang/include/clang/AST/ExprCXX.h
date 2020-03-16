@@ -14,7 +14,6 @@
 #ifndef LLVM_CLANG_AST_EXPRCXX_H
 #define LLVM_CLANG_AST_EXPRCXX_H
 
-#include "clang/AST/ASTConcept.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclCXX.h"
@@ -118,6 +117,22 @@ public:
            Opc == OO_CaretEqual || Opc == OO_PipeEqual;
   }
   bool isAssignmentOp() const { return isAssignmentOp(getOperator()); }
+
+  static bool isComparisonOp(OverloadedOperatorKind Opc) {
+    switch (Opc) {
+    case OO_EqualEqual:
+    case OO_ExclaimEqual:
+    case OO_Greater:
+    case OO_GreaterEqual:
+    case OO_Less:
+    case OO_LessEqual:
+    case OO_Spaceship:
+      return true;
+    default:
+      return false;
+    }
+  }
+  bool isComparisonOp() const { return isComparisonOp(getOperator()); }
 
   /// Is this written as an infix binary operator?
   bool isInfixBinaryOp() const;
@@ -3306,13 +3321,15 @@ public:
 /// literal is the extent of the enclosing scope.
 class ExprWithCleanups final
     : public FullExpr,
-      private llvm::TrailingObjects<ExprWithCleanups, BlockDecl *> {
+      private llvm::TrailingObjects<
+          ExprWithCleanups,
+          llvm::PointerUnion<BlockDecl *, CompoundLiteralExpr *>> {
 public:
   /// The type of objects that are kept in the cleanup.
-  /// It's useful to remember the set of blocks;  we could also
-  /// remember the set of temporaries, but there's currently
-  /// no need.
-  using CleanupObject = BlockDecl *;
+  /// It's useful to remember the set of blocks and block-scoped compound
+  /// literals; we could also remember the set of temporaries, but there's
+  /// currently no need.
+  using CleanupObject = llvm::PointerUnion<BlockDecl *, CompoundLiteralExpr *>;
 
 private:
   friend class ASTStmtReader;
@@ -4833,141 +4850,6 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == BuiltinBitCastExprClass;
-  }
-};
-
-/// \brief Represents the specialization of a concept - evaluates to a prvalue
-/// of type bool.
-///
-/// According to C++2a [expr.prim.id]p3 an id-expression that denotes the
-/// specialization of a concept results in a prvalue of type bool.
-class ConceptSpecializationExpr final : public Expr,
-      private llvm::TrailingObjects<ConceptSpecializationExpr,
-                                    TemplateArgument> {
-  friend class ASTStmtReader;
-  friend TrailingObjects;
-public:
-  using SubstitutionDiagnostic = std::pair<SourceLocation, std::string>;
-
-protected:
-
-  // \brief The optional nested name specifier used when naming the concept.
-  NestedNameSpecifierLoc NestedNameSpec;
-
-  /// \brief The location of the template keyword, if specified when naming the
-  /// concept.
-  SourceLocation TemplateKWLoc;
-
-  /// \brief The location of the concept name in the expression.
-  SourceLocation ConceptNameLoc;
-
-  /// \brief The declaration found by name lookup when the expression was
-  /// created.
-  /// Can differ from NamedConcept when, for example, the concept was found
-  /// through a UsingShadowDecl.
-  NamedDecl *FoundDecl;
-
-  /// \brief The concept named.
-  ConceptDecl *NamedConcept;
-
-  /// \brief The template argument list source info used to specialize the
-  /// concept.
-  const ASTTemplateArgumentListInfo *ArgsAsWritten = nullptr;
-
-  /// \brief The number of template arguments in the tail-allocated list of
-  /// converted template arguments.
-  unsigned NumTemplateArgs;
-
-  /// \brief Information about the satisfaction of the named concept with the
-  /// given arguments. If this expression is value dependent, this is to be
-  /// ignored.
-  ASTConstraintSatisfaction *Satisfaction;
-
-  ConceptSpecializationExpr(ASTContext &C, NestedNameSpecifierLoc NNS,
-                            SourceLocation TemplateKWLoc,
-                            SourceLocation ConceptNameLoc, NamedDecl *FoundDecl,
-                            ConceptDecl *NamedConcept,
-                            const ASTTemplateArgumentListInfo *ArgsAsWritten,
-                            ArrayRef<TemplateArgument> ConvertedArgs,
-                            const ConstraintSatisfaction *Satisfaction);
-
-  ConceptSpecializationExpr(EmptyShell Empty, unsigned NumTemplateArgs);
-
-public:
-
-  static ConceptSpecializationExpr *
-  Create(ASTContext &C, NestedNameSpecifierLoc NNS,
-         SourceLocation TemplateKWLoc, SourceLocation ConceptNameLoc,
-         NamedDecl *FoundDecl, ConceptDecl *NamedConcept,
-         const ASTTemplateArgumentListInfo *ArgsAsWritten,
-         ArrayRef<TemplateArgument> ConvertedArgs,
-         const ConstraintSatisfaction *Satisfaction);
-
-  static ConceptSpecializationExpr *
-  Create(ASTContext &C, EmptyShell Empty, unsigned NumTemplateArgs);
-
-  const NestedNameSpecifierLoc &getNestedNameSpecifierLoc() const {
-    return NestedNameSpec;
-  }
-
-  NamedDecl *getFoundDecl() const {
-    return FoundDecl;
-  }
-
-  ConceptDecl *getNamedConcept() const {
-    return NamedConcept;
-  }
-
-  ArrayRef<TemplateArgument> getTemplateArguments() const {
-    return ArrayRef<TemplateArgument>(getTrailingObjects<TemplateArgument>(),
-                                      NumTemplateArgs);
-  }
-
-  const ASTTemplateArgumentListInfo *getTemplateArgsAsWritten() const {
-    return ArgsAsWritten;
-  }
-
-  /// \brief Set new template arguments for this concept specialization.
-  void setTemplateArguments(const ASTTemplateArgumentListInfo *ArgsAsWritten,
-                            ArrayRef<TemplateArgument> Converted);
-
-  /// \brief Whether or not the concept with the given arguments was satisfied
-  /// when the expression was created.
-  /// The expression must not be dependent.
-  bool isSatisfied() const {
-    assert(!isValueDependent()
-           && "isSatisfied called on a dependent ConceptSpecializationExpr");
-    return Satisfaction->IsSatisfied;
-  }
-
-  /// \brief Get elaborated satisfaction info about the template arguments'
-  /// satisfaction of the named concept.
-  /// The expression must not be dependent.
-  const ASTConstraintSatisfaction &getSatisfaction() const {
-    assert(!isValueDependent()
-           && "getSatisfaction called on dependent ConceptSpecializationExpr");
-    return *Satisfaction;
-  }
-
-  SourceLocation getConceptNameLoc() const { return ConceptNameLoc; }
-
-  SourceLocation getTemplateKWLoc() const { return TemplateKWLoc; }
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == ConceptSpecializationExprClass;
-  }
-
-  SourceLocation getBeginLoc() const LLVM_READONLY { return ConceptNameLoc; }
-  SourceLocation getEndLoc() const LLVM_READONLY {
-    return ArgsAsWritten->RAngleLoc;
-  }
-
-  // Iterators
-  child_range children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-  const_child_range children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
 

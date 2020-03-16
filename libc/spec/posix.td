@@ -1,4 +1,12 @@
+def SigSetType : NamedType<"sigset_t">;
+def SigSetPtrType : PtrType<SigSetType>;
+def ConstSigSetPtrType : ConstType<SigSetPtrType>;
+def RestrictSigSetType : RestrictedPtrType<SigSetType>;
+def ConstRestrictSigSetType : ConstType<RestrictSigSetType>;
+
 def POSIX : StandardSpec<"POSIX"> {
+  NamedType OffTType = NamedType<"off_t">;
+
   HeaderSpec Errno = HeaderSpec<
       "errno.h",
       [
@@ -82,10 +90,77 @@ def POSIX : StandardSpec<"POSIX"> {
         Macro<"EXDEV">,
       ],
       [], // Types
+      [], // Enumerations
       []  // Functions
+  >;
+
+  HeaderSpec SysMMan = HeaderSpec<
+      "sys/mman.h",
+      [
+        // TODO: Add a facility to bunch macros into bitwise-or-able groups.
+        // POSIX requires it, so such thing should be captured in this spec.
+        Macro<"PROT_EXEC">,
+        Macro<"PROT_NONE">,
+        Macro<"PROT_READ">,
+        Macro<"PROT_WRITE">,
+
+        Macro<"MAP_FIXED">,
+        Macro<"MAP_PRIVATE">,
+        Macro<"MAP_SHARED">,
+
+        Macro<"MAP_FAILED">,
+      ],
+      [
+        SizeTType,
+        OffTType,
+      ],
+      [], // Enumerations
+      [
+        FunctionSpec<
+            "mmap",
+            RetValSpec<VoidPtr>,
+            [ArgSpec<VoidPtr>,
+             ArgSpec<SizeTType>,
+             ArgSpec<IntType>,
+             ArgSpec<IntType>,
+             ArgSpec<IntType>,
+             ArgSpec<OffTType>]
+        >,
+        FunctionSpec<
+            "munmap",
+            RetValSpec<IntType>,
+            [ArgSpec<VoidPtr>, ArgSpec<SizeTType>]
+        >,
+      ]
+  >;
+
+  HeaderSpec Signal = HeaderSpec<
+      "signal.h",
+      [], // Macros
+      [], // Types
+      [], // Enumerations
+      [
+        FunctionSpec<
+          "sigprocmask",
+          RetValSpec<IntType>,
+          [ArgSpec<IntType>, ArgSpec<ConstRestrictSigSetType>, ArgSpec<RestrictSigSetType>]
+        >,
+        FunctionSpec<
+          "sigemptyset",
+          RetValSpec<IntType>,
+          [ArgSpec<SigSetPtrType>]
+        >,
+        FunctionSpec<
+          "sigaddset",
+          RetValSpec<IntType>,
+          [ArgSpec<SigSetPtrType>]
+        >,
+      ]
   >;
 
   let Headers = [
     Errno,
+    SysMMan,
+    Signal,
   ];
 }

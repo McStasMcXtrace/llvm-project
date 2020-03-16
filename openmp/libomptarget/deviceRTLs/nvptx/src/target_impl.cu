@@ -12,25 +12,23 @@
 
 #include "target_impl.h"
 #include "common/debug.h"
+#include "common/target_atomic.h"
 
 #define __OMP_SPIN 1000
-#define UNSET 0
-#define SET 1
+#define UNSET 0u
+#define SET 1u
 
 EXTERN void __kmpc_impl_init_lock(omp_lock_t *lock) {
-  omp_unset_lock(lock);
+  __kmpc_impl_unset_lock(lock);
 }
 
 EXTERN void __kmpc_impl_destroy_lock(omp_lock_t *lock) {
-  omp_unset_lock(lock);
+  __kmpc_impl_unset_lock(lock);
 }
 
 EXTERN void __kmpc_impl_set_lock(omp_lock_t *lock) {
-  // int atomicCAS(int* address, int compare, int val);
-  // (old == compare ? val : old)
-
   // TODO: not sure spinning is a good idea here..
-  while (atomicCAS(lock, UNSET, SET) != UNSET) {
+  while (__kmpc_atomic_cas(lock, UNSET, SET) != UNSET) {
     clock_t start = clock();
     clock_t now;
     for (;;) {
@@ -44,11 +42,9 @@ EXTERN void __kmpc_impl_set_lock(omp_lock_t *lock) {
 }
 
 EXTERN void __kmpc_impl_unset_lock(omp_lock_t *lock) {
-  (void)atomicExch(lock, UNSET);
+  (void)__kmpc_atomic_exchange(lock, UNSET);
 }
 
 EXTERN int __kmpc_impl_test_lock(omp_lock_t *lock) {
-  // int atomicCAS(int* address, int compare, int val);
-  // (old == compare ? val : old)
-  return atomicAdd(lock, 0);
+  return __kmpc_atomic_add(lock, 0u);
 }

@@ -1,4 +1,4 @@
-//===-- ScriptInterpreterPython.cpp -----------------------------*- C++ -*-===//
+//===-- ScriptInterpreterPython.cpp ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -55,6 +55,8 @@ using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::python;
 using llvm::Expected;
+
+LLDB_PLUGIN_DEFINE(ScriptInterpreterPython)
 
 // Defined in the SWIG source file
 #if PY_MAJOR_VERSION >= 3
@@ -275,14 +277,36 @@ public:
 
 private:
   void InitializePythonHome() {
-#if defined(LLDB_PYTHON_HOME)
+#if LLDB_EMBED_PYTHON_HOME
 #if PY_MAJOR_VERSION >= 3
-    size_t size = 0;
-    static wchar_t *g_python_home = Py_DecodeLocale(LLDB_PYTHON_HOME, &size);
+    typedef wchar_t* str_type;
 #else
-    static char g_python_home[] = LLDB_PYTHON_HOME;
+    typedef char* str_type;
 #endif
-    Py_SetPythonHome(g_python_home);
+    static str_type g_python_home = []() -> str_type {
+      const char *lldb_python_home = LLDB_PYTHON_HOME;
+      const char *absolute_python_home = nullptr;
+      llvm::SmallString<64> path;
+      if (llvm::sys::path::is_absolute(lldb_python_home)) {
+        absolute_python_home = lldb_python_home;
+      } else {
+        FileSpec spec = HostInfo::GetShlibDir();
+        if (!spec)
+          return nullptr;
+        spec.GetPath(path);
+        llvm::sys::path::append(path, lldb_python_home);
+        absolute_python_home = path.c_str();
+      }
+#if PY_MAJOR_VERSION >= 3
+      size_t size = 0;
+      return Py_DecodeLocale(absolute_python_home, &size);
+#else
+      return strdup(absolute_python_home);
+#endif
+    }();
+    if (g_python_home != nullptr) {
+      Py_SetPythonHome(g_python_home);
+    }
 #else
 #if defined(__APPLE__) && PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION == 7
     // For Darwin, the only Python version supported is the one shipped in the
@@ -853,7 +877,7 @@ static std::string GenerateUniqueName(const char *base_name_wanted,
   else
     sstr.Printf("%s_%p", base_name_wanted, name_token);
 
-  return sstr.GetString();
+  return std::string(sstr.GetString());
 }
 
 bool ScriptInterpreterPythonImpl::GetEmbeddedInterpreterModuleObjects() {
@@ -1064,7 +1088,7 @@ void ScriptInterpreterPythonImpl::ExecuteInterpreterLoop() {
 
   IOHandlerSP io_handler_sp(new IOHandlerPythonInterpreter(debugger, this));
   if (io_handler_sp) {
-    debugger.PushIOHandler(io_handler_sp);
+    debugger.RunIOHandlerAsync(io_handler_sp);
   }
 }
 
@@ -1248,14 +1272,14 @@ void ScriptInterpreterPythonImpl::CollectDataForBreakpointCommandCallback(
     CommandReturnObject &result) {
   m_active_io_handler = eIOHandlerBreakpoint;
   m_debugger.GetCommandInterpreter().GetPythonCommandsFromIOHandler(
-      "    ", *this, true, &bp_options_vec);
+      "    ", *this, &bp_options_vec);
 }
 
 void ScriptInterpreterPythonImpl::CollectDataForWatchpointCommandCallback(
     WatchpointOptions *wp_options, CommandReturnObject &result) {
   m_active_io_handler = eIOHandlerWatchpoint;
   m_debugger.GetCommandInterpreter().GetPythonCommandsFromIOHandler(
-      "    ", *this, true, wp_options);
+      "    ", *this, wp_options);
 }
 
 Status ScriptInterpreterPythonImpl::SetBreakpointCommandCallbackFunction(
@@ -2057,8 +2081,7 @@ ScriptInterpreterPythonImpl::LoadPluginModule(const FileSpec &file_spec,
 
   StructuredData::ObjectSP module_sp;
 
-  if (LoadScriptingModule(file_spec.GetPath().c_str(), true, true, error,
-                          &module_sp))
+  if (LoadScriptingModule(file_spec.GetPath().c_str(), true, error, &module_sp))
     return module_sp;
 
   return StructuredData::ObjectSP();
@@ -2737,8 +2760,8 @@ uint64_t replace_all(std::string &str, const std::string &oldStr,
 }
 
 bool ScriptInterpreterPythonImpl::LoadScriptingModule(
-    const char *pathname, bool can_reload, bool init_session,
-    lldb_private::Status &error, StructuredData::ObjectSP *module_sp) {
+    const char *pathname, bool init_session, lldb_private::Status &error,
+    StructuredData::ObjectSP *module_sp) {
   if (!pathname || !pathname[0]) {
     error.SetErrorString("invalid pathname");
     return false;
@@ -2837,11 +2860,6 @@ bool ScriptInterpreterPythonImpl::LoadScriptingModule(
                                     .IsAllocated();
 
     bool was_imported = (was_imported_globally || was_imported_locally);
-
-    if (was_imported && !can_reload) {
-      error.SetErrorString("module already imported");
-      return false;
-    }
 
     // now actually do the import
     command_stream.Clear();
@@ -3041,7 +3059,7 @@ bool ScriptInterpreterPythonImpl::GetDocumentationForItem(const char *item,
     StreamString str_stream;
     str_stream.Printf(
         "Function %s was not found. Containing module might be missing.", item);
-    dest = str_stream.GetString();
+    dest = std::string(str_stream.GetString());
     return false;
   }
 }

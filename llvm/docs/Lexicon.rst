@@ -64,10 +64,10 @@ C
 
 **CSE**
     Common Subexpression Elimination. An optimization that removes common
-    subexpression compuation. For example ``(a+b)*(a+b)`` has two subexpressions
-    that are the same: ``(a+b)``. This optimization would perform the addition
-    only once and then perform the multiply (but only if it's computationally
-    correct/safe).
+    subexpression computation. For example ``(a+b)*(a+b)`` has two
+    subexpressions that are the same: ``(a+b)``. This optimization would
+    perform the addition only once and then perform the multiply (but only if
+    it's computationally correct/safe).
 
 D
 -
@@ -229,6 +229,10 @@ R
     Rearranging associative expressions to promote better redundancy elimination
     and other optimization.  For example, changing ``(A+B-A)`` into ``(B+A-A)``,
     permitting it to be optimized into ``(B+0)`` then ``(B)``.
+
+**RFC**
+  Request for Comment. An email sent to a project mailing list in order to
+  solicit feedback on a proposed change.
 
 .. _roots:
 .. _stack roots:

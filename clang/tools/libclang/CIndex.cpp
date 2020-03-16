@@ -23,6 +23,7 @@
 #include "clang-c/FatalErrorHandler.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
+#include "clang/AST/OpenMPClause.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticCategories.h"
@@ -757,6 +758,11 @@ bool CursorVisitor::VisitClassTemplatePartialSpecializationDecl(
 }
 
 bool CursorVisitor::VisitTemplateTypeParmDecl(TemplateTypeParmDecl *D) {
+  if (const auto *TC = D->getTypeConstraint())
+    if (Visit(MakeCXCursor(TC->getImmediatelyDeclaredConstraint(), StmtParent,
+                           TU, RegionOfInterest)))
+      return true;
+
   // Visit the default argument.
   if (D->hasDefaultArgument() && !D->defaultArgumentWasInherited())
     if (TypeSourceInfo *DefArg = D->getDefaultArgumentInfo())
@@ -2039,6 +2045,7 @@ public:
   VisitOMPCancellationPointDirective(const OMPCancellationPointDirective *D);
   void VisitOMPCancelDirective(const OMPCancelDirective *D);
   void VisitOMPFlushDirective(const OMPFlushDirective *D);
+  void VisitOMPDepobjDirective(const OMPDepobjDirective *D);
   void VisitOMPOrderedDirective(const OMPOrderedDirective *D);
   void VisitOMPAtomicDirective(const OMPAtomicDirective *D);
   void VisitOMPTargetDirective(const OMPTargetDirective *D);
@@ -2227,11 +2234,21 @@ void OMPClauseEnqueue::VisitOMPCaptureClause(const OMPCaptureClause *) {}
 
 void OMPClauseEnqueue::VisitOMPSeqCstClause(const OMPSeqCstClause *) {}
 
+void OMPClauseEnqueue::VisitOMPAcqRelClause(const OMPAcqRelClause *) {}
+
+void OMPClauseEnqueue::VisitOMPAcquireClause(const OMPAcquireClause *) {}
+
+void OMPClauseEnqueue::VisitOMPReleaseClause(const OMPReleaseClause *) {}
+
+void OMPClauseEnqueue::VisitOMPRelaxedClause(const OMPRelaxedClause *) {}
+
 void OMPClauseEnqueue::VisitOMPThreadsClause(const OMPThreadsClause *) {}
 
 void OMPClauseEnqueue::VisitOMPSIMDClause(const OMPSIMDClause *) {}
 
 void OMPClauseEnqueue::VisitOMPNogroupClause(const OMPNogroupClause *) {}
+
+void OMPClauseEnqueue::VisitOMPDestroyClause(const OMPDestroyClause *) {}
 
 void OMPClauseEnqueue::VisitOMPUnifiedAddressClause(
     const OMPUnifiedAddressClause *) {}
@@ -2428,6 +2445,9 @@ OMPClauseEnqueue::VisitOMPCopyprivateClause(const OMPCopyprivateClause *C) {
 void OMPClauseEnqueue::VisitOMPFlushClause(const OMPFlushClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseEnqueue::VisitOMPDepobjClause(const OMPDepobjClause *C) {
+  Visitor->AddStmt(C->getDepobj());
+}
 void OMPClauseEnqueue::VisitOMPDependClause(const OMPDependClause *C) {
   VisitOMPClauseList(C);
 }
@@ -2456,7 +2476,10 @@ void OMPClauseEnqueue::VisitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *C) 
 void OMPClauseEnqueue::VisitOMPNontemporalClause(
     const OMPNontemporalClause *C) {
   VisitOMPClauseList(C);
+  for (const auto *E : C->private_refs())
+    Visitor->AddStmt(E);
 }
+void OMPClauseEnqueue::VisitOMPOrderClause(const OMPOrderClause *C) {}
 }
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
@@ -2849,6 +2872,10 @@ void EnqueueVisitor::VisitOMPTaskgroupDirective(
 }
 
 void EnqueueVisitor::VisitOMPFlushDirective(const OMPFlushDirective *D) {
+  VisitOMPExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPDepobjDirective(const OMPDepobjDirective *D) {
   VisitOMPExecutableDirective(D);
 }
 
@@ -5046,7 +5073,12 @@ CXString clang_getCursorDisplayName(CXCursor C) {
       // There is no parameter name, which makes this tricky. Try to come up
       // with something useful that isn't too long.
       if (TemplateTypeParmDecl *TTP = dyn_cast<TemplateTypeParmDecl>(Param))
-        OS << (TTP->wasDeclaredWithTypename()? "typename" : "class");
+        if (const auto *TC = TTP->getTypeConstraint()) {
+          TC->getConceptNameInfo().printName(OS, Policy);
+          if (TC->hasExplicitTemplateArgs())
+            OS << "<...>";
+        } else
+          OS << (TTP->wasDeclaredWithTypename()? "typename" : "class");
       else if (NonTypeTemplateParmDecl *NTTP
                                     = dyn_cast<NonTypeTemplateParmDecl>(Param))
         OS << NTTP->getType().getAsString(Policy);
@@ -5479,6 +5511,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTaskgroupDirective");
   case CXCursor_OMPFlushDirective:
     return cxstring::createRef("OMPFlushDirective");
+  case CXCursor_OMPDepobjDirective:
+    return cxstring::createRef("OMPDepobjDirective");
   case CXCursor_OMPOrderedDirective:
     return cxstring::createRef("OMPOrderedDirective");
   case CXCursor_OMPAtomicDirective:
@@ -6326,6 +6360,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::UsingPack:
   case Decl::Concept:
   case Decl::LifetimeExtendedTemporary:
+  case Decl::RequiresExprBody:
     return C;
 
   // Declaration kinds that don't make any sense here, but are

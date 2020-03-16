@@ -39,6 +39,11 @@ let Command = "settings read" in {
     Desc<"The file from which to read the settings.">;
 }
 
+let Command = "settings clear" in {
+  def setclear_all : Option<"all", "a">,
+    Desc<"Clear all settings.">;
+}
+
 let Command = "breakpoint list" in {
   // FIXME: We need to add an "internal" command, and then add this sort of
   // thing to it. But I need to see it for now, and don't want to wait.
@@ -115,6 +120,8 @@ let Command = "breakpoint set" in {
   def breakpoint_set_line : Option<"line", "l">, Group<1>, Arg<"LineNum">,
     Required,
     Desc<"Specifies the line number on which to set this breakpoint.">;
+  def breakpoint_set_column : Option<"column", "u">, Group<1>, Arg<"ColumnNum">,
+    Desc<"Specifies the column number on which to set this breakpoint.">;
   def breakpoint_set_address : Option<"address", "a">, Group<2>,
     Arg<"AddressOrExpression">, Required,
     Desc<"Set the breakpoint at the specified address.  If the address maps "
@@ -668,6 +675,11 @@ let Command = "process handle" in {
     Desc<"Whether or not the signal should be passed to the process.">;
 }
 
+let Command = "process status" in {
+  def process_status_verbose : Option<"verbose", "v">, Group<1>,
+    Desc<"Show verbose process status including extended crash information.">;
+}
+
 let Command = "script import" in {
   def script_import_allow_reload : Option<"allow-reload", "r">, Group<1>,
     Desc<"Allow the script to be loaded even if it was already loaded before. "
@@ -1125,4 +1137,9 @@ let Command = "watchpoint command add" in {
     Group<2>, Arg<"PythonFunction">, Desc<"Give the name of a Python function "
     "to run as command for this watchpoint. Be sure to give a module name if "
     "appropriate.">;
+}
+
+let Command = "watchpoint delete" in {
+  def watchpoint_delete_force : Option<"force", "f">, Group<1>,
+    Desc<"Delete all watchpoints without querying for confirmation.">;
 }

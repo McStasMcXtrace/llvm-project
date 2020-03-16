@@ -556,6 +556,30 @@ TEST_F(FormatTest, FormatLoopsWithoutCompoundStatement) {
   verifyFormat("for (;;) /* still don't merge */\n"
                "  continue;",
                AllowsMergedLoops);
+  verifyFormat("do a++;\n"
+               "while (true);",
+               AllowsMergedLoops);
+  verifyFormat("do /* Don't merge */\n"
+               "  a++;\n"
+               "while (true);",
+               AllowsMergedLoops);
+  verifyFormat("do // Don't merge\n"
+               "  a++;\n"
+               "while (true);",
+               AllowsMergedLoops);
+  verifyFormat("do\n"
+               "  // Don't merge\n"
+               "  a++;\n"
+               "while (true);",
+               AllowsMergedLoops);
+  // Without braces labels are interpreted differently.
+  verifyFormat("{\n"
+               "  do\n"
+               "  label:\n"
+               "    a++;\n"
+               "  while (true);\n"
+               "}",
+               AllowsMergedLoops);
 }
 
 TEST_F(FormatTest, FormatShortBracedStatements) {
@@ -1211,6 +1235,58 @@ TEST_F(FormatTest, FormatsSwitchStatement) {
                    "  }\n"
                    "}",
                    Style));
+  Style.IndentCaseLabels = false;
+  Style.IndentCaseBlocks = true;
+  EXPECT_EQ("switch (n)\n"
+            "{\n"
+            "case 0:\n"
+            "  {\n"
+            "    return false;\n"
+            "  }\n"
+            "case 1:\n"
+            "  break;\n"
+            "default:\n"
+            "  {\n"
+            "    return true;\n"
+            "  }\n"
+            "}",
+            format("switch (n) {\n"
+                   "case 0: {\n"
+                   "  return false;\n"
+                   "}\n"
+                   "case 1:\n"
+                   "  break;\n"
+                   "default: {\n"
+                   "  return true;\n"
+                   "}\n"
+                   "}",
+                   Style));
+  Style.IndentCaseLabels = true;
+  Style.IndentCaseBlocks = true;
+  EXPECT_EQ("switch (n)\n"
+            "{\n"
+            "  case 0:\n"
+            "    {\n"
+            "      return false;\n"
+            "    }\n"
+            "  case 1:\n"
+            "    break;\n"
+            "  default:\n"
+            "    {\n"
+            "      return true;\n"
+            "    }\n"
+            "}",
+            format("switch (n) {\n"
+                   "case 0: {\n"
+                   "  return false;\n"
+                   "}\n"
+                   "case 1:\n"
+                   "  break;\n"
+                   "default: {\n"
+                   "  return true;\n"
+                   "}\n"
+                   "}",
+                   Style));
 }
 
 TEST_F(FormatTest, CaseRanges) {
@@ -1565,6 +1641,41 @@ TEST_F(FormatTest, MultiLineControlStatements) {
             "  baz();\n"
             "}",
             format("try{foo();}catch(Exception&bar){baz();}", Style));
+  Style.ColumnLimit =
+      40; // to concentrate at brace wrapping, not line wrap due to column limit
+  EXPECT_EQ("try {\n"
+            "  foo();\n"
+            "} catch (Exception &bar) {\n"
+            "  baz();\n"
+            "}",
+            format("try{foo();}catch(Exception&bar){baz();}", Style));
+  Style.ColumnLimit =
+      20; // to concentrate at brace wrapping, not line wrap due to column limit
+
+  Style.BraceWrapping.BeforeElse = true;
+  EXPECT_EQ(
+      "if (foo) {\n"
+      "  bar();\n"
+      "}\n"
+      "else if (baz ||\n"
+      "         quux)\n"
+      "{\n"
+      "  foobar();\n"
+      "}\n"
+      "else {\n"
+      "  barbaz();\n"
+      "}",
+      format("if(foo){bar();}else if(baz||quux){foobar();}else{barbaz();}",
+             Style));
+
+  Style.BraceWrapping.BeforeCatch = true;
+  EXPECT_EQ("try {\n"
+            "  foo();\n"
+            "}\n"
+            "catch (...) {\n"
+            "  baz();\n"
+            "}",
+            format("try{foo();}catch(...){baz();}", Style));
 }
 
 //===----------------------------------------------------------------------===//
@@ -7320,6 +7431,9 @@ TEST_F(FormatTest, UnderstandsUsesOfStarAndAmp) {
   verifyFormat("typedef typeof(int(int, int))* MyFuncPtr;", Left);
   verifyFormat("[](const decltype(*a)* ptr) {}", Left);
   verifyFormat("typedef typeof /*comment*/ (int(int, int))* MyFuncPtr;", Left);
+  verifyFormat("auto x(A&&, B&&, C&&) -> D;", Left);
+  verifyFormat("auto x = [](A&&, B&&, C&&) -> D {};", Left);
+  verifyFormat("template <class T> X(T&&, T&&, T&&) -> X<T>;", Left);
 
   verifyIndependentOfContext("a = *(x + y);");
   verifyIndependentOfContext("a = &(x + y);");
@@ -12543,6 +12657,7 @@ TEST_F(FormatTest, ParsesConfigurationBools) {
   CHECK_PARSE_BOOL_FIELD(DerivePointerAlignment, "DerivePointerBinding");
   CHECK_PARSE_BOOL(DisableFormat);
   CHECK_PARSE_BOOL(IndentCaseLabels);
+  CHECK_PARSE_BOOL(IndentCaseBlocks);
   CHECK_PARSE_BOOL(IndentGotoLabels);
   CHECK_PARSE_BOOL(IndentWrappedFunctionNames);
   CHECK_PARSE_BOOL(KeepEmptyLinesAtTheStartOfBlocks);
@@ -12582,6 +12697,7 @@ TEST_F(FormatTest, ParsesConfigurationBools) {
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, AfterExternBlock);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeCatch);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeElse);
+  CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeLambdaBody);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, IndentBraces);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, SplitEmptyFunction);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, SplitEmptyRecord);
@@ -12940,6 +13056,12 @@ TEST_F(FormatTest, ParsesConfigurationWithLanguages) {
                                "IndentWidth: 34",
                                &Style),
             ParseError::Unsuitable);
+  FormatStyle BinPackedTCS = {};
+  BinPackedTCS.Language = FormatStyle::LK_JavaScript;
+  EXPECT_EQ(parseConfiguration("BinPackArguments: true\n"
+                               "InsertTrailingCommas: Wrapped",
+                               &BinPackedTCS),
+            ParseError::BinPackTrailingCommaConflict);
   EXPECT_EQ(12u, Style.IndentWidth);
   CHECK_PARSE("IndentWidth: 56", IndentWidth, 56u);
   EXPECT_EQ(FormatStyle::LK_Cpp, Style.Language);
@@ -13865,6 +13987,245 @@ TEST_F(FormatTest, FormatsLambdas) {
                "function([]() { return b; }, a)", MergeInline);
   verifyFormat("function(a, []() { return b; })",
                "function(a, []() { return b; })", MergeInline);
+
+  // Check option "BraceWrapping.BeforeLambdaBody" and different state of
+  // AllowShortLambdasOnASingleLine
+  FormatStyle LLVMWithBeforeLambdaBody = getLLVMStyle();
+  LLVMWithBeforeLambdaBody.BreakBeforeBraces = FormatStyle::BS_Custom;
+  LLVMWithBeforeLambdaBody.BraceWrapping.BeforeLambdaBody = true;
+  LLVMWithBeforeLambdaBody.AllowShortLambdasOnASingleLine =
+      FormatStyle::ShortLambdaStyle::SLS_None;
+  verifyFormat("FctWithOneNestedLambdaInline_SLS_None(\n"
+               "    []()\n"
+               "    {\n"
+               "      return 17;\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneNestedLambdaEmpty_SLS_None(\n"
+               "    []()\n"
+               "    {\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("auto fct_SLS_None = []()\n"
+               "{\n"
+               "  return 17;\n"
+               "};",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_None(\n"
+               "    []()\n"
+               "    {\n"
+               "      return Call(\n"
+               "          []()\n"
+               "          {\n"
+               "            return 17;\n"
+               "          });\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("void Fct()\n"
+               "{\n"
+               "  return {[]()\n"
+               "          {\n"
+               "            return 17;\n"
+               "          }};\n"
+               "}",
+               LLVMWithBeforeLambdaBody);
+
+  LLVMWithBeforeLambdaBody.AllowShortLambdasOnASingleLine =
+      FormatStyle::ShortLambdaStyle::SLS_Empty;
+  verifyFormat("FctWithOneNestedLambdaInline_SLS_Empty(\n"
+               "    []()\n"
+               "    {\n"
+               "      return 17;\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneNestedLambdaEmpty_SLS_Empty([]() {});",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneNestedLambdaEmptyInsideAVeryVeryVeryVeryVeryVeryVeryL"
+               "ongFunctionName_SLS_Empty(\n"
+               "    []() {});",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithMultipleParams_SLS_Empty(A, B,\n"
+               "                                []()\n"
+               "                                {\n"
+               "                                  return 17;\n"
+               "                                });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("auto fct_SLS_Empty = []()\n"
+               "{\n"
+               "  return 17;\n"
+               "};",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_Empty(\n"
+               "    []()\n"
+               "    {\n"
+               "      return Call([]() {});\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_Empty(A,\n"
+               "                           []()\n"
+               "                           {\n"
+               "                             return Call([]() {});\n"
+               "                           });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithLongLineInLambda_SLS_Empty(\n"
+      "    []()\n"
+      "    {\n"
+      "      return HereAVeryLongLine(ThatWillBeFormatted, OnMultipleLine,\n"
+      "                               AndShouldNotBeConsiderAsInline,\n"
+      "                               LambdaBodyMustBeBreak);\n"
+      "    });",
+      LLVMWithBeforeLambdaBody);
+
+  LLVMWithBeforeLambdaBody.AllowShortLambdasOnASingleLine =
+      FormatStyle::ShortLambdaStyle::SLS_Inline;
+  verifyFormat("FctWithOneNestedLambdaInline_SLS_Inline([]() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneNestedLambdaEmpty_SLS_Inline([]() {});",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("auto fct_SLS_Inline = []()\n"
+               "{\n"
+               "  return 17;\n"
+               "};",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_Inline([]() { return Call([]() { return "
+               "17; }); });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithLongLineInLambda_SLS_Inline(\n"
+      "    []()\n"
+      "    {\n"
+      "      return HereAVeryLongLine(ThatWillBeFormatted, OnMultipleLine,\n"
+      "                               AndShouldNotBeConsiderAsInline,\n"
+      "                               LambdaBodyMustBeBreak);\n"
+      "    });",
+      LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithMultipleParams_SLS_Inline("
+               "VeryLongParameterThatShouldAskToBeOnMultiLine,\n"
+               "                                 []() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithMultipleParams_SLS_Inline(FirstParam, []() { return 17; });",
+      LLVMWithBeforeLambdaBody);
+
+  LLVMWithBeforeLambdaBody.AllowShortLambdasOnASingleLine =
+      FormatStyle::ShortLambdaStyle::SLS_All;
+  verifyFormat("FctWithOneNestedLambdaInline_SLS_All([]() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneNestedLambdaEmpty_SLS_All([]() {});",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("auto fct_SLS_All = []() { return 17; };",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneParam_SLS_All(\n"
+               "    []()\n"
+               "    {\n"
+               "      // A cool function...\n"
+               "      return 43;\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithMultipleParams_SLS_All("
+               "VeryLongParameterThatShouldAskToBeOnMultiLine,\n"
+               "                              []() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithMultipleParams_SLS_All(A, []() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithMultipleParams_SLS_All(A, B, []() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithLongLineInLambda_SLS_All(\n"
+      "    []()\n"
+      "    {\n"
+      "      return HereAVeryLongLine(ThatWillBeFormatted, OnMultipleLine,\n"
+      "                               AndShouldNotBeConsiderAsInline,\n"
+      "                               LambdaBodyMustBeBreak);\n"
+      "    });",
+      LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "auto fct_SLS_All = []()\n"
+      "{\n"
+      "  return HereAVeryLongLine(ThatWillBeFormatted, OnMultipleLine,\n"
+      "                           AndShouldNotBeConsiderAsInline,\n"
+      "                           LambdaBodyMustBeBreak);\n"
+      "};",
+      LLVMWithBeforeLambdaBody);
+  LLVMWithBeforeLambdaBody.BinPackParameters = false;
+  verifyFormat("FctAllOnSameLine_SLS_All([]() { return S; }, Fst, Second);",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithLongLineInLambda_SLS_All([]() { return SomeValueNotSoLong; },\n"
+      "                                FirstParam,\n"
+      "                                SecondParam,\n"
+      "                                ThirdParam,\n"
+      "                                FourthParam);",
+      LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithLongLineInLambda_SLS_All(\n"
+               "    []() { return "
+               "SomeValueVeryVeryVeryVeryVeryVeryVeryVeryVeryLong; },\n"
+               "    FirstParam,\n"
+               "    SecondParam,\n"
+               "    ThirdParam,\n"
+               "    FourthParam);",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithLongLineInLambda_SLS_All(FirstParam,\n"
+      "                                SecondParam,\n"
+      "                                ThirdParam,\n"
+      "                                FourthParam,\n"
+      "                                []() { return SomeValueNotSoLong; });",
+      LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithLongLineInLambda_SLS_All(\n"
+               "    []()\n"
+               "    {\n"
+               "      return "
+               "HereAVeryLongLineThatWillBeFormattedOnMultipleLineAndShouldNotB"
+               "eConsiderAsInline;\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "FctWithLongLineInLambda_SLS_All(\n"
+      "    []()\n"
+      "    {\n"
+      "      return HereAVeryLongLine(ThatWillBeFormatted, OnMultipleLine,\n"
+      "                               AndShouldNotBeConsiderAsInline,\n"
+      "                               LambdaBodyMustBeBreak);\n"
+      "    });",
+      LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithTwoParams_SLS_All(\n"
+               "    []()\n"
+               "    {\n"
+               "      // A cool function...\n"
+               "      return 43;\n"
+               "    },\n"
+               "    87);",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithTwoParams_SLS_All([]() { return 43; }, 87);",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("FctWithOneNestedLambdas_SLS_All([]() { return 17; });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat(
+      "TwoNestedLambdas_SLS_All([]() { return Call([]() { return 17; }); });",
+      LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_All([]() { return Call([]() { return 17; "
+               "}); }, x);",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_All(\n"
+               "    []()\n"
+               "    {\n"
+               "      // A cool function...\n"
+               "      return Call([]() { return 17; });\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
+  verifyFormat("TwoNestedLambdas_SLS_All(\n"
+               "    []()\n"
+               "    {\n"
+               "      return Call(\n"
+               "          []()\n"
+               "          {\n"
+               "            // A cool function...\n"
+               "            return 17;\n"
+               "          });\n"
+               "    });",
+               LLVMWithBeforeLambdaBody);
 }
 
 TEST_F(FormatTest, EmptyLinesInLambdas) {
@@ -14790,6 +15151,30 @@ TEST_F(FormatTest, GuessLanguageWithCaret) {
       guessLanguage("foo.h", "int(^foo[(kNumEntries + 10)])(char, float);"));
 }
 
+TEST_F(FormatTest, FormatsInlineAsmSymbolicNames) {
+  // ASM symbolic names are identifiers that must be surrounded by [] without
+  // space in between:
+  // https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html#InputOperands
+
+  // Example from https://bugs.llvm.org/show_bug.cgi?id=45108.
+  verifyFormat(R"(//
+asm volatile("mrs %x[result], FPCR" : [result] "=r"(result));
+)");
+
+  // A list of several ASM symbolic names.
+  verifyFormat(R"(asm("mov %[e], %[d]" : [d] "=rm"(d), [e] "rm"(*e));)");
+
+  // ASM symbolic names in inline ASM with inputs and outputs.
+  verifyFormat(R"(//
+asm("cmoveq %1, %2, %[result]"
+    : [result] "=r"(result)
+    : "r"(test), "r"(new), "[result]"(old));
+)");
+
+  // ASM symbolic names in inline ASM with no outputs.
+  verifyFormat(R"(asm("mov %[e], %[d]" : : [d] "=rm"(d), [e] "rm"(*e));)");
+}
+
 TEST_F(FormatTest, GuessedLanguageWithInlineAsmClobbers) {
   EXPECT_EQ(FormatStyle::LK_Cpp,
             guessLanguage("foo.h", "void f() {\n"
@@ -14881,7 +15266,7 @@ TEST_F(FormatTest, AmbersandInLamda) {
   verifyFormat("auto lambda = [&a = a]() { a = 2; };", AlignStyle);
 }
 
- TEST_F(FormatTest, SpacesInConditionalStatement) {
+TEST_F(FormatTest, SpacesInConditionalStatement) {
   FormatStyle Spaces = getLLVMStyle();
   Spaces.SpacesInConditionalStatement = true;
   verifyFormat("for ( int i = 0; i; i++ )\n  continue;", Spaces);
@@ -14892,6 +15277,7 @@ TEST_F(FormatTest, AmbersandInLamda) {
   verifyFormat("while ( a )\n  return;", Spaces);
   verifyFormat("while ( (a && b) )\n  return;", Spaces);
   verifyFormat("do {\n} while ( 1 != 0 );", Spaces);
+  verifyFormat("try {\n} catch ( const std::exception & ) {\n}", Spaces);
   // Check that space on the left of "::" is inserted as expected at beginning
   // of condition.
   verifyFormat("while ( ::func() )\n  return;", Spaces);
@@ -14972,6 +15358,9 @@ TEST_F(FormatTest, OperatorSpacing) {
   Style.PointerAlignment = FormatStyle::PAS_Left;
   verifyFormat("Foo::operator*();", Style);
   verifyFormat("Foo::operator void*();", Style);
+  verifyFormat("Foo::operator/*comment*/ void*();", Style);
+  verifyFormat("Foo::operator/*a*/ const /*b*/ void*();", Style);
+  verifyFormat("Foo::operator/*a*/ volatile /*b*/ void*();", Style);
   verifyFormat("Foo::operator()(void*);", Style);
   verifyFormat("Foo::operator*(void*);", Style);
   verifyFormat("Foo::operator*();", Style);
@@ -14979,6 +15368,9 @@ TEST_F(FormatTest, OperatorSpacing) {
 
   verifyFormat("Foo::operator&();", Style);
   verifyFormat("Foo::operator void&();", Style);
+  verifyFormat("Foo::operator/*comment*/ void&();", Style);
+  verifyFormat("Foo::operator/*a*/ const /*b*/ void&();", Style);
+  verifyFormat("Foo::operator/*a*/ volatile /*b*/ void&();", Style);
   verifyFormat("Foo::operator()(void&);", Style);
   verifyFormat("Foo::operator&(void&);", Style);
   verifyFormat("Foo::operator&();", Style);
@@ -14986,6 +15378,9 @@ TEST_F(FormatTest, OperatorSpacing) {
 
   verifyFormat("Foo::operator&&();", Style);
   verifyFormat("Foo::operator void&&();", Style);
+  verifyFormat("Foo::operator/*comment*/ void&&();", Style);
+  verifyFormat("Foo::operator/*a*/ const /*b*/ void&&();", Style);
+  verifyFormat("Foo::operator/*a*/ volatile /*b*/ void&&();", Style);
   verifyFormat("Foo::operator()(void&&);", Style);
   verifyFormat("Foo::operator&&(void&&);", Style);
   verifyFormat("Foo::operator&&();", Style);

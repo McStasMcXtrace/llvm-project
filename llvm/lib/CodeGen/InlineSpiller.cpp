@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Spiller.h"
 #include "SplitKit.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -40,6 +39,8 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SlotIndexes.h"
+#include "llvm/CodeGen/Spiller.h"
+#include "llvm/CodeGen/StackMaps.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
@@ -534,9 +535,21 @@ bool InlineSpiller::canGuaranteeAssignmentAfterRemat(unsigned VReg,
   //   may have more remats than physregs, we're guaranteed to fail to assign
   //   one.
   // At the moment, we only handle this for STATEPOINTs since they're the only
-  // psuedo op where we've seen this.  If we start seeing other instructions
+  // pseudo op where we've seen this.  If we start seeing other instructions
   // with the same problem, we need to revisit this.
-  return (MI.getOpcode() != TargetOpcode::STATEPOINT);
+  if (MI.getOpcode() != TargetOpcode::STATEPOINT)
+    return true;
+  // For STATEPOINTs we allow re-materialization for fixed arguments only hoping
+  // that number of physical registers is enough to cover all fixed arguments.
+  // If it is not true we need to revisit it.
+  for (unsigned Idx = StatepointOpers(&MI).getVarIdx(),
+                EndIdx = MI.getNumOperands();
+       Idx < EndIdx; ++Idx) {
+    MachineOperand &MO = MI.getOperand(Idx);
+    if (MO.isReg() && MO.getReg() == VReg)
+      return false;
+  }
+  return true;
 }
 
 /// reMaterializeFor - Attempt to rematerialize before MI instead of reloading.
@@ -864,7 +877,8 @@ foldMemoryOperand(ArrayRef<std::pair<MachineInstr *, unsigned>> Ops,
       HSpiller.rmFromMergeableSpills(*MI, FI))
     --NumSpills;
   LIS.ReplaceMachineInstrInMaps(*MI, *FoldMI);
-  if (MI->isCall())
+  // Update the call site info.
+  if (MI->isCandidateForCallSiteEntry())
     MI->getMF()->moveCallSiteInfo(MI, FoldMI);
   MI->eraseFromParent();
 
@@ -1427,7 +1441,7 @@ void HoistSpillHelper::runHoistSpills(
   }
   // For spills in SpillsToKeep with LiveReg set (i.e., not original spill),
   // save them to SpillsToIns.
-  for (const auto Ent : SpillsToKeep) {
+  for (const auto &Ent : SpillsToKeep) {
     if (Ent.second)
       SpillsToIns[Ent.first->getBlock()] = Ent.second;
   }
@@ -1486,7 +1500,7 @@ void HoistSpillHelper::hoistAllSpills() {
 
     LLVM_DEBUG({
       dbgs() << "Finally inserted spills in BB: ";
-      for (const auto Ispill : SpillsToIns)
+      for (const auto &Ispill : SpillsToIns)
         dbgs() << Ispill.first->getNumber() << " ";
       dbgs() << "\nFinally removed spills in BB: ";
       for (const auto Rspill : SpillsToRm)
@@ -1501,7 +1515,7 @@ void HoistSpillHelper::hoistAllSpills() {
                                      StackIntvl.getValNumInfo(0));
 
     // Insert hoisted spills.
-    for (auto const Insert : SpillsToIns) {
+    for (auto const &Insert : SpillsToIns) {
       MachineBasicBlock *BB = Insert.first;
       unsigned LiveReg = Insert.second;
       MachineBasicBlock::iterator MI = IPA.getLastInsertPointIter(OrigLI, *BB);

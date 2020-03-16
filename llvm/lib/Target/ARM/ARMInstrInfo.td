@@ -243,6 +243,12 @@ def ARMqsub8b       : SDNode<"ARMISD::QSUB8b", SDT_ARMAnd, []>;
 def ARMqadd16b      : SDNode<"ARMISD::QADD16b", SDT_ARMAnd, []>;
 def ARMqsub16b      : SDNode<"ARMISD::QSUB16b", SDT_ARMAnd, []>;
 
+def SDT_ARMldrd     : SDTypeProfile<2, 1, [SDTCisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCisPtrTy<2>]>;
+def ARMldrd         : SDNode<"ARMISD::LDRD", SDT_ARMldrd, [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+
+def SDT_ARMstrd     : SDTypeProfile<0, 3, [SDTCisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCisPtrTy<2>]>;
+def ARMstrd         : SDNode<"ARMISD::STRD", SDT_ARMstrd, [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+
 // Vector operations shared between NEON and MVE
 
 def ARMvdup      : SDNode<"ARMISD::VDUP", SDTypeProfile<1, 1, [SDTCisVec<0>]>>;
@@ -268,6 +274,10 @@ def ARMvmovImm   : SDNode<"ARMISD::VMOVIMM", SDTARMVMOVIMM>;
 def ARMvmvnImm   : SDNode<"ARMISD::VMVNIMM", SDTARMVMOVIMM>;
 def ARMvmovFPImm : SDNode<"ARMISD::VMOVFPIMM", SDTARMVMOVIMM>;
 
+def SDTARMVORRIMM : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
+                                           SDTCisVT<2, i32>]>;
+def ARMvorrImm   : SDNode<"ARMISD::VORRIMM", SDTARMVORRIMM>;
+def ARMvbicImm   : SDNode<"ARMISD::VBICIMM", SDTARMVORRIMM>;
 
 def SDTARMVSHIMM : SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisSameAs<0, 1>,
                                         SDTCisVT<2, i32>]>;
@@ -289,6 +299,36 @@ def ARMvcmpz     : SDNode<"ARMISD::VCMPZ", SDTARMVCMPZ>;
 def ARMWLS      : SDNode<"ARMISD::WLS", SDT_ARMLoLoop, [SDNPHasChain]>;
 def ARMLE       : SDNode<"ARMISD::LE", SDT_ARMLoLoop, [SDNPHasChain]>;
 def ARMLoopDec  : SDNode<"ARMISD::LOOP_DEC", SDTIntBinOp, [SDNPHasChain]>;
+
+// 'VECTOR_REG_CAST' is an operation that reinterprets the contents of a
+// vector register as a different vector type, without changing the contents of
+// the register. It differs from 'bitconvert' in that bitconvert reinterprets
+// the _memory_ storage format of the vector, whereas VECTOR_REG_CAST
+// reinterprets the _register_ format - and in big-endian, the memory and
+// register formats are different, so they are different operations.
+//
+// For example, 'VECTOR_REG_CAST' between v8i16 and v16i8 will map the LSB of
+// the zeroth i16 lane to the zeroth i8 lane, regardless of system endianness,
+// whereas 'bitconvert' will map it to the high byte in big-endian mode,
+// because that's what (MVE) VSTRH.16 followed by VLDRB.8 would do. So the
+// bitconvert would have to emit a VREV16.8 instruction, whereas the
+// VECTOR_REG_CAST emits no code at all if the vector is already in a register.
+def ARMVectorRegCastImpl : SDNode<"ARMISD::VECTOR_REG_CAST", SDTUnaryOp>;
+
+// In little-endian, VECTOR_REG_CAST is often turned into bitconvert during
+// lowering (because in that situation they're identical). So an isel pattern
+// that needs to match something that's _logically_ a VECTOR_REG_CAST must
+// _physically_ match a different node type depending on endianness.
+//
+// This 'PatFrags' instance is a centralized facility to make that easy. It
+// matches VECTOR_REG_CAST in either endianness, and also bitconvert in the
+// endianness where it's equivalent.
+def ARMVectorRegCast: PatFrags<
+    (ops node:$x), [(ARMVectorRegCastImpl node:$x), (bitconvert node:$x)], [{
+       // Reject a match against bitconvert (aka ISD::BITCAST) if big-endian
+       return !(CurDAG->getDataLayout().isBigEndian() &&
+                N->getOpcode() == ISD::BITCAST);
+    }]>;
 
 //===----------------------------------------------------------------------===//
 // ARM Flag Definitions.
@@ -2695,6 +2735,14 @@ let mayLoad = 1, hasSideEffects = 0, hasExtraDefRegAllocReq = 1 in {
              Requires<[IsARM, HasV5TE]>;
 }
 
+let mayLoad = 1, hasSideEffects = 0, hasNoSchedulingInfo = 1 in {
+def LOADDUAL : ARMPseudoInst<(outs GPRPairOp:$Rt), (ins addrmode3:$addr),
+                             64, IIC_iLoad_d_r, []>,
+               Requires<[IsARM, HasV5TE]> {
+  let AM = AddrMode3;
+}
+}
+
 def LDA : AIldracq<0b00, (outs GPR:$Rt), (ins addr_offset_none:$addr),
                     NoItinerary, "lda", "\t$Rt, $addr", []>;
 def LDAB : AIldracq<0b10, (outs GPR:$Rt), (ins addr_offset_none:$addr),
@@ -2968,6 +3016,14 @@ let mayStore = 1, hasSideEffects = 0, hasExtraSrcRegAllocReq = 1 in {
              Requires<[IsARM, HasV5TE]> {
     let Inst{21} = 0;
   }
+}
+
+let mayStore = 1, hasSideEffects = 0, hasNoSchedulingInfo = 1 in {
+def STOREDUAL : ARMPseudoInst<(outs), (ins GPRPairOp:$Rt, addrmode3:$addr),
+                              64, IIC_iStore_d_r, []>,
+                Requires<[IsARM, HasV5TE]> {
+  let AM = AddrMode3;
+}
 }
 
 // Indexed stores
@@ -5976,6 +6032,12 @@ include "ARMInstrNEON.td"
 include "ARMInstrMVE.td"
 
 //===----------------------------------------------------------------------===//
+// CDE (Custom Datapath Extension)
+//
+
+include "ARMInstrCDE.td"
+
+//===----------------------------------------------------------------------===//
 // Assembler aliases
 //
 
@@ -6242,7 +6304,7 @@ def CMP_SWAP_64 : PseudoInst<(outs GPRPair:$Rd, GPR:$temp),
 }
 
 def CompilerBarrier : PseudoInst<(outs), (ins i32imm:$ordering), NoItinerary,
-                                 [(atomic_fence imm:$ordering, 0)]> {
+                                 [(atomic_fence timm:$ordering, 0)]> {
   let hasSideEffects = 1;
   let Size = 0;
   let AsmString = "@ COMPILER BARRIER";

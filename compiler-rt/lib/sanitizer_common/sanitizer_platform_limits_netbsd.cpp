@@ -17,6 +17,7 @@
 
 #define _KMEMUSER
 #define RAY_DO_SIGLEV
+#define __LEGACY_PT_LWPINFO
 
 // clang-format off
 #include <sys/param.h>
@@ -71,6 +72,15 @@
 #include <sys/msg.h>
 #include <sys/mtio.h>
 #include <sys/ptrace.h>
+
+// Compat for NetBSD < 9.99.30.
+#ifndef PT_LWPSTATUS
+#define PT_LWPSTATUS 24
+#endif
+#ifndef PT_LWPNEXT
+#define PT_LWPNEXT 25
+#endif
+
 #include <sys/resource.h>
 #include <sys/sem.h>
 #include <sys/sha1.h>
@@ -109,7 +119,7 @@
 #include <dev/dmover/dmover_io.h>
 #include <dev/dtv/dtvio_demux.h>
 #include <dev/dtv/dtvio_frontend.h>
-#if !__NetBSD_Prereq__(9,9,26)
+#if !__NetBSD_Prereq__(9, 99, 26)
 #include <dev/filemon/filemon.h>
 #else
 #define FILEMON_SET_FD          _IOWR('S', 1, int)
@@ -151,9 +161,50 @@
 #include <net/slip.h>
 #include <netbt/hci.h>
 #include <netinet/ip_compat.h>
+#if __has_include(<netinet/ip_fil.h>)
 #include <netinet/ip_fil.h>
 #include <netinet/ip_nat.h>
 #include <netinet/ip_proxy.h>
+#else
+/* Fallback for MKIPFILTER=no */
+
+typedef struct ap_control {
+  char apc_label[16];
+  char apc_config[16];
+  unsigned char apc_p;
+  unsigned long apc_cmd;
+  unsigned long apc_arg;
+  void *apc_data;
+  size_t apc_dsize;
+} ap_ctl_t;
+
+typedef struct ipftq {
+  ipfmutex_t ifq_lock;
+  unsigned int ifq_ttl;
+  void *ifq_head;
+  void **ifq_tail;
+  void *ifq_next;
+  void **ifq_pnext;
+  int ifq_ref;
+  unsigned int ifq_flags;
+} ipftq_t;
+
+typedef struct ipfobj {
+  uint32_t ipfo_rev;
+  uint32_t ipfo_size;
+  void *ipfo_ptr;
+  int ipfo_type;
+  int ipfo_offset;
+  int ipfo_retval;
+  unsigned char ipfo_xxxpad[28];
+} ipfobj_t;
+
+#define SIOCADNAT _IOW('r', 60, struct ipfobj)
+#define SIOCRMNAT _IOW('r', 61, struct ipfobj)
+#define SIOCGNATS _IOWR('r', 62, struct ipfobj)
+#define SIOCGNATL _IOWR('r', 63, struct ipfobj)
+#define SIOCPURGENAT _IOWR('r', 100, struct ipfobj)
+#endif
 #include <netinet6/in6_var.h>
 #include <netinet6/nd6.h>
 #include <netsmb/smb_dev.h>
@@ -180,7 +231,21 @@
 #include <dev/sun/vuid_event.h>
 #include <dev/tc/sticio.h>
 #include <dev/usb/ukyopon.h>
+#if !__NetBSD_Prereq__(9, 99, 44)
 #include <dev/usb/urio.h>
+#else
+struct urio_command {
+  unsigned short length;
+  int request;
+  int requesttype;
+  int value;
+  int index;
+  void *buffer;
+  int timeout;
+};
+#define URIO_SEND_COMMAND      _IOWR('U', 200, struct urio_command)
+#define URIO_RECV_COMMAND      _IOWR('U', 201, struct urio_command)
+#endif
 #include <dev/usb/usb.h>
 #include <dev/usb/utoppy.h>
 #include <dev/vme/xio.h>
@@ -189,6 +254,7 @@
 #include <dev/wscons/wsdisplay_usl_io.h>
 #include <fs/autofs/autofs_ioctl.h>
 #include <dirent.h>
+#include <dlfcn.h>
 #include <glob.h>
 #include <grp.h>
 #include <ifaddrs.h>
@@ -234,9 +300,15 @@
 
 // Include these after system headers to avoid name clashes and ambiguities.
 #include "sanitizer_internal_defs.h"
+#include "sanitizer_libc.h"
 #include "sanitizer_platform_limits_netbsd.h"
 
 namespace __sanitizer {
+void *__sanitizer_get_link_map_by_dlopen_handle(void* handle) {
+  void *p = nullptr;
+  return internal_dlinfo(handle, RTLD_DI_LINKMAP, &p) == 0 ? p : nullptr;
+}
+
 unsigned struct_utsname_sz = sizeof(struct utsname);
 unsigned struct_stat_sz = sizeof(struct stat);
 unsigned struct_rusage_sz = sizeof(struct rusage);
@@ -245,6 +317,7 @@ unsigned struct_passwd_sz = sizeof(struct passwd);
 unsigned struct_group_sz = sizeof(struct group);
 unsigned siginfo_t_sz = sizeof(siginfo_t);
 unsigned struct_sigaction_sz = sizeof(struct sigaction);
+unsigned struct_stack_t_sz = sizeof(stack_t);
 unsigned struct_itimerval_sz = sizeof(struct itimerval);
 unsigned pthread_t_sz = sizeof(pthread_t);
 unsigned pthread_mutex_t_sz = sizeof(pthread_mutex_t);
@@ -292,6 +365,8 @@ int ptrace_pt_get_event_mask = PT_GET_EVENT_MASK;
 int ptrace_pt_get_process_state = PT_GET_PROCESS_STATE;
 int ptrace_pt_set_siginfo = PT_SET_SIGINFO;
 int ptrace_pt_get_siginfo = PT_GET_SIGINFO;
+int ptrace_pt_lwpstatus = PT_LWPSTATUS;
+int ptrace_pt_lwpnext = PT_LWPNEXT;
 int ptrace_piod_read_d = PIOD_READ_D;
 int ptrace_piod_write_d = PIOD_WRITE_D;
 int ptrace_piod_read_i = PIOD_READ_I;
@@ -324,6 +399,8 @@ int ptrace_pt_getdbregs = -1;
 
 unsigned struct_ptrace_ptrace_io_desc_struct_sz = sizeof(struct ptrace_io_desc);
 unsigned struct_ptrace_ptrace_lwpinfo_struct_sz = sizeof(struct ptrace_lwpinfo);
+unsigned struct_ptrace_ptrace_lwpstatus_struct_sz =
+    sizeof(struct __sanitizer_ptrace_lwpstatus);
 unsigned struct_ptrace_ptrace_event_struct_sz = sizeof(ptrace_event_t);
 unsigned struct_ptrace_ptrace_siginfo_struct_sz = sizeof(ptrace_siginfo_t);
 
@@ -2399,5 +2476,43 @@ CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_filename);
 CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_flags);
 CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_props);
 CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_propslen);
+
+// Compat with 9.0
+struct statvfs90 {
+  unsigned long f_flag;
+  unsigned long f_bsize;
+  unsigned long f_frsize;
+  unsigned long f_iosize;
+
+  u64 f_blocks;
+  u64 f_bfree;
+  u64 f_bavail;
+  u64 f_bresvd;
+
+  u64 f_files;
+  u64 f_ffree;
+  u64 f_favail;
+  u64 f_fresvd;
+
+  u64 f_syncreads;
+  u64 f_syncwrites;
+
+  u64 f_asyncreads;
+  u64 f_asyncwrites;
+
+  struct {
+    s32 __fsid_val[2];
+  } f_fsidx;
+  unsigned long f_fsid;
+  unsigned long f_namemax;
+  u32 f_owner;
+
+  u32 f_spare[4];
+
+  char f_fstypename[32];
+  char f_mntonname[32];
+  char f_mntfromname[32];
+};
+unsigned struct_statvfs90_sz = sizeof(struct statvfs90);
 
 #endif  // SANITIZER_NETBSD

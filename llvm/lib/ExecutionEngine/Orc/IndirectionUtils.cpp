@@ -28,7 +28,7 @@ public:
   CompileCallbackMaterializationUnit(SymbolStringPtr Name,
                                      CompileFunction Compile, VModuleKey K)
       : MaterializationUnit(SymbolFlagsMap({{Name, JITSymbolFlags::Exported}}),
-                            std::move(K)),
+                            nullptr, std::move(K)),
         Name(std::move(Name)), Compile(std::move(Compile)) {}
 
   StringRef getName() const override { return "<Compile Callbacks>"; }
@@ -202,7 +202,7 @@ createLocalIndirectStubsManagerBuilder(const Triple &T) {
           return std::make_unique<
                       orc::LocalIndirectStubsManager<orc::OrcMips64>>();
       };
-      
+
     case Triple::x86_64:
       if (T.getOS() == Triple::OSType::Win32) {
         return [](){

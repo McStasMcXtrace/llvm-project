@@ -103,6 +103,14 @@ public:
     return D;
   }
   BlockT *getHeader() const { return getBlocks().front(); }
+  /// Return the parent loop if it exists or nullptr for top
+  /// level loops.
+
+  /// A loop is either top-level in a function (that is, it is not
+  /// contained in any other loop) or it is entirely enclosed in
+  /// some other loop.
+  /// If a loop is top-level, it has no parent, otherwise its
+  /// parent is the innermost loop in which it is enclosed.
   LoopT *getParentLoop() const { return ParentLoop; }
 
   /// This is a raw interface for bypassing addChildLoop.
@@ -208,7 +216,7 @@ public:
   bool isLoopExiting(const BlockT *BB) const {
     assert(!isInvalid() && "Loop not in a valid state!");
     assert(contains(BB) && "Exiting block must be part of the loop");
-    for (const auto &Succ : children<const BlockT *>(BB)) {
+    for (const auto *Succ : children<const BlockT *>(BB)) {
       if (!contains(Succ))
         return true;
     }

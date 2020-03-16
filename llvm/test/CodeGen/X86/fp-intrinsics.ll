@@ -19,6 +19,7 @@ define double @f1() #0 {
 ; X87:       # %bb.0: # %entry
 ; X87-NEXT:    fld1
 ; X87-NEXT:    fdivs {{\.LCPI.*}}
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: f1:
@@ -29,6 +30,7 @@ define double @f1() #0 {
 ; X86-SSE-NEXT:    divsd {{\.LCPI.*}}, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -66,6 +68,7 @@ define double @f2(double %a) #0 {
 ; X87:       # %bb.0: # %entry
 ; X87-NEXT:    fldz
 ; X87-NEXT:    fsubrl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: f2:
@@ -77,6 +80,7 @@ define double @f2(double %a) #0 {
 ; X86-SSE-NEXT:    subsd %xmm1, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -119,6 +123,7 @@ define double @f3(double %a, double %b) #0 {
 ; X87-NEXT:    fsubl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fmull {{[0-9]+}}(%esp)
 ; X87-NEXT:    fsubrp %st, %st(1)
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: f3:
@@ -132,6 +137,7 @@ define double @f3(double %a, double %b) #0 {
 ; X86-SSE-NEXT:    subsd %xmm1, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -185,11 +191,13 @@ define double @f4(i32 %n, double %a) #0 {
 ; X87-LABEL: f4:
 ; X87:       # %bb.0: # %entry
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    cmpl $0, {{[0-9]+}}(%esp)
 ; X87-NEXT:    jle .LBB3_2
 ; X87-NEXT:  # %bb.1: # %if.then
 ; X87-NEXT:    fld1
 ; X87-NEXT:    faddp %st, %st(1)
+; X87-NEXT:    wait
 ; X87-NEXT:  .LBB3_2: # %if.end
 ; X87-NEXT:    retl
 ;
@@ -205,6 +213,7 @@ define double @f4(i32 %n, double %a) #0 {
 ; X86-SSE-NEXT:  .LBB3_2: # %if.end
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -248,6 +257,7 @@ define double @f5() #0 {
 ; X87:       # %bb.0: # %entry
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fsqrt
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: f5:
@@ -258,6 +268,7 @@ define double @f5() #0 {
 ; X86-SSE-NEXT:    sqrtsd %xmm0, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -290,6 +301,7 @@ define double @f6() #0 {
 ; X87-NEXT:    fstpl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fldl {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll pow
 ; X87-NEXT:    addl $28, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -345,6 +357,7 @@ define double @f7() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    movl $3, {{[0-9]+}}(%esp)
 ; X87-NEXT:    calll __powidf2
 ; X87-NEXT:    addl $12, %esp
@@ -400,6 +413,7 @@ define double @f8() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll sin
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -450,6 +464,7 @@ define double @f9() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll cos
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -500,6 +515,7 @@ define double @f10() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll exp
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -550,6 +566,7 @@ define double @f11() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll exp2
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -600,6 +617,7 @@ define double @f12() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll log
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -650,6 +668,7 @@ define double @f13() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll log10
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -700,6 +719,7 @@ define double @f14() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll log2
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -750,6 +770,7 @@ define double @f15() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll rint
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -797,6 +818,7 @@ define double @f16() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{\.LCPI.*}}
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll nearbyint
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -843,6 +865,7 @@ define double @f19() #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 32
 ; X87-NEXT:    flds {{\.LCPI.*}}
 ; X87-NEXT:    fstpl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    movl $1072693248, {{[0-9]+}}(%esp) # imm = 0x3FF00000
 ; X87-NEXT:    movl $0, (%esp)
 ; X87-NEXT:    calll fmod
@@ -904,6 +927,7 @@ define i8 @f20s8(double %x) #0 {
 ; X87-NEXT:    subl $8, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 12
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -950,6 +974,7 @@ define i16 @f20s16(double %x) #0 {
 ; X87-NEXT:    subl $8, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 12
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -994,6 +1019,7 @@ define i32 @f20s(double %x) #0 {
 ; X87-NEXT:    subl $8, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 12
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw (%esp)
 ; X87-NEXT:    movzwl (%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1036,6 +1062,7 @@ define i64 @f20s64(double %x) #0 {
 ; X87-NEXT:    subl $20, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 24
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1056,6 +1083,7 @@ define i64 @f20s64(double %x) #0 {
 ; X86-SSE-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X86-SSE-NEXT:    movsd %xmm0, {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    fldl {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X86-SSE-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1096,6 +1124,7 @@ define i128 @f20s128(double %x) nounwind strictfp {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstpl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    leal {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    calll __fixdfti
@@ -1104,10 +1133,10 @@ define i128 @f20s128(double %x) nounwind strictfp {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X87-NEXT:    movl %edi, 12(%esi)
-; X87-NEXT:    movl %edx, 8(%esi)
-; X87-NEXT:    movl %ecx, 4(%esi)
+; X87-NEXT:    movl %edi, 8(%esi)
+; X87-NEXT:    movl %edx, 12(%esi)
 ; X87-NEXT:    movl %eax, (%esi)
+; X87-NEXT:    movl %ecx, 4(%esi)
 ; X87-NEXT:    movl %esi, %eax
 ; X87-NEXT:    addl $36, %esp
 ; X87-NEXT:    popl %esi
@@ -1130,10 +1159,10 @@ define i128 @f20s128(double %x) nounwind strictfp {
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-SSE-NEXT:    movl %edi, 12(%esi)
-; X86-SSE-NEXT:    movl %edx, 8(%esi)
-; X86-SSE-NEXT:    movl %ecx, 4(%esi)
+; X86-SSE-NEXT:    movl %edi, 8(%esi)
+; X86-SSE-NEXT:    movl %edx, 12(%esi)
 ; X86-SSE-NEXT:    movl %eax, (%esi)
+; X86-SSE-NEXT:    movl %ecx, 4(%esi)
 ; X86-SSE-NEXT:    movl %esi, %eax
 ; X86-SSE-NEXT:    addl $36, %esp
 ; X86-SSE-NEXT:    popl %esi
@@ -1170,6 +1199,7 @@ define i8 @f20u8(double %x) #0 {
 ; X87-NEXT:    subl $8, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 12
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1215,6 +1245,7 @@ define i16 @f20u16(double %x) #0 {
 ; X87-NEXT:    subl $8, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 12
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw (%esp)
 ; X87-NEXT:    movzwl (%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1262,6 +1293,7 @@ define i32 @f20u(double %x) #0 {
 ; X87-NEXT:    subl $20, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 24
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1277,15 +1309,17 @@ define i32 @f20u(double %x) #0 {
 ; X86-SSE-LABEL: f20u:
 ; X86-SSE:       # %bb.0: # %entry
 ; X86-SSE-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
-; X86-SSE-NEXT:    movsd {{.*#+}} xmm1 = mem[0],zero
-; X86-SSE-NEXT:    xorl %ecx, %ecx
-; X86-SSE-NEXT:    ucomisd %xmm0, %xmm1
-; X86-SSE-NEXT:    setbe %cl
+; X86-SSE-NEXT:    movsd {{.*#+}} xmm2 = mem[0],zero
+; X86-SSE-NEXT:    comisd %xmm0, %xmm2
+; X86-SSE-NEXT:    xorpd %xmm1, %xmm1
+; X86-SSE-NEXT:    ja .LBB24_2
+; X86-SSE-NEXT:  # %bb.1: # %entry
+; X86-SSE-NEXT:    movapd %xmm2, %xmm1
+; X86-SSE-NEXT:  .LBB24_2: # %entry
+; X86-SSE-NEXT:    setbe %al
+; X86-SSE-NEXT:    movzbl %al, %ecx
 ; X86-SSE-NEXT:    shll $31, %ecx
-; X86-SSE-NEXT:    movapd %xmm0, %xmm2
-; X86-SSE-NEXT:    cmpltsd %xmm1, %xmm2
-; X86-SSE-NEXT:    andnpd %xmm1, %xmm2
-; X86-SSE-NEXT:    subsd %xmm2, %xmm0
+; X86-SSE-NEXT:    subsd %xmm1, %xmm0
 ; X86-SSE-NEXT:    cvttsd2si %xmm0, %eax
 ; X86-SSE-NEXT:    xorl %ecx, %eax
 ; X86-SSE-NEXT:    retl
@@ -1323,14 +1357,17 @@ define i64 @f20u64(double %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 24
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    flds {{\.LCPI.*}}
+; X87-NEXT:    wait
 ; X87-NEXT:    xorl %edx, %edx
-; X87-NEXT:    fucomi %st(1), %st
+; X87-NEXT:    fcomi %st(1), %st
+; X87-NEXT:    wait
 ; X87-NEXT:    setbe %dl
 ; X87-NEXT:    fldz
 ; X87-NEXT:    fxch %st(1)
 ; X87-NEXT:    fcmovnbe %st(1), %st
 ; X87-NEXT:    fstp %st(1)
 ; X87-NEXT:    fsubrp %st, %st(1)
+; X87-NEXT:    wait
 ; X87-NEXT:    fnstcw {{[0-9]+}}(%esp)
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    orl $3072, %eax # imm = 0xC00
@@ -1350,24 +1387,26 @@ define i64 @f20u64(double %x) #0 {
 ; X86-SSE-NEXT:    subl $20, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 24
 ; X86-SSE-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
-; X86-SSE-NEXT:    movsd {{.*#+}} xmm1 = mem[0],zero
-; X86-SSE-NEXT:    movapd %xmm0, %xmm2
-; X86-SSE-NEXT:    cmpltsd %xmm1, %xmm2
-; X86-SSE-NEXT:    andnpd %xmm1, %xmm2
-; X86-SSE-NEXT:    movapd %xmm0, %xmm3
-; X86-SSE-NEXT:    subsd %xmm2, %xmm3
-; X86-SSE-NEXT:    movsd %xmm3, {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    movsd {{.*#+}} xmm2 = mem[0],zero
+; X86-SSE-NEXT:    comisd %xmm0, %xmm2
+; X86-SSE-NEXT:    xorpd %xmm1, %xmm1
+; X86-SSE-NEXT:    ja .LBB25_2
+; X86-SSE-NEXT:  # %bb.1: # %entry
+; X86-SSE-NEXT:    movapd %xmm2, %xmm1
+; X86-SSE-NEXT:  .LBB25_2: # %entry
+; X86-SSE-NEXT:    subsd %xmm1, %xmm0
+; X86-SSE-NEXT:    movsd %xmm0, {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    setbe %al
 ; X86-SSE-NEXT:    fldl {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    fnstcw {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
-; X86-SSE-NEXT:    orl $3072, %eax # imm = 0xC00
-; X86-SSE-NEXT:    movw %ax, {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    movzwl {{[0-9]+}}(%esp), %ecx
+; X86-SSE-NEXT:    orl $3072, %ecx # imm = 0xC00
+; X86-SSE-NEXT:    movw %cx, {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    fldcw {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    fistpll {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    fldcw {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    xorl %edx, %edx
-; X86-SSE-NEXT:    ucomisd %xmm0, %xmm1
-; X86-SSE-NEXT:    setbe %dl
+; X86-SSE-NEXT:    movzbl %al, %edx
 ; X86-SSE-NEXT:    shll $31, %edx
 ; X86-SSE-NEXT:    xorl {{[0-9]+}}(%esp), %edx
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -1377,30 +1416,35 @@ define i64 @f20u64(double %x) #0 {
 ;
 ; SSE-LABEL: f20u64:
 ; SSE:       # %bb.0: # %entry
-; SSE-NEXT:    movsd {{.*#+}} xmm1 = mem[0],zero
-; SSE-NEXT:    xorl %ecx, %ecx
-; SSE-NEXT:    ucomisd %xmm1, %xmm0
-; SSE-NEXT:    setae %cl
-; SSE-NEXT:    shlq $63, %rcx
-; SSE-NEXT:    movapd %xmm0, %xmm2
-; SSE-NEXT:    cmpltsd %xmm1, %xmm2
-; SSE-NEXT:    andnpd %xmm1, %xmm2
-; SSE-NEXT:    subsd %xmm2, %xmm0
-; SSE-NEXT:    cvttsd2si %xmm0, %rax
+; SSE-NEXT:    movsd {{.*#+}} xmm2 = mem[0],zero
+; SSE-NEXT:    comisd %xmm2, %xmm0
+; SSE-NEXT:    xorpd %xmm1, %xmm1
+; SSE-NEXT:    jb .LBB25_2
+; SSE-NEXT:  # %bb.1: # %entry
+; SSE-NEXT:    movapd %xmm2, %xmm1
+; SSE-NEXT:  .LBB25_2: # %entry
+; SSE-NEXT:    subsd %xmm1, %xmm0
+; SSE-NEXT:    cvttsd2si %xmm0, %rcx
+; SSE-NEXT:    setae %al
+; SSE-NEXT:    movzbl %al, %eax
+; SSE-NEXT:    shlq $63, %rax
 ; SSE-NEXT:    xorq %rcx, %rax
 ; SSE-NEXT:    retq
 ;
 ; AVX1-LABEL: f20u64:
 ; AVX1:       # %bb.0: # %entry
 ; AVX1-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; AVX1-NEXT:    xorl %ecx, %ecx
-; AVX1-NEXT:    vucomisd %xmm1, %xmm0
-; AVX1-NEXT:    setae %cl
-; AVX1-NEXT:    shlq $63, %rcx
-; AVX1-NEXT:    vcmpltsd %xmm1, %xmm0, %xmm2
-; AVX1-NEXT:    vandnpd %xmm1, %xmm2, %xmm1
-; AVX1-NEXT:    vsubsd %xmm1, %xmm0, %xmm0
-; AVX1-NEXT:    vcvttsd2si %xmm0, %rax
+; AVX1-NEXT:    vcomisd %xmm1, %xmm0
+; AVX1-NEXT:    vxorpd %xmm2, %xmm2, %xmm2
+; AVX1-NEXT:    jb .LBB25_2
+; AVX1-NEXT:  # %bb.1: # %entry
+; AVX1-NEXT:    vmovapd %xmm1, %xmm2
+; AVX1-NEXT:  .LBB25_2: # %entry
+; AVX1-NEXT:    vsubsd %xmm2, %xmm0, %xmm0
+; AVX1-NEXT:    vcvttsd2si %xmm0, %rcx
+; AVX1-NEXT:    setae %al
+; AVX1-NEXT:    movzbl %al, %eax
+; AVX1-NEXT:    shlq $63, %rax
 ; AVX1-NEXT:    xorq %rcx, %rax
 ; AVX1-NEXT:    retq
 ;
@@ -1427,6 +1471,7 @@ define i128 @f20u128(double %x) nounwind strictfp {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstpl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    leal {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    calll __fixunsdfti
@@ -1435,10 +1480,10 @@ define i128 @f20u128(double %x) nounwind strictfp {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X87-NEXT:    movl %edi, 12(%esi)
-; X87-NEXT:    movl %edx, 8(%esi)
-; X87-NEXT:    movl %ecx, 4(%esi)
+; X87-NEXT:    movl %edi, 8(%esi)
+; X87-NEXT:    movl %edx, 12(%esi)
 ; X87-NEXT:    movl %eax, (%esi)
+; X87-NEXT:    movl %ecx, 4(%esi)
 ; X87-NEXT:    movl %esi, %eax
 ; X87-NEXT:    addl $36, %esp
 ; X87-NEXT:    popl %esi
@@ -1461,10 +1506,10 @@ define i128 @f20u128(double %x) nounwind strictfp {
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-SSE-NEXT:    movl %edi, 12(%esi)
-; X86-SSE-NEXT:    movl %edx, 8(%esi)
-; X86-SSE-NEXT:    movl %ecx, 4(%esi)
+; X86-SSE-NEXT:    movl %edi, 8(%esi)
+; X86-SSE-NEXT:    movl %edx, 12(%esi)
 ; X86-SSE-NEXT:    movl %eax, (%esi)
+; X86-SSE-NEXT:    movl %ecx, 4(%esi)
 ; X86-SSE-NEXT:    movl %esi, %eax
 ; X86-SSE-NEXT:    addl $36, %esp
 ; X86-SSE-NEXT:    popl %esi
@@ -1501,6 +1546,7 @@ define float @f21() #0 {
 ; X87-NEXT:    fldl {{\.LCPI.*}}
 ; X87-NEXT:    fstps (%esp)
 ; X87-NEXT:    flds (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -1513,6 +1559,7 @@ define float @f21() #0 {
 ; X86-SSE-NEXT:    cvtsd2ss %xmm0, %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -1540,6 +1587,7 @@ define double @f22(float %x) #0 {
 ; X87-LABEL: f22:
 ; X87:       # %bb.0: # %entry
 ; X87-NEXT:    flds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: f22:
@@ -1550,6 +1598,7 @@ define double @f22(float %x) #0 {
 ; X86-SSE-NEXT:    cvtss2sd %xmm0, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -1576,6 +1625,7 @@ define i32 @f23(double %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll lrint
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1623,6 +1673,7 @@ define i32 @f24(float %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstps (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll lrintf
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1670,6 +1721,7 @@ define i64 @f25(double %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll llrint
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1764,6 +1816,7 @@ define i32 @f27(double %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll lround
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1810,6 +1863,7 @@ define i32 @f28(float %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstps (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll lroundf
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1856,6 +1910,7 @@ define i64 @f29(double %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstpl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll llround
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1902,6 +1957,7 @@ define i64 @f30(float %x) #0 {
 ; X87-NEXT:    .cfi_def_cfa_offset 16
 ; X87-NEXT:    flds {{[0-9]+}}(%esp)
 ; X87-NEXT:    fstps (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    calll llroundf
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
@@ -1952,6 +2008,7 @@ define double @sifdb(i8 %x) #0 {
 ; X87-NEXT:    movsbl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movw %ax, {{[0-9]+}}(%esp)
 ; X87-NEXT:    filds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -1964,6 +2021,7 @@ define double @sifdb(i8 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2sd %eax, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -1994,6 +2052,7 @@ define double @sifdw(i16 %x) #0 {
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movw %ax, {{[0-9]+}}(%esp)
 ; X87-NEXT:    filds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2006,6 +2065,7 @@ define double @sifdw(i16 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2sd %eax, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2036,6 +2096,7 @@ define double @sifdi(i32 %x) #0 {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    fildl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2047,6 +2108,7 @@ define double @sifdi(i32 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2sdl {{[0-9]+}}(%esp), %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2075,6 +2137,7 @@ define float @siffb(i8 %x) #0 {
 ; X87-NEXT:    movsbl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movw %ax, {{[0-9]+}}(%esp)
 ; X87-NEXT:    filds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2087,6 +2150,7 @@ define float @siffb(i8 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2ss %eax, %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2117,6 +2181,7 @@ define float @siffw(i16 %x) #0 {
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movw %ax, {{[0-9]+}}(%esp)
 ; X87-NEXT:    filds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2129,6 +2194,7 @@ define float @siffw(i16 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2ss %eax, %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2159,6 +2225,7 @@ define float @siffi(i32 %x) #0 {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    fildl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2170,6 +2237,7 @@ define float @siffi(i32 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2ssl {{[0-9]+}}(%esp), %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2193,27 +2261,19 @@ entry:
 define double @sifdl(i64 %x) #0 {
 ; X87-LABEL: sifdl:
 ; X87:       # %bb.0: # %entry
-; X87-NEXT:    subl $12, %esp
-; X87-NEXT:    .cfi_def_cfa_offset 16
-; X87-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X87-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X87-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X87-NEXT:    movl %eax, (%esp)
-; X87-NEXT:    fildll (%esp)
-; X87-NEXT:    addl $12, %esp
-; X87-NEXT:    .cfi_def_cfa_offset 4
+; X87-NEXT:    fildll {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: sifdl:
 ; X86-SSE:       # %bb.0: # %entry
-; X86-SSE-NEXT:    subl $20, %esp
-; X86-SSE-NEXT:    .cfi_def_cfa_offset 24
-; X86-SSE-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
-; X86-SSE-NEXT:    movlps %xmm0, {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    subl $12, %esp
+; X86-SSE-NEXT:    .cfi_def_cfa_offset 16
 ; X86-SSE-NEXT:    fildll {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    fstpl (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
-; X86-SSE-NEXT:    addl $20, %esp
+; X86-SSE-NEXT:    wait
+; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
 ;
@@ -2236,27 +2296,19 @@ entry:
 define float @siffl(i64 %x) #0 {
 ; X87-LABEL: siffl:
 ; X87:       # %bb.0: # %entry
-; X87-NEXT:    subl $12, %esp
-; X87-NEXT:    .cfi_def_cfa_offset 16
-; X87-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X87-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X87-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X87-NEXT:    movl %eax, (%esp)
-; X87-NEXT:    fildll (%esp)
-; X87-NEXT:    addl $12, %esp
-; X87-NEXT:    .cfi_def_cfa_offset 4
+; X87-NEXT:    fildll {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    retl
 ;
 ; X86-SSE-LABEL: siffl:
 ; X86-SSE:       # %bb.0: # %entry
-; X86-SSE-NEXT:    subl $20, %esp
-; X86-SSE-NEXT:    .cfi_def_cfa_offset 24
-; X86-SSE-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
-; X86-SSE-NEXT:    movlps %xmm0, {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    pushl %eax
+; X86-SSE-NEXT:    .cfi_def_cfa_offset 8
 ; X86-SSE-NEXT:    fildll {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    fstps {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    flds {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    addl $20, %esp
+; X86-SSE-NEXT:    fstps (%esp)
+; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
+; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
 ;
@@ -2287,6 +2339,7 @@ define double @uifdb(i8 %x) #0 {
 ; X87-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movw %ax, {{[0-9]+}}(%esp)
 ; X87-NEXT:    filds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2299,6 +2352,7 @@ define double @uifdb(i8 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2sd %eax, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2329,6 +2383,7 @@ define double @uifdw(i16 %x) #0 {
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    fildl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2341,6 +2396,7 @@ define double @uifdw(i16 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2sd %eax, %xmm0
 ; X86-SSE-NEXT:    movsd %xmm0, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2372,6 +2428,7 @@ define double @uifdi(i32 %x) #0 {
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    movl $0, {{[0-9]+}}(%esp)
 ; X87-NEXT:    fildll (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2386,6 +2443,7 @@ define double @uifdi(i32 %x) #0 {
 ; X86-SSE-NEXT:    subsd %xmm0, %xmm1
 ; X86-SSE-NEXT:    movsd %xmm1, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2422,13 +2480,12 @@ define double @uifdl(i64 %x) #0 {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X87-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X87-NEXT:    movl %eax, (%esp)
-; X87-NEXT:    xorl %eax, %eax
-; X87-NEXT:    testl %ecx, %ecx
-; X87-NEXT:    setns %al
+; X87-NEXT:    shrl $31, %ecx
 ; X87-NEXT:    fildll (%esp)
-; X87-NEXT:    fadds {{\.LCPI.*}}(,%eax,4)
+; X87-NEXT:    fadds {{\.LCPI.*}}(,%ecx,4)
 ; X87-NEXT:    fstpl {{[0-9]+}}(%esp)
 ; X87-NEXT:    fldl {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    addl $20, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2445,6 +2502,7 @@ define double @uifdl(i64 %x) #0 {
 ; X86-SSE-NEXT:    addpd %xmm0, %xmm1
 ; X86-SSE-NEXT:    movlpd %xmm1, (%esp)
 ; X86-SSE-NEXT:    fldl (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $12, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2487,6 +2545,7 @@ define float @uiffb(i8 %x) #0 {
 ; X87-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movw %ax, {{[0-9]+}}(%esp)
 ; X87-NEXT:    filds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2499,6 +2558,7 @@ define float @uiffb(i8 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2ss %eax, %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2529,6 +2589,7 @@ define float @uiffw(i16 %x) #0 {
 ; X87-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    fildl (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    popl %eax
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2541,6 +2602,7 @@ define float @uiffw(i16 %x) #0 {
 ; X86-SSE-NEXT:    cvtsi2ss %eax, %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2572,6 +2634,7 @@ define float @uiffi(i32 %x) #0 {
 ; X87-NEXT:    movl %eax, (%esp)
 ; X87-NEXT:    movl $0, {{[0-9]+}}(%esp)
 ; X87-NEXT:    fildll (%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    addl $12, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2588,6 +2651,7 @@ define float @uiffi(i32 %x) #0 {
 ; X86-SSE-NEXT:    cvtsd2ss %xmm1, %xmm0
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    popl %eax
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
@@ -2624,13 +2688,12 @@ define float @uiffl(i64 %x) #0 {
 ; X87-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X87-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X87-NEXT:    movl %eax, {{[0-9]+}}(%esp)
-; X87-NEXT:    xorl %eax, %eax
-; X87-NEXT:    testl %ecx, %ecx
-; X87-NEXT:    setns %al
+; X87-NEXT:    shrl $31, %ecx
 ; X87-NEXT:    fildll {{[0-9]+}}(%esp)
-; X87-NEXT:    fadds {{\.LCPI.*}}(,%eax,4)
+; X87-NEXT:    fadds {{\.LCPI.*}}(,%ecx,4)
 ; X87-NEXT:    fstps {{[0-9]+}}(%esp)
 ; X87-NEXT:    flds {{[0-9]+}}(%esp)
+; X87-NEXT:    wait
 ; X87-NEXT:    addl $20, %esp
 ; X87-NEXT:    .cfi_def_cfa_offset 4
 ; X87-NEXT:    retl
@@ -2639,51 +2702,52 @@ define float @uiffl(i64 %x) #0 {
 ; X86-SSE:       # %bb.0: # %entry
 ; X86-SSE-NEXT:    subl $20, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 24
+; X86-SSE-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-SSE-NEXT:    movsd {{.*#+}} xmm0 = mem[0],zero
 ; X86-SSE-NEXT:    movlps %xmm0, {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    xorl %eax, %eax
-; X86-SSE-NEXT:    cmpl $0, {{[0-9]+}}(%esp)
-; X86-SSE-NEXT:    setns %al
+; X86-SSE-NEXT:    shrl $31, %eax
 ; X86-SSE-NEXT:    fildll {{[0-9]+}}(%esp)
 ; X86-SSE-NEXT:    fadds {{\.LCPI.*}}(,%eax,4)
 ; X86-SSE-NEXT:    fstps {{[0-9]+}}(%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X86-SSE-NEXT:    movss %xmm0, (%esp)
 ; X86-SSE-NEXT:    flds (%esp)
+; X86-SSE-NEXT:    wait
 ; X86-SSE-NEXT:    addl $20, %esp
 ; X86-SSE-NEXT:    .cfi_def_cfa_offset 4
 ; X86-SSE-NEXT:    retl
 ;
 ; SSE-LABEL: uiffl:
 ; SSE:       # %bb.0: # %entry
-; SSE-NEXT:    testq %rdi, %rdi
-; SSE-NEXT:    js .LBB52_1
-; SSE-NEXT:  # %bb.2: # %entry
-; SSE-NEXT:    cvtsi2ss %rdi, %xmm0
-; SSE-NEXT:    retq
-; SSE-NEXT:  .LBB52_1:
 ; SSE-NEXT:    movq %rdi, %rax
 ; SSE-NEXT:    shrq %rax
-; SSE-NEXT:    andl $1, %edi
-; SSE-NEXT:    orq %rax, %rdi
-; SSE-NEXT:    cvtsi2ss %rdi, %xmm0
+; SSE-NEXT:    movl %edi, %ecx
+; SSE-NEXT:    andl $1, %ecx
+; SSE-NEXT:    orq %rax, %rcx
+; SSE-NEXT:    testq %rdi, %rdi
+; SSE-NEXT:    cmovnsq %rdi, %rcx
+; SSE-NEXT:    cvtsi2ss %rcx, %xmm0
+; SSE-NEXT:    jns .LBB52_2
+; SSE-NEXT:  # %bb.1:
 ; SSE-NEXT:    addss %xmm0, %xmm0
+; SSE-NEXT:  .LBB52_2: # %entry
 ; SSE-NEXT:    retq
 ;
 ; AVX1-LABEL: uiffl:
 ; AVX1:       # %bb.0: # %entry
-; AVX1-NEXT:    testq %rdi, %rdi
-; AVX1-NEXT:    js .LBB52_1
-; AVX1-NEXT:  # %bb.2: # %entry
-; AVX1-NEXT:    vcvtsi2ss %rdi, %xmm0, %xmm0
-; AVX1-NEXT:    retq
-; AVX1-NEXT:  .LBB52_1:
 ; AVX1-NEXT:    movq %rdi, %rax
 ; AVX1-NEXT:    shrq %rax
-; AVX1-NEXT:    andl $1, %edi
-; AVX1-NEXT:    orq %rax, %rdi
-; AVX1-NEXT:    vcvtsi2ss %rdi, %xmm0, %xmm0
+; AVX1-NEXT:    movl %edi, %ecx
+; AVX1-NEXT:    andl $1, %ecx
+; AVX1-NEXT:    orq %rax, %rcx
+; AVX1-NEXT:    testq %rdi, %rdi
+; AVX1-NEXT:    cmovnsq %rdi, %rcx
+; AVX1-NEXT:    vcvtsi2ss %rcx, %xmm0, %xmm0
+; AVX1-NEXT:    jns .LBB52_2
+; AVX1-NEXT:  # %bb.1:
 ; AVX1-NEXT:    vaddss %xmm0, %xmm0, %xmm0
+; AVX1-NEXT:  .LBB52_2: # %entry
 ; AVX1-NEXT:    retq
 ;
 ; AVX512-LABEL: uiffl:

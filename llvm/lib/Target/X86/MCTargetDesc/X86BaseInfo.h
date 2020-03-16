@@ -91,7 +91,7 @@ namespace X86 {
     COND_G = 15,
     LAST_VALID_COND = COND_G,
 
-    // Artificial condition codes. These are used by AnalyzeBranch
+    // Artificial condition codes. These are used by analyzeBranch
     // to indicate a block terminated with two conditional branches that together
     // form a compound condition. They occur in code using FCMP_OEQ or FCMP_UNE,
     // which can't be represented on x86 with a single condition. These
@@ -129,8 +129,7 @@ namespace X86 {
     Invalid,
   };
 
-  /// classifyFirstOpcodeInMacroFusion - return the type of the first
-  /// instruction in macro-fusion.
+  /// \returns the type of the first instruction in macro-fusion.
   inline FirstMacroFusionInstKind
   classifyFirstOpcodeInMacroFusion(unsigned Opcode) {
     switch (Opcode) {
@@ -278,8 +277,7 @@ namespace X86 {
     }
   }
 
-  /// classifySecondCondCodeInMacroFusion - return the type of the second
-  /// instruction in macro-fusion.
+  /// \returns the type of the second instruction in macro-fusion.
   inline SecondMacroFusionInstKind
   classifySecondCondCodeInMacroFusion(X86::CondCode CC) {
     if (CC == X86::COND_INVALID)
@@ -326,6 +324,10 @@ namespace X86 {
     }
   }
 
+  /// \param FirstKind kind of the first instruction in macro fusion.
+  /// \param SecondKind kind of the second instruction in macro fusion.
+  ///
+  /// \returns true if the two instruction can be macro fused.
   inline bool isMacroFused(FirstMacroFusionInstKind FirstKind,
                            SecondMacroFusionInstKind SecondKind) {
     switch (FirstKind) {
@@ -343,6 +345,77 @@ namespace X86 {
     }
     llvm_unreachable("unknown fusion type");
   }
+
+  /// \returns true if the instruction with given opcode is a prefix.
+  inline bool isPrefix(unsigned Opcode) {
+    switch (Opcode) {
+    default:
+      return false;
+      // segment override prefix
+    case X86::CS_PREFIX:
+    case X86::DS_PREFIX:
+    case X86::ES_PREFIX:
+    case X86::FS_PREFIX:
+    case X86::GS_PREFIX:
+    case X86::SS_PREFIX:
+      // operand-size override prefix
+    case X86::DATA16_PREFIX:
+      // lock and repeat prefix
+    case X86::LOCK_PREFIX:
+    case X86::REPNE_PREFIX:
+    case X86::REP_PREFIX:
+      // rex64 prefix
+    case X86::REX64_PREFIX:
+      // acquire and release prefix
+    case X86::XACQUIRE_PREFIX:
+    case X86::XRELEASE_PREFIX:
+      return true;
+    }
+  }
+
+  /// Defines the possible values of the branch boundary alignment mask.
+  enum AlignBranchBoundaryKind : uint8_t {
+    AlignBranchNone = 0,
+    AlignBranchFused = 1U << 0,
+    AlignBranchJcc = 1U << 1,
+    AlignBranchJmp = 1U << 2,
+    AlignBranchCall = 1U << 3,
+    AlignBranchRet = 1U << 4,
+    AlignBranchIndirect = 1U << 5
+  };
+
+  /// Defines the encoding values for segment override prefix.
+  enum EncodingOfSegmentOverridePrefix : uint8_t {
+    CS_Encoding = 0x2E,
+    DS_Encoding = 0x3E,
+    ES_Encoding = 0x26,
+    FS_Encoding = 0x64,
+    GS_Encoding = 0x65,
+    SS_Encoding = 0x36
+  };
+
+  /// Given a segment register, return the encoding of the segment override
+  /// prefix for it.
+  inline EncodingOfSegmentOverridePrefix
+  getSegmentOverridePrefixForReg(unsigned Reg) {
+    switch (Reg) {
+    default:
+      llvm_unreachable("Unknown segment register!");
+    case X86::CS:
+      return CS_Encoding;
+    case X86::DS:
+      return DS_Encoding;
+    case X86::ES:
+      return ES_Encoding;
+    case X86::FS:
+      return FS_Encoding;
+    case X86::GS:
+      return GS_Encoding;
+    case X86::SS:
+      return SS_Encoding;
+    }
+  }
+
 } // end namespace X86;
 
 /// X86II - This namespace holds all of the target specific flags that
@@ -567,6 +640,10 @@ namespace X86II {
     /// AddCCFrm - This form is used for Jcc that encode the condition code
     /// in the lower 4 bits of the opcode.
     AddCCFrm = 9,
+
+    /// PrefixByte - This form is used for instructions that represent a prefix
+    /// byte like data16 or rep.
+    PrefixByte = 10,
 
     /// MRM[0-7][rm] - These forms are used to represent instructions that use
     /// a Mod/RM byte, and use the middle field to hold extended opcode
@@ -887,9 +964,13 @@ namespace X86II {
     NOTRACK = 1ULL << NoTrackShift
   };
 
-  // getBaseOpcodeFor - This function returns the "base" X86 opcode for the
-  // specified machine instruction.
-  //
+  /// \returns true if the instruction with given opcode is a prefix.
+  inline bool isPrefix(uint64_t TSFlags) {
+    return (TSFlags & X86II::FormMask) == PrefixByte;
+  }
+
+  /// \returns the "base" X86 opcode for the specified machine
+  /// instruction.
   inline uint8_t getBaseOpcodeFor(uint64_t TSFlags) {
     return TSFlags >> X86II::OpcodeShift;
   }
@@ -898,8 +979,8 @@ namespace X86II {
     return (TSFlags & X86II::ImmMask) != 0;
   }
 
-  /// getSizeOfImm - Decode the "size of immediate" field from the TSFlags field
-  /// of the specified instruction.
+  /// Decode the "size of immediate" field from the TSFlags field of the 
+  /// specified instruction.
   inline unsigned getSizeOfImm(uint64_t TSFlags) {
     switch (TSFlags & X86II::ImmMask) {
     default: llvm_unreachable("Unknown immediate size");
@@ -915,8 +996,8 @@ namespace X86II {
     }
   }
 
-  /// isImmPCRel - Return true if the immediate of the specified instruction's
-  /// TSFlags indicates that it is pc relative.
+  /// \returns true if the immediate of the specified instruction's TSFlags
+  /// indicates that it is pc relative.
   inline bool isImmPCRel(uint64_t TSFlags) {
     switch (TSFlags & X86II::ImmMask) {
     default: llvm_unreachable("Unknown immediate size");
@@ -934,7 +1015,7 @@ namespace X86II {
     }
   }
 
-  /// isImmSigned - Return true if the immediate of the specified instruction's
+  /// \returns true if the immediate of the specified instruction's
   /// TSFlags indicates that it is signed.
   inline bool isImmSigned(uint64_t TSFlags) {
     switch (TSFlags & X86II::ImmMask) {
@@ -953,8 +1034,8 @@ namespace X86II {
     }
   }
 
-  /// getOperandBias - compute whether all of the def operands are repeated
-  ///                  in the uses and therefore should be skipped.
+  /// Compute whether all of the def operands are repeated in the uses and
+  /// therefore should be skipped.
   /// This determines the start of the unique operand list. We need to determine
   /// if all of the defs have a corresponding tied operand in the uses.
   /// Unfortunately, the tied operand information is encoded in the uses not
@@ -992,8 +1073,8 @@ namespace X86II {
     }
   }
 
-  /// getMemoryOperandNo - The function returns the MCInst operand # for the
-  /// first field of the memory operand.  If the instruction doesn't have a
+  /// The function returns the MCInst operand # for the first field of the
+  /// memory operand.  If the instruction doesn't have a
   /// memory operand, this returns -1.
   ///
   /// Note that this ignores tied operands.  If there is a tied register which
@@ -1016,6 +1097,7 @@ namespace X86II {
     case X86II::RawFrmDst:
     case X86II::RawFrmDstSrc:
     case X86II::AddCCFrm:
+    case X86II::PrefixByte:
       return -1;
     case X86II::MRMDestMem:
       return 0;
@@ -1079,8 +1161,8 @@ namespace X86II {
     }
   }
 
-  /// isX86_64ExtendedReg - Is the MachineOperand a x86-64 extended (r8 or
-  /// higher) register?  e.g. r8, xmm8, xmm13, etc.
+  /// \returns true if the MachineOperand is a x86-64 extended (r8 or
+  /// higher) register,  e.g. r8, xmm8, xmm13, etc.
   inline bool isX86_64ExtendedReg(unsigned RegNo) {
     if ((RegNo >= X86::XMM8 && RegNo <= X86::XMM31) ||
         (RegNo >= X86::YMM8 && RegNo <= X86::YMM31) ||
@@ -1106,8 +1188,8 @@ namespace X86II {
     return false;
   }
 
-  /// is32ExtendedReg - Is the MemoryOperand a 32 extended (zmm16 or higher)
-  /// registers? e.g. zmm21, etc.
+  /// \returns true if the MemoryOperand is a 32 extended (zmm16 or higher)
+  /// registers, e.g. zmm21, etc.
   static inline bool is32ExtendedReg(unsigned RegNo) {
     return ((RegNo >= X86::XMM16 && RegNo <= X86::XMM31) ||
             (RegNo >= X86::YMM16 && RegNo <= X86::YMM31) ||
@@ -1120,12 +1202,12 @@ namespace X86II {
             reg == X86::SIL || reg == X86::DIL);
   }
 
-  /// isKMasked - Is this a masked instruction.
+  /// \returns true if this is a masked instruction.
   inline bool isKMasked(uint64_t TSFlags) {
     return (TSFlags & X86II::EVEX_K) != 0;
   }
 
-  /// isKMergedMasked - Is this a merge masked instruction.
+  /// \returns true if this is a merge masked instruction.
   inline bool isKMergeMasked(uint64_t TSFlags) {
     return isKMasked(TSFlags) && (TSFlags & X86II::EVEX_Z) == 0;
   }

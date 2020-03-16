@@ -21,7 +21,6 @@
 #include "llvm/Support/DataExtractor.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/WithColor.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -228,7 +227,9 @@ DWARFUnit::getAddrOffsetSectionItem(uint32_t Index) const {
     if (I != R.end() && std::next(I) == R.end())
       return (*I)->getAddrOffsetSectionItem(Index);
   }
-  uint64_t Offset = AddrOffsetSectionBase + Index * getAddressByteSize();
+  if (!AddrOffsetSectionBase)
+    return None;
+  uint64_t Offset = *AddrOffsetSectionBase + Index * getAddressByteSize();
   if (AddrOffsetSection->Data.size() < Offset + getAddressByteSize())
     return None;
   DWARFDataExtractor DA(Context.getDWARFObj(), *AddrOffsetSection,
@@ -257,23 +258,22 @@ bool DWARFUnitHeader::extract(DWARFContext &Context,
                               const DWARFUnitIndex *Index,
                               const DWARFUnitIndex::Entry *Entry) {
   Offset = *offset_ptr;
+  Error Err = Error::success();
   IndexEntry = Entry;
   if (!IndexEntry && Index)
     IndexEntry = Index->getFromOffset(*offset_ptr);
-  Length = debug_info.getRelocatedValue(4, offset_ptr);
-  FormParams.Format = DWARF32;
-  if (Length == dwarf::DW_LENGTH_DWARF64) {
-    Length = debug_info.getU64(offset_ptr);
-    FormParams.Format = DWARF64;
-  }
-  FormParams.Version = debug_info.getU16(offset_ptr);
+  std::tie(Length, FormParams.Format) =
+      debug_info.getInitialLength(offset_ptr, &Err);
+  FormParams.Version = debug_info.getU16(offset_ptr, &Err);
   if (FormParams.Version >= 5) {
-    UnitType = debug_info.getU8(offset_ptr);
-    FormParams.AddrSize = debug_info.getU8(offset_ptr);
-    AbbrOffset = debug_info.getRelocatedValue(FormParams.getDwarfOffsetByteSize(), offset_ptr);
+    UnitType = debug_info.getU8(offset_ptr, &Err);
+    FormParams.AddrSize = debug_info.getU8(offset_ptr, &Err);
+    AbbrOffset = debug_info.getRelocatedValue(
+        FormParams.getDwarfOffsetByteSize(), offset_ptr, nullptr, &Err);
   } else {
-    AbbrOffset = debug_info.getRelocatedValue(FormParams.getDwarfOffsetByteSize(), offset_ptr);
-    FormParams.AddrSize = debug_info.getU8(offset_ptr);
+    AbbrOffset = debug_info.getRelocatedValue(
+        FormParams.getDwarfOffsetByteSize(), offset_ptr, nullptr, &Err);
+    FormParams.AddrSize = debug_info.getU8(offset_ptr, &Err);
     // Fake a unit type based on the section type.  This isn't perfect,
     // but distinguishing compile and type units is generally enough.
     if (SectionKind == DW_SECT_TYPES)
@@ -281,23 +281,28 @@ bool DWARFUnitHeader::extract(DWARFContext &Context,
     else
       UnitType = DW_UT_compile;
   }
+  if (isTypeUnit()) {
+    TypeHash = debug_info.getU64(offset_ptr, &Err);
+    TypeOffset = debug_info.getUnsigned(
+        offset_ptr, FormParams.getDwarfOffsetByteSize(), &Err);
+  } else if (UnitType == DW_UT_split_compile || UnitType == DW_UT_skeleton)
+    DWOId = debug_info.getU64(offset_ptr, &Err);
+
+  if (errorToBool(std::move(Err)))
+    return false;
+
   if (IndexEntry) {
     if (AbbrOffset)
       return false;
     auto *UnitContrib = IndexEntry->getOffset();
-    if (!UnitContrib || UnitContrib->Length != (Length + 4))
+    if (!UnitContrib ||
+        UnitContrib->Length != (Length + getUnitLengthFieldByteSize()))
       return false;
     auto *AbbrEntry = IndexEntry->getOffset(DW_SECT_ABBREV);
     if (!AbbrEntry)
       return false;
     AbbrOffset = AbbrEntry->Offset;
   }
-  if (isTypeUnit()) {
-    TypeHash = debug_info.getU64(offset_ptr);
-    TypeOffset =
-        debug_info.getUnsigned(offset_ptr, FormParams.getDwarfOffsetByteSize());
-  } else if (UnitType == DW_UT_split_compile || UnitType == DW_UT_skeleton)
-    DWOId = debug_info.getU64(offset_ptr);
 
   // Header fields all parsed, capture the size of this unit header.
   assert(*offset_ptr - Offset <= 255 && "unexpected header size");
@@ -360,7 +365,7 @@ void DWARFUnit::clear() {
   BaseAddr.reset();
   RangeSectionBase = 0;
   LocSectionBase = 0;
-  AddrOffsetSectionBase = 0;
+  AddrOffsetSectionBase = None;
   clearDIEs(false);
   DWO.reset();
 }
@@ -418,15 +423,17 @@ void DWARFUnit::extractDIEsToVector(
   // should always terminate at or before the start of the next compilation
   // unit header).
   if (DIEOffset > NextCUOffset)
-    WithColor::warning() << format("DWARF compile unit extends beyond its "
-                                   "bounds cu 0x%8.8" PRIx64 " "
-                                   "at 0x%8.8" PRIx64 "\n",
-                                   getOffset(), DIEOffset);
+    Context.getWarningHandler()(
+        createStringError(errc::invalid_argument,
+                          "DWARF compile unit extends beyond its "
+                          "bounds cu 0x%8.8" PRIx64 " "
+                          "at 0x%8.8" PRIx64 "\n",
+                          getOffset(), DIEOffset));
 }
 
 void DWARFUnit::extractDIEsIfNeeded(bool CUDieOnly) {
   if (Error e = tryExtractDIEsIfNeeded(CUDieOnly))
-    WithColor::error() << toString(std::move(e));
+    Context.getRecoverableErrorHandler()(std::move(e));
 }
 
 Error DWARFUnit::tryExtractDIEsIfNeeded(bool CUDieOnly) {
@@ -448,13 +455,13 @@ Error DWARFUnit::tryExtractDIEsIfNeeded(bool CUDieOnly) {
   if (Optional<uint64_t> DWOId = toUnsigned(UnitDie.find(DW_AT_GNU_dwo_id)))
     Header.setDWOId(*DWOId);
   if (!IsDWO) {
-    assert(AddrOffsetSectionBase == 0);
+    assert(AddrOffsetSectionBase == None);
     assert(RangeSectionBase == 0);
     assert(LocSectionBase == 0);
-    AddrOffsetSectionBase = toSectionOffset(UnitDie.find(DW_AT_addr_base), 0);
+    AddrOffsetSectionBase = toSectionOffset(UnitDie.find(DW_AT_addr_base));
     if (!AddrOffsetSectionBase)
       AddrOffsetSectionBase =
-          toSectionOffset(UnitDie.find(DW_AT_GNU_addr_base), 0);
+          toSectionOffset(UnitDie.find(DW_AT_GNU_addr_base));
     RangeSectionBase = toSectionOffset(UnitDie.find(DW_AT_rnglists_base), 0);
     LocSectionBase = toSectionOffset(UnitDie.find(DW_AT_loclists_base), 0);
   }
@@ -578,7 +585,8 @@ bool DWARFUnit::parseDWO() {
     return false;
   DWO = std::shared_ptr<DWARFCompileUnit>(std::move(DWOContext), DWOCU);
   // Share .debug_addr and .debug_ranges section with compile unit in .dwo
-  DWO->setAddrOffsetSection(AddrOffsetSection, AddrOffsetSectionBase);
+  if (AddrOffsetSectionBase)
+    DWO->setAddrOffsetSection(AddrOffsetSection, *AddrOffsetSectionBase);
   if (getVersion() >= 5) {
     DWO->setRangesSection(&Context.getDWARFObj().getRnglistsDWOSection(), 0);
     DWARFDataExtractor RangesDA(Context.getDWARFObj(), *RangeSection,
@@ -587,9 +595,10 @@ bool DWARFUnit::parseDWO() {
             RangesDA, RangeSectionBase, Header.getFormat()))
       DWO->RngListTable = TableOrError.get();
     else
-      WithColor::error() << "parsing a range list table: "
-                         << toString(TableOrError.takeError())
-                         << '\n';
+      Context.getRecoverableErrorHandler()(createStringError(
+          errc::invalid_argument, "parsing a range list table: %s",
+          toString(TableOrError.takeError()).c_str()));
+
     if (DWO->RngListTable)
       DWO->RangeSectionBase = DWO->RngListTable->getHeaderSize();
   } else {

@@ -232,9 +232,9 @@ class Value;
   /// return undef.
   Value *isBytewiseValue(Value *V, const DataLayout &DL);
 
-  /// Given an aggregrate and an sequence of indices, see if the scalar value
+  /// Given an aggregate and an sequence of indices, see if the scalar value
   /// indexed is already around as a register, for example if it were inserted
-  /// directly into the aggregrate.
+  /// directly into the aggregate.
   ///
   /// If InsertBefore is not null, this function will duplicate (modified)
   /// insertvalues when a part of a nested struct is extracted.
@@ -569,7 +569,13 @@ class Value;
 
   /// Return true if this function can prove that V is never undef value
   /// or poison value.
-  bool isGuaranteedNotToBeUndefOrPoison(const Value *V);
+  //
+  /// If CtxI and DT are specified this method performs flow-sensitive analysis
+  /// and returns true if it is guaranteed to be never undef or poison
+  /// immediately before the CtxI.
+  bool isGuaranteedNotToBeUndefOrPoison(const Value *V,
+                                        const Instruction *CtxI = nullptr,
+                                        const DominatorTree *DT = nullptr);
 
   /// Specific patterns of select instructions we can match.
   enum SelectPatternFlavor {
@@ -673,10 +679,19 @@ class Value;
   Optional<bool> isImpliedCondition(const Value *LHS, const Value *RHS,
                                     const DataLayout &DL, bool LHSIsTrue = true,
                                     unsigned Depth = 0);
+  Optional<bool> isImpliedCondition(const Value *LHS,
+                                    CmpInst::Predicate RHSPred,
+                                    const Value *RHSOp0, const Value *RHSOp1,
+                                    const DataLayout &DL, bool LHSIsTrue = true,
+                                    unsigned Depth = 0);
 
   /// Return the boolean condition value in the context of the given instruction
   /// if it is known based on dominating conditions.
   Optional<bool> isImpliedByDomCondition(const Value *Cond,
+                                         const Instruction *ContextI,
+                                         const DataLayout &DL);
+  Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
+                                         const Value *LHS, const Value *RHS,
                                          const Instruction *ContextI,
                                          const DataLayout &DL);
 

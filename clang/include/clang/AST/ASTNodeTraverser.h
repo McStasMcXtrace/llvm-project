@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_AST_ASTNODETRAVERSER_H
 #define LLVM_CLANG_AST_ASTNODETRAVERSER_H
 
+#include "clang/AST/ASTTypeTraits.h"
 #include "clang/AST/AttrVisitor.h"
 #include "clang/AST/CommentVisitor.h"
 #include "clang/AST/DeclVisitor.h"
@@ -65,8 +66,7 @@ class ASTNodeTraverser
   /// not already been loaded.
   bool Deserialize = false;
 
-  ast_type_traits::TraversalKind Traversal =
-      ast_type_traits::TraversalKind::TK_AsIs;
+  TraversalKind Traversal = TraversalKind::TK_AsIs;
 
   NodeDelegateType &getNodeDelegate() {
     return getDerived().doGetNodeDelegate();
@@ -77,7 +77,7 @@ public:
   void setDeserialize(bool D) { Deserialize = D; }
   bool getDeserialize() const { return Deserialize; }
 
-  void SetTraversalKind(ast_type_traits::TraversalKind TK) { Traversal = TK; }
+  void SetTraversalKind(TraversalKind TK) { Traversal = TK; }
 
   void Visit(const Decl *D) {
     getNodeDelegate().AddChild([=] {
@@ -108,10 +108,13 @@ public:
 
       if (auto *E = dyn_cast_or_null<Expr>(S)) {
         switch (Traversal) {
-        case ast_type_traits::TK_AsIs:
+        case TK_AsIs:
           break;
-        case ast_type_traits::TK_IgnoreImplicitCastsAndParentheses:
+        case TK_IgnoreImplicitCastsAndParentheses:
           S = E->IgnoreParenImpCasts();
+          break;
+        case TK_IgnoreUnlessSpelledInSource:
+          S = E->IgnoreUnlessSpelledInSource();
           break;
         }
       }
@@ -125,9 +128,11 @@ public:
       ConstStmtVisitor<Derived>::Visit(S);
 
       // Some statements have custom mechanisms for dumping their children.
-      if (isa<DeclStmt>(S) || isa<GenericSelectionExpr>(S)) {
+      if (isa<DeclStmt>(S) || isa<GenericSelectionExpr>(S))
         return;
-      }
+
+      if (isa<LambdaExpr>(S) && Traversal == TK_IgnoreUnlessSpelledInSource)
+        return;
 
       for (const Stmt *SubStmt : S->children())
         Visit(SubStmt);
@@ -222,7 +227,7 @@ public:
     });
   }
 
-  void Visit(const ast_type_traits::DynTypedNode &N) {
+  void Visit(const DynTypedNode &N) {
     // FIXME: Improve this with a switch or a visitor pattern.
     if (const auto *D = N.get<Decl>())
       Visit(D);
@@ -378,6 +383,9 @@ public:
       for (const auto *Parameter : D->parameters())
         Visit(Parameter);
 
+    if (const Expr *TRC = D->getTrailingRequiresClause())
+      Visit(TRC);
+
     if (const auto *C = dyn_cast<CXXConstructorDecl>(D))
       for (const auto *I : C->inits())
         Visit(I);
@@ -528,6 +536,10 @@ public:
   }
 
   void VisitTemplateTypeParmDecl(const TemplateTypeParmDecl *D) {
+    if (const auto *TC = D->getTypeConstraint())
+      if (TC->hasExplicitTemplateArgs())
+        for (const auto &ArgLoc : TC->getTemplateArgsAsWritten()->arguments())
+          dumpTemplateArgumentLoc(ArgLoc);
     if (D->hasDefaultArgument())
       Visit(D->getDefaultArgument(), SourceRange(),
             D->getDefaultArgStorage().getInheritedFrom(),
@@ -535,6 +547,8 @@ public:
   }
 
   void VisitNonTypeTemplateParmDecl(const NonTypeTemplateParmDecl *D) {
+    if (const auto *E = D->getPlaceholderTypeConstraint())
+      Visit(E);
     if (D->hasDefaultArgument())
       Visit(D->getDefaultArgument(), SourceRange(),
             D->getDefaultArgStorage().getInheritedFrom(),
@@ -643,7 +657,23 @@ public:
   }
 
   void VisitLambdaExpr(const LambdaExpr *Node) {
-    Visit(Node->getLambdaClass());
+    if (Traversal == TK_IgnoreUnlessSpelledInSource) {
+      for (unsigned I = 0, N = Node->capture_size(); I != N; ++I) {
+        const auto *C = Node->capture_begin() + I;
+        if (!C->isExplicit())
+          continue;
+        if (Node->isInitCapture(C))
+          Visit(C->getCapturedVar());
+        else
+          Visit(Node->capture_init_begin()[I]);
+      }
+      dumpTemplateParameters(Node->getTemplateParameterList());
+      for (const auto *P : Node->getCallOperator()->parameters())
+        Visit(P);
+      Visit(Node->getBody());
+    } else {
+      return Visit(Node->getLambdaClass());
+    }
   }
 
   void VisitSizeOfPackExpr(const SizeOfPackExpr *Node) {

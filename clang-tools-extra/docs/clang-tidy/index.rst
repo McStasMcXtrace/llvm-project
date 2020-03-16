@@ -68,6 +68,7 @@ Name prefix            Description
 ``google-``            Checks related to Google coding conventions.
 ``hicpp-``             Checks related to High Integrity C++ Coding Standard.
 ``llvm-``              Checks related to the LLVM coding conventions.
+``llvmlibc-``          Checks related to the LLVM-libc coding standards.
 ``misc-``              Checks that we didn't have a better category for.
 ``modernize-``         Checks that advocate usage of modern (currently "modern"
                        means "C++11") language constructs.
@@ -155,7 +156,9 @@ An overview of all the command-line options:
                                      stored fixes can be applied to the input source
                                      code with clang-apply-replacements.
     --extra-arg=<string>           - Additional argument to append to the compiler command line
+                                     Can be used several times.
     --extra-arg-before=<string>    - Additional argument to prepend to the compiler command line
+                                     Can be used several times.
     --fix                          -
                                      Apply suggested fixes. Without -fix-errors
                                      clang-tidy will bail out if any compilation

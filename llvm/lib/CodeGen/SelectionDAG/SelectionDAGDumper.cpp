@@ -65,7 +65,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
       if (G)
         if (const TargetInstrInfo *TII = G->getSubtarget().getInstrInfo())
           if (getMachineOpcode() < TII->getNumOpcodes())
-            return TII->getName(getMachineOpcode());
+            return std::string(TII->getName(getMachineOpcode()));
       return "<<Unknown Machine Node #" + utostr(getOpcode()) + ">>";
     }
     if (G) {
@@ -170,6 +170,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::CopyToReg:                  return "CopyToReg";
   case ISD::CopyFromReg:                return "CopyFromReg";
   case ISD::UNDEF:                      return "undef";
+  case ISD::VSCALE:                     return "vscale";
   case ISD::MERGE_VALUES:               return "merge_values";
   case ISD::INLINEASM:                  return "inlineasm";
   case ISD::INLINEASM_BR:               return "inlineasm_br";
@@ -186,7 +187,9 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::FMINNUM_IEEE:               return "fminnum_ieee";
   case ISD::FMAXNUM_IEEE:               return "fmaxnum_ieee";
   case ISD::FMINIMUM:                   return "fminimum";
+  case ISD::STRICT_FMINIMUM:            return "strict_fminimum";
   case ISD::FMAXIMUM:                   return "fmaximum";
+  case ISD::STRICT_FMAXIMUM:            return "strict_fmaximum";
   case ISD::FNEG:                       return "fneg";
   case ISD::FSQRT:                      return "fsqrt";
   case ISD::STRICT_FSQRT:               return "strict_fsqrt";
@@ -310,6 +313,11 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::UMULFIX:                    return "umulfix";
   case ISD::UMULFIXSAT:                 return "umulfixsat";
 
+  case ISD::SDIVFIX:                    return "sdivfix";
+  case ISD::SDIVFIXSAT:                 return "sdivfixsat";
+  case ISD::UDIVFIX:                    return "udivfix";
+  case ISD::UDIVFIXSAT:                 return "udivfixsat";
+
   // Conversion operators.
   case ISD::SIGN_EXTEND:                return "sign_extend";
   case ISD::ZERO_EXTEND:                return "zero_extend";
@@ -336,7 +344,9 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::BITCAST:                    return "bitcast";
   case ISD::ADDRSPACECAST:              return "addrspacecast";
   case ISD::FP16_TO_FP:                 return "fp16_to_fp";
+  case ISD::STRICT_FP16_TO_FP:          return "strict_fp16_to_fp";
   case ISD::FP_TO_FP16:                 return "fp_to_fp16";
+  case ISD::STRICT_FP_TO_FP16:          return "strict_fp_to_fp16";
   case ISD::LROUND:                     return "lround";
   case ISD::STRICT_LROUND:              return "strict_lround";
   case ISD::LLROUND:                    return "llround";
@@ -545,8 +555,8 @@ void SDNode::print_details(raw_ostream &OS, const SelectionDAG *G) const {
   if (getFlags().hasVectorReduction())
     OS << " vector-reduction";
 
-  if (getFlags().hasFPExcept())
-    OS << " fpexcept";
+  if (getFlags().hasNoFPExcept())
+    OS << " nofpexcept";
 
   if (const MachineSDNode *MN = dyn_cast<MachineSDNode>(this)) {
     if (!MN->memoperands_empty()) {

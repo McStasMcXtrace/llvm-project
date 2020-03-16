@@ -1046,6 +1046,13 @@ void TypePrinter::printAutoBefore(const AutoType *T, raw_ostream &OS) {
   if (!T->getDeducedType().isNull()) {
     printBefore(T->getDeducedType(), OS);
   } else {
+    if (T->isConstrained()) {
+      OS << T->getTypeConstraintConcept()->getName();
+      auto Args = T->getTypeConstraintArguments();
+      if (!Args.empty())
+        printTemplateArgumentList(OS, Args, Policy);
+      OS << ' ';
+    }
     switch (T->getKeyword()) {
     case AutoTypeKeyword::Auto: OS << "auto"; break;
     case AutoTypeKeyword::DecltypeAuto: OS << "decltype(auto)"; break;
@@ -1234,20 +1241,18 @@ void TypePrinter::printEnumAfter(const EnumType *T, raw_ostream &OS) {}
 
 void TypePrinter::printTemplateTypeParmBefore(const TemplateTypeParmType *T,
                                               raw_ostream &OS) {
-  if (IdentifierInfo *Id = T->getIdentifier())
-    OS << Id->getName();
-  else {
-    bool IsLambdaAutoParam = false;
-    if (auto D = T->getDecl()) {
-      if (auto M = dyn_cast_or_null<CXXMethodDecl>(D->getDeclContext()))
-        IsLambdaAutoParam = D->isImplicit() && M->getParent()->isLambda();
+  TemplateTypeParmDecl *D = T->getDecl();
+  if (D && D->isImplicit()) {
+    if (auto *TC = D->getTypeConstraint()) {
+      TC->print(OS, Policy);
+      OS << ' ';
     }
+    OS << "auto";
+  } else if (IdentifierInfo *Id = T->getIdentifier())
+    OS << Id->getName();
+  else
+    OS << "type-parameter-" << T->getDepth() << '-' << T->getIndex();
 
-    if (IsLambdaAutoParam)
-      OS << "auto";
-    else
-      OS << "type-parameter-" << T->getDepth() << '-' << T->getIndex();
-  }
   spaceBeforePlaceHolder(OS);
 }
 
@@ -1555,6 +1560,12 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
   case attr::NoDeref:
     OS << "noderef";
     break;
+  case attr::AcquireHandle:
+    OS << "acquire_handle";
+    break;
+  case attr::ArmMveStrictPolymorphism:
+    OS << "__clang_arm_mve_strict_polymorphism";
+    break;
   }
   OS << "))";
 }
@@ -1752,7 +1763,7 @@ std::string Qualifiers::getAsString(const PrintingPolicy &Policy) const {
   SmallString<64> Buf;
   llvm::raw_svector_ostream StrOS(Buf);
   print(StrOS, Policy);
-  return StrOS.str();
+  return std::string(StrOS.str());
 }
 
 bool Qualifiers::isEmptyWhenPrinted(const PrintingPolicy &Policy) const {
@@ -1781,7 +1792,7 @@ std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
   case LangAS::opencl_local:
     return "__local";
   case LangAS::opencl_private:
-    return "";
+    return "__private";
   case LangAS::opencl_constant:
     return "__constant";
   case LangAS::opencl_generic:
@@ -1792,6 +1803,12 @@ std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
     return "__constant__";
   case LangAS::cuda_shared:
     return "__shared__";
+  case LangAS::ptr32_sptr:
+    return "__sptr __ptr32";
+  case LangAS::ptr32_uptr:
+    return "__uptr __ptr32";
+  case LangAS::ptr64:
+    return "__ptr64";
   default:
     return std::to_string(toTargetAddressSpace(AS));
   }
@@ -1904,6 +1921,6 @@ void QualType::getAsStringInternal(const Type *ty, Qualifiers qs,
   SmallString<256> Buf;
   llvm::raw_svector_ostream StrOS(Buf);
   TypePrinter(policy).print(ty, qs, StrOS, buffer);
-  std::string str = StrOS.str();
+  std::string str = std::string(StrOS.str());
   buffer.swap(str);
 }

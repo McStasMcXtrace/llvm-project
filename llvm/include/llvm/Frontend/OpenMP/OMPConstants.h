@@ -20,6 +20,7 @@
 namespace llvm {
 class Type;
 class Module;
+class ArrayType;
 class StructType;
 class PointerType;
 class FunctionType;
@@ -49,6 +50,26 @@ enum class RuntimeFunction {
 #define OMP_RTL(Enum, ...) constexpr auto Enum = omp::RuntimeFunction::Enum;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
 
+/// IDs for the different default kinds.
+enum class DefaultKind {
+#define OMP_DEFAULT_KIND(Enum, Str) Enum,
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+};
+
+#define OMP_DEFAULT_KIND(Enum, ...)                                            \
+  constexpr auto Enum = omp::DefaultKind::Enum;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+
+/// IDs for the different proc bind kinds.
+enum class ProcBindKind {
+#define OMP_PROC_BIND_KIND(Enum, Str, Value) Enum = Value,
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+};
+
+#define OMP_PROC_BIND_KIND(Enum, ...)                                          \
+  constexpr auto Enum = omp::ProcBindKind::Enum;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+
 /// IDs for all omp runtime library ident_t flag encodings (see
 /// their defintion in openmp/runtime/src/kmp.h).
 enum class IdentFlag {
@@ -67,14 +88,17 @@ Directive getOpenMPDirectiveKind(StringRef Str);
 StringRef getOpenMPDirectiveName(Directive D);
 
 /// Forward declarations for LLVM-IR types (simple, function and structure) are
-/// generated below. Their names are defined and used in OpenMPKinds.def. Here
-/// we provide the forward declarations, the initializeTypes function will
+/// generated below. Their names are defined and used in OpenMP/OMPKinds.def.
+/// Here we provide the forward declarations, the initializeTypes function will
 /// provide the values.
 ///
 ///{
 namespace types {
 
 #define OMP_TYPE(VarName, InitValue) extern Type *VarName;
+#define OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize)                             \
+  extern ArrayType *VarName##Ty;                                               \
+  extern PointerType *VarName##PtrTy;
 #define OMP_FUNCTION_TYPE(VarName, IsVarArg, ReturnType, ...)                  \
   extern FunctionType *VarName;                                                \
   extern PointerType *VarName##Ptr;
@@ -83,10 +107,10 @@ namespace types {
   extern PointerType *VarName##Ptr;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
 
-/// Helper to initialize all types defined in OpenMPKinds.def.
+/// Helper to initialize all types defined in OpenMP/OMPKinds.def.
 void initializeTypes(Module &M);
 
-/// Helper to uninitialize all types defined in OpenMPKinds.def.
+/// Helper to uninitialize all types defined in OpenMP/OMPKinds.def.
 void uninitializeTypes();
 
 } // namespace types

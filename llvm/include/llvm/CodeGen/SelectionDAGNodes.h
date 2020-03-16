@@ -387,7 +387,7 @@ public:
         Exact(false), NoNaNs(false), NoInfs(false),
         NoSignedZeros(false), AllowReciprocal(false), VectorReduction(false),
         AllowContract(false), ApproximateFuncs(false),
-        AllowReassociation(false), NoFPExcept(true) {}
+        AllowReassociation(false), NoFPExcept(false) {}
 
   /// Propagate the fast-math-flags from an IR FPMathOperator.
   void copyFMF(const FPMathOperator &FPMO) {
@@ -450,9 +450,9 @@ public:
     setDefined();
     AllowReassociation = b;
   }
-  void setFPExcept(bool b) {
+  void setNoFPExcept(bool b) {
     setDefined();
-    NoFPExcept = !b;
+    NoFPExcept = b;
   }
 
   // These are accessors for each flag.
@@ -467,12 +467,7 @@ public:
   bool hasAllowContract() const { return AllowContract; }
   bool hasApproximateFuncs() const { return ApproximateFuncs; }
   bool hasAllowReassociation() const { return AllowReassociation; }
-  bool hasFPExcept() const { return !NoFPExcept; }
-
-  bool isFast() const {
-    return NoSignedZeros && AllowReciprocal && NoNaNs && NoInfs && NoFPExcept &&
-           AllowContract && ApproximateFuncs && AllowReassociation;
-  }
+  bool hasNoFPExcept() const { return NoFPExcept; }
 
   /// Clear any flags in this flag set that aren't also set in Flags.
   /// If the given Flags are undefined then don't do anything.
@@ -666,6 +661,15 @@ public:
   /// \<target\>ISD namespace).
   bool isTargetOpcode() const { return NodeType >= ISD::BUILTIN_OP_END; }
 
+  /// Test if this node has a target-specific opcode that may raise
+  /// FP exceptions (in the \<target\>ISD namespace and greater than
+  /// FIRST_TARGET_STRICTFP_OPCODE).  Note that all target memory
+  /// opcode are currently automatically considered to possibly raise
+  /// FP exceptions as well.
+  bool isTargetStrictFPOpcode() const {
+    return NodeType >= ISD::FIRST_TARGET_STRICTFP_OPCODE;
+  }
+
   /// Test if this node has a target-specific
   /// memory-referencing opcode (in the \<target\>ISD namespace and
   /// greater than FIRST_TARGET_MEMORY_OPCODE).
@@ -692,7 +696,9 @@ public:
     switch (NodeType) {
       default:
         return false;
-#define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)                   \
+      case ISD::STRICT_FP16_TO_FP:
+      case ISD::STRICT_FP_TO_FP16:
+#define DAG_INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)               \
       case ISD::STRICT_##DAGN:
 #include "llvm/IR/ConstrainedOps.def"
         return true;
@@ -979,7 +985,6 @@ public:
 
   const SDNodeFlags getFlags() const { return Flags; }
   void setFlags(SDNodeFlags NewFlags) { Flags = NewFlags; }
-  bool isFast() { return Flags.isFast(); }
 
   /// Clear any flags in this node that aren't also set in Flags.
   /// If Flags is not in a defined state then this has no effect.
@@ -1012,6 +1017,9 @@ public:
 
   value_iterator value_begin() const { return ValueList; }
   value_iterator value_end() const { return ValueList+NumValues; }
+  iterator_range<value_iterator> values() const {
+    return llvm::make_range(value_begin(), value_end());
+  }
 
   /// Return the opcode of this operation for printing.
   std::string getOperationName(const SelectionDAG *G = nullptr) const;
@@ -2666,6 +2674,16 @@ namespace ISD {
       SDValue LHS, SDValue RHS,
       std::function<bool(ConstantSDNode *, ConstantSDNode *)> Match,
       bool AllowUndefs = false, bool AllowTypeMismatch = false);
+
+  /// Returns true if the specified value is the overflow result from one
+  /// of the overflow intrinsic nodes.
+  inline bool isOverflowIntrOpRes(SDValue Op) {
+    unsigned Opc = Op.getOpcode();
+    return (Op.getResNo() == 1 &&
+            (Opc == ISD::SADDO || Opc == ISD::UADDO || Opc == ISD::SSUBO ||
+             Opc == ISD::USUBO || Opc == ISD::SMULO || Opc == ISD::UMULO));
+  }
+
 } // end namespace ISD
 
 } // end namespace llvm

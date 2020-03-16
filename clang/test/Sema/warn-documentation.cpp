@@ -294,6 +294,9 @@ int test_param22(int x1, int x2, int x3);
 /// \retval 0 Blah blah.
 int test_param23(int a);
 
+/// \param a \ref test_param23 has an empty paragraph, this doesn't.
+int test_param24(int a);
+
 //===---
 // Test that we treat typedefs to some non-function types as functions for the
 // purposes of documentation comment parsing.
@@ -1101,6 +1104,13 @@ int test_inline_no_argument_a_bad(int);
 
 /// \a A
 int test_inline_no_argument_a_good(int);
+
+// expected-warning@+1 {{'\anchor' command does not have a valid word argument}}
+/// \anchor
+int test_inline_no_argument_anchor_bad(int);
+
+/// \anchor A
+int test_inline_no_argument_anchor_good(int);
 
 // expected-warning@+1 {{'@b' command does not have a valid word argument}}
 /// @b
