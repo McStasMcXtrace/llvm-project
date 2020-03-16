@@ -2272,7 +2272,6 @@ void ASTStmtReader::VisitOMPTileDirective(OMPTileDirective *D) {
   D->setTransformedStmt(Record.readStmt());
 }
 
-
 void ASTStmtReader::VisitOMPForSimdDirective(OMPForSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
@@ -3130,14 +3129,12 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
 
-
     case STMT_OMP_TILE_DIRECTIVE: {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
       unsigned NumLoops = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPTileDirective::createEmpty(Context, NumClauses, NumLoops);
       break;
     }
-
 
     case STMT_OMP_FOR_SIMD_DIRECTIVE: {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];

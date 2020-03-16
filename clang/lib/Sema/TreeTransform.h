@@ -1606,7 +1606,10 @@ public:
                                                EndLoc);
   }
 
-  OMPClause *RebuildOMPSizesClause(ArrayRef<Expr*> Sizes, SourceLocation StartLoc,    SourceLocation LParenLoc,    SourceLocation EndLoc) {
+  OMPClause *RebuildOMPSizesClause(ArrayRef<Expr *> Sizes,
+                                   SourceLocation StartLoc,
+                                   SourceLocation LParenLoc,
+                                   SourceLocation EndLoc) {
     return getSema().ActOnOpenMPSizesClause(Sizes, StartLoc, LParenLoc, EndLoc);
   }
 
@@ -8042,16 +8045,17 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
   }
   StmtResult AssociatedStmt;
 
-
   if (D->hasAssociatedStmt() && D->getAssociatedStmt()) {
-          getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(), /*CurScope=*/nullptr);
-      StmtResult Body;
-      {
-        Sema::CompoundScopeRAII CompoundScope(getSema());
-        Stmt*CS = D->ignoreCaptures();
-        Body = getDerived().TransformStmt(CS);
-      }
-      AssociatedStmt = getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
+    getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(),
+                                                  /*CurScope=*/nullptr);
+    StmtResult Body;
+    {
+      Sema::CompoundScopeRAII CompoundScope(getSema());
+      Stmt *CS = D->ignoreCaptures();
+      Body = getDerived().TransformStmt(CS);
+    }
+    AssociatedStmt =
+        getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
     if (AssociatedStmt.isInvalid()) {
       return StmtError();
     }
@@ -8082,7 +8086,8 @@ template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_parallel, DirName, nullptr,   D->getBeginLoc());
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_parallel, DirName, nullptr,
+                                             D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
@@ -8112,9 +8117,10 @@ TreeTransform<Derived>::TransformOMPForDirective(OMPForDirective *D) {
 
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformOMPTileDirective(OMPTileDirective* D) {
+TreeTransform<Derived>::TransformOMPTileDirective(OMPTileDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(D->getDirectiveKind(), DirName, nullptr,  D->getBeginLoc());
+  getDerived().getSema().StartOpenMPDSABlock(D->getDirectiveKind(), DirName,
+                                             nullptr, D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
@@ -8750,12 +8756,9 @@ TreeTransform<Derived>::TransformOMPCollapseClause(OMPCollapseClause *C) {
       E.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 
-
-
 template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPSizesClause(OMPSizesClause *C) {
-  SmallVector <Expr*, 4> TransformedSizes;
+OMPClause *TreeTransform<Derived>::TransformOMPSizesClause(OMPSizesClause *C) {
+  SmallVector<Expr *, 4> TransformedSizes;
   TransformedSizes.reserve(C->getNumSizes());
   bool Changed = false;
   for (auto E : C->getSizesRefs()) {
@@ -8765,16 +8768,18 @@ TreeTransform<Derived>::TransformOMPSizesClause(OMPSizesClause *C) {
     }
 
     auto T = getDerived().TransformExpr(E);
-    if (T.isInvalid()) return nullptr;
+    if (T.isInvalid())
+      return nullptr;
     if (E != T.get())
       Changed = true;
-    TransformedSizes.push_back(  T.get() );
+    TransformedSizes.push_back(T.get());
   }
 
-  if (!Changed&& !getDerived().AlwaysRebuild()) return C;
-  return RebuildOMPSizesClause(TransformedSizes, C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+  if (!Changed && !getDerived().AlwaysRebuild())
+    return C;
+  return RebuildOMPSizesClause(TransformedSizes, C->getBeginLoc(),
+                               C->getLParenLoc(), C->getEndLoc());
 }
-
 
 template <typename Derived>
 OMPClause *

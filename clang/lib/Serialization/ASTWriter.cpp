@@ -6098,7 +6098,7 @@ void OMPClauseWriter::VisitOMPCollapseClause(OMPCollapseClause *C) {
 
 void OMPClauseWriter::VisitOMPSizesClause(OMPSizesClause *C) {
   Record.push_back(C->getNumSizes());
-  for (auto Size : C->getSizesRefs()) 
+  for (auto Size : C->getSizesRefs())
     Record.AddStmt(Size);
   Record.AddSourceLocation(C->getLParenLoc());
 }

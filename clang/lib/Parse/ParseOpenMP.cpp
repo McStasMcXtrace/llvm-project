@@ -1955,7 +1955,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   // Name of critical directive.
   DeclarationNameInfo DirName;
   StmtResult Directive = StmtError();
-  bool HasAssociatedStatement = true; bool ErrorFound = false;
+  bool HasAssociatedStatement = true;
+  bool ErrorFound = false;
 
   switch (DKind) {
   case OMPD_threadprivate: {
@@ -2195,7 +2196,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       if (Clause) {
         FirstClauses[CKind].setPointer(Clause);
         Clauses.push_back(Clause);
-      }  else ErrorFound = true;
+      } else
+        ErrorFound = true;
 
       // Skip ',' if any.
       if (Tok.is(tok::comma))
@@ -2221,7 +2223,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     }
 
     if (DKind == OMPD_tile && !FirstClauses[OMPC_sizes].getInt()) {
-      Diag(Loc, diag::err_omp_required_clause) << getOpenMPDirectiveName(OMPD_tile) << "sizes";
+      Diag(Loc, diag::err_omp_required_clause)
+          << getOpenMPDirectiveName(OMPD_tile) << "sizes";
     }
 
     StmtResult AssociatedStmt;
@@ -2330,51 +2333,45 @@ bool Parser::ParseOpenMPSimpleVarList(
   return !IsCorrect;
 }
 
+OMPClause *Parser::ParseOpenMPSizesClause() {
+  SourceLocation ClauseNameLoc = ConsumeToken();
+  SmallVector<Expr *, 4> ValExprs;
 
- OMPClause* Parser:: ParseOpenMPSizesClause() {
-  SourceLocation ClauseNameLoc =  ConsumeToken();
-  SmallVector<Expr*, 4> ValExprs;
+  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+  if (T.consumeOpen()) {
+    Diag(Tok, diag::err_expected) << tok::l_paren;
+    return nullptr;
+  }
 
-  
-    BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
-    if (T.consumeOpen()) {
-      Diag(Tok, diag::err_expected) << tok::l_paren;
+  // SourceLocation Loc = Tok.getLocation();
+  // SourceLocation LOpen = ConsumeToken();
+  // SmallVector<Expr*, 4> Vals;
+  // OpenMPVarListDataTy Data;
+
+  while (true) {
+    // SourceLocation Loc = ConsumeToken();
+    // SourceLocation LLoc = Tok.getLocation();
+
+    ExprResult Val = ParseConstantExpression();
+    if (!Val.isUsable()) {
+      // TODO: emit diagnostics
+      T.skipToEnd();
       return nullptr;
     }
+    // Actions.ActOnFinishFullExpr(Val.get(), {}, true, true);
 
+    ValExprs.push_back(Val.get());
 
-    //SourceLocation Loc = Tok.getLocation();
-    //SourceLocation LOpen = ConsumeToken();
-    //SmallVector<Expr*, 4> Vals;
-    //OpenMPVarListDataTy Data;
+    if (Tok.is(tok::r_paren) || Tok.is(tok::annot_pragma_openmp_end))
+      break;
 
- 
+    ExpectAndConsume(tok::comma);
+  }
 
-    while (true) {
-      //SourceLocation Loc = ConsumeToken();
-      //SourceLocation LLoc = Tok.getLocation();
+  T.consumeClose();
 
-      ExprResult Val = ParseConstantExpression();
-      if (!Val.isUsable()) {
-        // TODO: emit diagnostics
-        T.skipToEnd();
-        return nullptr;
-      }
-      //Actions.ActOnFinishFullExpr(Val.get(), {}, true, true);
-
-      ValExprs.push_back(Val.get());
-
-      if (Tok.is(tok::r_paren) || Tok.is(tok::annot_pragma_openmp_end))
-        break;
-
-      ExpectAndConsume(tok::comma);
-    }
-
-    T.consumeClose();
-
-  
-
-return  Actions. ActOnOpenMPSizesClause(ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
+  return Actions.ActOnOpenMPSizesClause(
+      ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
 }
 
 /// Parsing of OpenMP clauses.
@@ -2458,15 +2455,15 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;
-  case OMPC_sizes: 
+  case OMPC_sizes:
     if (!FirstClause) {
-      Diag(Tok, diag::err_omp_more_one_clause) << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+      Diag(Tok, diag::err_omp_more_one_clause)
+          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
       ErrorFound = true;
     }
 
-
-     Clause = ParseOpenMPSizesClause();
-     break;
+    Clause = ParseOpenMPSizesClause();
+    break;
   case OMPC_default:
   case OMPC_proc_bind:
   case OMPC_atomic_default_mem_order:
@@ -2584,7 +2581,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::comma, tok::annot_pragma_openmp_end, StopBeforeMatch);
     break;
-
   }
   return ErrorFound ? nullptr : Clause;
 }

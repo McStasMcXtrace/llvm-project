@@ -1741,95 +1741,95 @@ enum CXCursorKind {
    * spelling, find their definitions, etc. However, the specific kind
    * of the declaration is not reported.
    */
-  CXCursor_UnexposedDecl                 = 1,
+  CXCursor_UnexposedDecl = 1,
   /** A C or C++ struct. */
-  CXCursor_StructDecl                    = 2,
+  CXCursor_StructDecl = 2,
   /** A C or C++ union. */
-  CXCursor_UnionDecl                     = 3,
+  CXCursor_UnionDecl = 3,
   /** A C++ class. */
-  CXCursor_ClassDecl                     = 4,
+  CXCursor_ClassDecl = 4,
   /** An enumeration. */
-  CXCursor_EnumDecl                      = 5,
+  CXCursor_EnumDecl = 5,
   /**
    * A field (in C) or non-static data member (in C++) in a
    * struct, union, or C++ class.
    */
-  CXCursor_FieldDecl                     = 6,
+  CXCursor_FieldDecl = 6,
   /** An enumerator constant. */
-  CXCursor_EnumConstantDecl              = 7,
+  CXCursor_EnumConstantDecl = 7,
   /** A function. */
-  CXCursor_FunctionDecl                  = 8,
+  CXCursor_FunctionDecl = 8,
   /** A variable. */
-  CXCursor_VarDecl                       = 9,
+  CXCursor_VarDecl = 9,
   /** A function or method parameter. */
-  CXCursor_ParmDecl                      = 10,
+  CXCursor_ParmDecl = 10,
   /** An Objective-C \@interface. */
-  CXCursor_ObjCInterfaceDecl             = 11,
+  CXCursor_ObjCInterfaceDecl = 11,
   /** An Objective-C \@interface for a category. */
-  CXCursor_ObjCCategoryDecl              = 12,
+  CXCursor_ObjCCategoryDecl = 12,
   /** An Objective-C \@protocol declaration. */
-  CXCursor_ObjCProtocolDecl              = 13,
+  CXCursor_ObjCProtocolDecl = 13,
   /** An Objective-C \@property declaration. */
-  CXCursor_ObjCPropertyDecl              = 14,
+  CXCursor_ObjCPropertyDecl = 14,
   /** An Objective-C instance variable. */
-  CXCursor_ObjCIvarDecl                  = 15,
+  CXCursor_ObjCIvarDecl = 15,
   /** An Objective-C instance method. */
-  CXCursor_ObjCInstanceMethodDecl        = 16,
+  CXCursor_ObjCInstanceMethodDecl = 16,
   /** An Objective-C class method. */
-  CXCursor_ObjCClassMethodDecl           = 17,
+  CXCursor_ObjCClassMethodDecl = 17,
   /** An Objective-C \@implementation. */
-  CXCursor_ObjCImplementationDecl        = 18,
+  CXCursor_ObjCImplementationDecl = 18,
   /** An Objective-C \@implementation for a category. */
-  CXCursor_ObjCCategoryImplDecl          = 19,
+  CXCursor_ObjCCategoryImplDecl = 19,
   /** A typedef. */
-  CXCursor_TypedefDecl                   = 20,
+  CXCursor_TypedefDecl = 20,
   /** A C++ class method. */
-  CXCursor_CXXMethod                     = 21,
+  CXCursor_CXXMethod = 21,
   /** A C++ namespace. */
-  CXCursor_Namespace                     = 22,
+  CXCursor_Namespace = 22,
   /** A linkage specification, e.g. 'extern "C"'. */
-  CXCursor_LinkageSpec                   = 23,
+  CXCursor_LinkageSpec = 23,
   /** A C++ constructor. */
-  CXCursor_Constructor                   = 24,
+  CXCursor_Constructor = 24,
   /** A C++ destructor. */
-  CXCursor_Destructor                    = 25,
+  CXCursor_Destructor = 25,
   /** A C++ conversion function. */
-  CXCursor_ConversionFunction            = 26,
+  CXCursor_ConversionFunction = 26,
   /** A C++ template type parameter. */
-  CXCursor_TemplateTypeParameter         = 27,
+  CXCursor_TemplateTypeParameter = 27,
   /** A C++ non-type template parameter. */
-  CXCursor_NonTypeTemplateParameter      = 28,
+  CXCursor_NonTypeTemplateParameter = 28,
   /** A C++ template template parameter. */
-  CXCursor_TemplateTemplateParameter     = 29,
+  CXCursor_TemplateTemplateParameter = 29,
   /** A C++ function template. */
-  CXCursor_FunctionTemplate              = 30,
+  CXCursor_FunctionTemplate = 30,
   /** A C++ class template. */
-  CXCursor_ClassTemplate                 = 31,
+  CXCursor_ClassTemplate = 31,
   /** A C++ class template partial specialization. */
   CXCursor_ClassTemplatePartialSpecialization = 32,
   /** A C++ namespace alias declaration. */
-  CXCursor_NamespaceAlias                = 33,
+  CXCursor_NamespaceAlias = 33,
   /** A C++ using directive. */
-  CXCursor_UsingDirective                = 34,
+  CXCursor_UsingDirective = 34,
   /** A C++ using declaration. */
-  CXCursor_UsingDeclaration              = 35,
+  CXCursor_UsingDeclaration = 35,
   /** A C++ alias declaration */
-  CXCursor_TypeAliasDecl                 = 36,
+  CXCursor_TypeAliasDecl = 36,
   /** An Objective-C \@synthesize definition. */
-  CXCursor_ObjCSynthesizeDecl            = 37,
+  CXCursor_ObjCSynthesizeDecl = 37,
   /** An Objective-C \@dynamic definition. */
-  CXCursor_ObjCDynamicDecl               = 38,
+  CXCursor_ObjCDynamicDecl = 38,
   /** An access specifier. */
-  CXCursor_CXXAccessSpecifier            = 39,
+  CXCursor_CXXAccessSpecifier = 39,
 
-  CXCursor_FirstDecl                     = CXCursor_UnexposedDecl,
-  CXCursor_LastDecl                      = CXCursor_CXXAccessSpecifier,
+  CXCursor_FirstDecl = CXCursor_UnexposedDecl,
+  CXCursor_LastDecl = CXCursor_CXXAccessSpecifier,
 
   /* References */
-  CXCursor_FirstRef                      = 40, /* Decl references */
-  CXCursor_ObjCSuperClassRef             = 40,
-  CXCursor_ObjCProtocolRef               = 41,
-  CXCursor_ObjCClassRef                  = 42,
+  CXCursor_FirstRef = 40, /* Decl references */
+  CXCursor_ObjCSuperClassRef = 40,
+  CXCursor_ObjCProtocolRef = 41,
+  CXCursor_ObjCClassRef = 42,
   /**
    * A reference to a type declaration.
    *
@@ -1845,22 +1845,22 @@ enum CXCursorKind {
    * while the type of the variable "size" is referenced. The cursor
    * referenced by the type of size is the typedef for size_type.
    */
-  CXCursor_TypeRef                       = 43,
-  CXCursor_CXXBaseSpecifier              = 44,
+  CXCursor_TypeRef = 43,
+  CXCursor_CXXBaseSpecifier = 44,
   /**
    * A reference to a class template, function template, template
    * template parameter, or class template partial specialization.
    */
-  CXCursor_TemplateRef                   = 45,
+  CXCursor_TemplateRef = 45,
   /**
    * A reference to a namespace or namespace alias.
    */
-  CXCursor_NamespaceRef                  = 46,
+  CXCursor_NamespaceRef = 46,
   /**
    * A reference to a member of a struct, union, or class that occurs in
    * some non-expression context, e.g., a designated initializer.
    */
-  CXCursor_MemberRef                     = 47,
+  CXCursor_MemberRef = 47,
   /**
    * A reference to a labeled statement.
    *
@@ -1876,7 +1876,7 @@ enum CXCursorKind {
    *
    * A label reference cursor refers to a label statement.
    */
-  CXCursor_LabelRef                      = 48,
+  CXCursor_LabelRef = 48,
 
   /**
    * A reference to a set of overloaded functions or function templates
@@ -1914,26 +1914,26 @@ enum CXCursorKind {
    * \c clang_getOverloadedDecl() can be used to retrieve the definitions
    * referenced by this cursor.
    */
-  CXCursor_OverloadedDeclRef             = 49,
+  CXCursor_OverloadedDeclRef = 49,
 
   /**
    * A reference to a variable that occurs in some non-expression
    * context, e.g., a C++ lambda capture list.
    */
-  CXCursor_VariableRef                   = 50,
+  CXCursor_VariableRef = 50,
 
-  CXCursor_LastRef                       = CXCursor_VariableRef,
+  CXCursor_LastRef = CXCursor_VariableRef,
 
   /* Error conditions */
-  CXCursor_FirstInvalid                  = 70,
-  CXCursor_InvalidFile                   = 70,
-  CXCursor_NoDeclFound                   = 71,
-  CXCursor_NotImplemented                = 72,
-  CXCursor_InvalidCode                   = 73,
-  CXCursor_LastInvalid                   = CXCursor_InvalidCode,
+  CXCursor_FirstInvalid = 70,
+  CXCursor_InvalidFile = 70,
+  CXCursor_NoDeclFound = 71,
+  CXCursor_NotImplemented = 72,
+  CXCursor_InvalidCode = 73,
+  CXCursor_LastInvalid = CXCursor_InvalidCode,
 
   /* Expressions */
-  CXCursor_FirstExpr                     = 100,
+  CXCursor_FirstExpr = 100,
 
   /**
    * An expression whose specific kind is not exposed via this
@@ -1944,104 +1944,104 @@ enum CXCursorKind {
    * spelling, children, etc. However, the specific kind of the
    * expression is not reported.
    */
-  CXCursor_UnexposedExpr                 = 100,
+  CXCursor_UnexposedExpr = 100,
 
   /**
    * An expression that refers to some value declaration, such
    * as a function, variable, or enumerator.
    */
-  CXCursor_DeclRefExpr                   = 101,
+  CXCursor_DeclRefExpr = 101,
 
   /**
    * An expression that refers to a member of a struct, union,
    * class, Objective-C class, etc.
    */
-  CXCursor_MemberRefExpr                 = 102,
+  CXCursor_MemberRefExpr = 102,
 
   /** An expression that calls a function. */
-  CXCursor_CallExpr                      = 103,
+  CXCursor_CallExpr = 103,
 
   /** An expression that sends a message to an Objective-C
    object or class. */
-  CXCursor_ObjCMessageExpr               = 104,
+  CXCursor_ObjCMessageExpr = 104,
 
   /** An expression that represents a block literal. */
-  CXCursor_BlockExpr                     = 105,
+  CXCursor_BlockExpr = 105,
 
   /** An integer literal.
    */
-  CXCursor_IntegerLiteral                = 106,
+  CXCursor_IntegerLiteral = 106,
 
   /** A floating point number literal.
    */
-  CXCursor_FloatingLiteral               = 107,
+  CXCursor_FloatingLiteral = 107,
 
   /** An imaginary number literal.
    */
-  CXCursor_ImaginaryLiteral              = 108,
+  CXCursor_ImaginaryLiteral = 108,
 
   /** A string literal.
    */
-  CXCursor_StringLiteral                 = 109,
+  CXCursor_StringLiteral = 109,
 
   /** A character literal.
    */
-  CXCursor_CharacterLiteral              = 110,
+  CXCursor_CharacterLiteral = 110,
 
   /** A parenthesized expression, e.g. "(1)".
    *
    * This AST node is only formed if full location information is requested.
    */
-  CXCursor_ParenExpr                     = 111,
+  CXCursor_ParenExpr = 111,
 
   /** This represents the unary-expression's (except sizeof and
    * alignof).
    */
-  CXCursor_UnaryOperator                 = 112,
+  CXCursor_UnaryOperator = 112,
 
   /** [C99 6.5.2.1] Array Subscripting.
    */
-  CXCursor_ArraySubscriptExpr            = 113,
+  CXCursor_ArraySubscriptExpr = 113,
 
   /** A builtin binary operation expression such as "x + y" or
    * "x <= y".
    */
-  CXCursor_BinaryOperator                = 114,
+  CXCursor_BinaryOperator = 114,
 
   /** Compound assignment such as "+=".
    */
-  CXCursor_CompoundAssignOperator        = 115,
+  CXCursor_CompoundAssignOperator = 115,
 
   /** The ?: ternary operator.
    */
-  CXCursor_ConditionalOperator           = 116,
+  CXCursor_ConditionalOperator = 116,
 
   /** An explicit cast in C (C99 6.5.4) or a C-style cast in C++
    * (C++ [expr.cast]), which uses the syntax (Type)expr.
    *
    * For example: (int)f.
    */
-  CXCursor_CStyleCastExpr                = 117,
+  CXCursor_CStyleCastExpr = 117,
 
   /** [C99 6.5.2.5]
    */
-  CXCursor_CompoundLiteralExpr           = 118,
+  CXCursor_CompoundLiteralExpr = 118,
 
   /** Describes an C or C++ initializer list.
    */
-  CXCursor_InitListExpr                  = 119,
+  CXCursor_InitListExpr = 119,
 
   /** The GNU address of label extension, representing &&label.
    */
-  CXCursor_AddrLabelExpr                 = 120,
+  CXCursor_AddrLabelExpr = 120,
 
   /** This is the GNU Statement Expression extension: ({int X=4; X;})
    */
-  CXCursor_StmtExpr                      = 121,
+  CXCursor_StmtExpr = 121,
 
   /** Represents a C11 generic selection.
    */
-  CXCursor_GenericSelectionExpr          = 122,
+  CXCursor_GenericSelectionExpr = 122,
 
   /** Implements the GNU __null extension, which is a name for a null
    * pointer constant that has integral type (e.g., int or long) and is the same
@@ -2051,23 +2051,23 @@ enum CXCursorKind {
    * NULL as __null in C++ rather than using 0 (which is an integer that may not
    * match the size of a pointer).
    */
-  CXCursor_GNUNullExpr                   = 123,
+  CXCursor_GNUNullExpr = 123,
 
   /** C++'s static_cast<> expression.
    */
-  CXCursor_CXXStaticCastExpr             = 124,
+  CXCursor_CXXStaticCastExpr = 124,
 
   /** C++'s dynamic_cast<> expression.
    */
-  CXCursor_CXXDynamicCastExpr            = 125,
+  CXCursor_CXXDynamicCastExpr = 125,
 
   /** C++'s reinterpret_cast<> expression.
    */
-  CXCursor_CXXReinterpretCastExpr        = 126,
+  CXCursor_CXXReinterpretCastExpr = 126,
 
   /** C++'s const_cast<> expression.
    */
-  CXCursor_CXXConstCastExpr              = 127,
+  CXCursor_CXXConstCastExpr = 127,
 
   /** Represents an explicit C++ type conversion that uses "functional"
    * notion (C++ [expr.type.conv]).
@@ -2077,60 +2077,60 @@ enum CXCursorKind {
    *   x = int(0.5);
    * \endcode
    */
-  CXCursor_CXXFunctionalCastExpr         = 128,
+  CXCursor_CXXFunctionalCastExpr = 128,
 
   /** A C++ typeid expression (C++ [expr.typeid]).
    */
-  CXCursor_CXXTypeidExpr                 = 129,
+  CXCursor_CXXTypeidExpr = 129,
 
   /** [C++ 2.13.5] C++ Boolean Literal.
    */
-  CXCursor_CXXBoolLiteralExpr            = 130,
+  CXCursor_CXXBoolLiteralExpr = 130,
 
   /** [C++0x 2.14.7] C++ Pointer Literal.
    */
-  CXCursor_CXXNullPtrLiteralExpr         = 131,
+  CXCursor_CXXNullPtrLiteralExpr = 131,
 
   /** Represents the "this" expression in C++
    */
-  CXCursor_CXXThisExpr                   = 132,
+  CXCursor_CXXThisExpr = 132,
 
   /** [C++ 15] C++ Throw Expression.
    *
    * This handles 'throw' and 'throw' assignment-expression. When
    * assignment-expression isn't present, Op will be null.
    */
-  CXCursor_CXXThrowExpr                  = 133,
+  CXCursor_CXXThrowExpr = 133,
 
   /** A new expression for memory allocation and constructor calls, e.g:
    * "new CXXNewExpr(foo)".
    */
-  CXCursor_CXXNewExpr                    = 134,
+  CXCursor_CXXNewExpr = 134,
 
   /** A delete expression for memory deallocation and destructor calls,
    * e.g. "delete[] pArray".
    */
-  CXCursor_CXXDeleteExpr                 = 135,
+  CXCursor_CXXDeleteExpr = 135,
 
   /** A unary expression. (noexcept, sizeof, or other traits)
    */
-  CXCursor_UnaryExpr                     = 136,
+  CXCursor_UnaryExpr = 136,
 
   /** An Objective-C string literal i.e. @"foo".
    */
-  CXCursor_ObjCStringLiteral             = 137,
+  CXCursor_ObjCStringLiteral = 137,
 
   /** An Objective-C \@encode expression.
    */
-  CXCursor_ObjCEncodeExpr                = 138,
+  CXCursor_ObjCEncodeExpr = 138,
 
   /** An Objective-C \@selector expression.
    */
-  CXCursor_ObjCSelectorExpr              = 139,
+  CXCursor_ObjCSelectorExpr = 139,
 
   /** An Objective-C \@protocol expression.
    */
-  CXCursor_ObjCProtocolExpr              = 140,
+  CXCursor_ObjCProtocolExpr = 140,
 
   /** An Objective-C "bridged" cast expression, which casts between
    * Objective-C pointers and C pointers, transferring ownership in the process.
@@ -2139,7 +2139,7 @@ enum CXCursorKind {
    *   NSString *str = (__bridge_transfer NSString *)CFCreateString();
    * \endcode
    */
-  CXCursor_ObjCBridgedCastExpr           = 141,
+  CXCursor_ObjCBridgedCastExpr = 141,
 
   /** Represents a C++0x pack expansion that produces a sequence of
    * expressions.
@@ -2154,7 +2154,7 @@ enum CXCursorKind {
    * }
    * \endcode
    */
-  CXCursor_PackExpansionExpr             = 142,
+  CXCursor_PackExpansionExpr = 142,
 
   /** Represents an expression that computes the length of a parameter
    * pack.
@@ -2166,7 +2166,7 @@ enum CXCursorKind {
    * };
    * \endcode
    */
-  CXCursor_SizeOfPackExpr                = 143,
+  CXCursor_SizeOfPackExpr = 143,
 
   /* Represents a C++ lambda expression that produces a local function
    * object.
@@ -2180,33 +2180,33 @@ enum CXCursorKind {
    * }
    * \endcode
    */
-  CXCursor_LambdaExpr                    = 144,
+  CXCursor_LambdaExpr = 144,
 
   /** Objective-c Boolean Literal.
    */
-  CXCursor_ObjCBoolLiteralExpr           = 145,
+  CXCursor_ObjCBoolLiteralExpr = 145,
 
   /** Represents the "self" expression in an Objective-C method.
    */
-  CXCursor_ObjCSelfExpr                  = 146,
+  CXCursor_ObjCSelfExpr = 146,
 
   /** OpenMP 4.0 [2.4, Array Section].
    */
-  CXCursor_OMPArraySectionExpr           = 147,
+  CXCursor_OMPArraySectionExpr = 147,
 
   /** Represents an @available(...) check.
    */
-  CXCursor_ObjCAvailabilityCheckExpr     = 148,
+  CXCursor_ObjCAvailabilityCheckExpr = 148,
 
   /**
    * Fixed point literal
    */
-  CXCursor_FixedPointLiteral             = 149,
+  CXCursor_FixedPointLiteral = 149,
 
-  CXCursor_LastExpr                      = CXCursor_FixedPointLiteral,
+  CXCursor_LastExpr = CXCursor_FixedPointLiteral,
 
   /* Statements */
-  CXCursor_FirstStmt                     = 200,
+  CXCursor_FirstStmt = 200,
   /**
    * A statement whose specific kind is not exposed via this
    * interface.
@@ -2216,7 +2216,7 @@ enum CXCursorKind {
    * children, etc. However, the specific kind of the statement is not
    * reported.
    */
-  CXCursor_UnexposedStmt                 = 200,
+  CXCursor_UnexposedStmt = 200,
 
   /** A labelled statement in a function.
    *
@@ -2229,226 +2229,226 @@ enum CXCursorKind {
    * \endcode
    *
    */
-  CXCursor_LabelStmt                     = 201,
+  CXCursor_LabelStmt = 201,
 
   /** A group of statements like { stmt stmt }.
    *
    * This cursor kind is used to describe compound statements, e.g. function
    * bodies.
    */
-  CXCursor_CompoundStmt                  = 202,
+  CXCursor_CompoundStmt = 202,
 
   /** A case statement.
    */
-  CXCursor_CaseStmt                      = 203,
+  CXCursor_CaseStmt = 203,
 
   /** A default statement.
    */
-  CXCursor_DefaultStmt                   = 204,
+  CXCursor_DefaultStmt = 204,
 
   /** An if statement
    */
-  CXCursor_IfStmt                        = 205,
+  CXCursor_IfStmt = 205,
 
   /** A switch statement.
    */
-  CXCursor_SwitchStmt                    = 206,
+  CXCursor_SwitchStmt = 206,
 
   /** A while statement.
    */
-  CXCursor_WhileStmt                     = 207,
+  CXCursor_WhileStmt = 207,
 
   /** A do statement.
    */
-  CXCursor_DoStmt                        = 208,
+  CXCursor_DoStmt = 208,
 
   /** A for statement.
    */
-  CXCursor_ForStmt                       = 209,
+  CXCursor_ForStmt = 209,
 
   /** A goto statement.
    */
-  CXCursor_GotoStmt                      = 210,
+  CXCursor_GotoStmt = 210,
 
   /** An indirect goto statement.
    */
-  CXCursor_IndirectGotoStmt              = 211,
+  CXCursor_IndirectGotoStmt = 211,
 
   /** A continue statement.
    */
-  CXCursor_ContinueStmt                  = 212,
+  CXCursor_ContinueStmt = 212,
 
   /** A break statement.
    */
-  CXCursor_BreakStmt                     = 213,
+  CXCursor_BreakStmt = 213,
 
   /** A return statement.
    */
-  CXCursor_ReturnStmt                    = 214,
+  CXCursor_ReturnStmt = 214,
 
   /** A GCC inline assembly statement extension.
    */
-  CXCursor_GCCAsmStmt                    = 215,
-  CXCursor_AsmStmt                       = CXCursor_GCCAsmStmt,
+  CXCursor_GCCAsmStmt = 215,
+  CXCursor_AsmStmt = CXCursor_GCCAsmStmt,
 
   /** Objective-C's overall \@try-\@catch-\@finally statement.
    */
-  CXCursor_ObjCAtTryStmt                 = 216,
+  CXCursor_ObjCAtTryStmt = 216,
 
   /** Objective-C's \@catch statement.
    */
-  CXCursor_ObjCAtCatchStmt               = 217,
+  CXCursor_ObjCAtCatchStmt = 217,
 
   /** Objective-C's \@finally statement.
    */
-  CXCursor_ObjCAtFinallyStmt             = 218,
+  CXCursor_ObjCAtFinallyStmt = 218,
 
   /** Objective-C's \@throw statement.
    */
-  CXCursor_ObjCAtThrowStmt               = 219,
+  CXCursor_ObjCAtThrowStmt = 219,
 
   /** Objective-C's \@synchronized statement.
    */
-  CXCursor_ObjCAtSynchronizedStmt        = 220,
+  CXCursor_ObjCAtSynchronizedStmt = 220,
 
   /** Objective-C's autorelease pool statement.
    */
-  CXCursor_ObjCAutoreleasePoolStmt       = 221,
+  CXCursor_ObjCAutoreleasePoolStmt = 221,
 
   /** Objective-C's collection statement.
    */
-  CXCursor_ObjCForCollectionStmt         = 222,
+  CXCursor_ObjCForCollectionStmt = 222,
 
   /** C++'s catch statement.
    */
-  CXCursor_CXXCatchStmt                  = 223,
+  CXCursor_CXXCatchStmt = 223,
 
   /** C++'s try statement.
    */
-  CXCursor_CXXTryStmt                    = 224,
+  CXCursor_CXXTryStmt = 224,
 
   /** C++'s for (* : *) statement.
    */
-  CXCursor_CXXForRangeStmt               = 225,
+  CXCursor_CXXForRangeStmt = 225,
 
   /** Windows Structured Exception Handling's try statement.
    */
-  CXCursor_SEHTryStmt                    = 226,
+  CXCursor_SEHTryStmt = 226,
 
   /** Windows Structured Exception Handling's except statement.
    */
-  CXCursor_SEHExceptStmt                 = 227,
+  CXCursor_SEHExceptStmt = 227,
 
   /** Windows Structured Exception Handling's finally statement.
    */
-  CXCursor_SEHFinallyStmt                = 228,
+  CXCursor_SEHFinallyStmt = 228,
 
   /** A MS inline assembly statement extension.
    */
-  CXCursor_MSAsmStmt                     = 229,
+  CXCursor_MSAsmStmt = 229,
 
   /** The null statement ";": C99 6.8.3p3.
    *
    * This cursor kind is used to describe the null statement.
    */
-  CXCursor_NullStmt                      = 230,
+  CXCursor_NullStmt = 230,
 
   /** Adaptor class for mixing declarations with statements and
    * expressions.
    */
-  CXCursor_DeclStmt                      = 231,
+  CXCursor_DeclStmt = 231,
 
   /** OpenMP parallel directive.
    */
-  CXCursor_OMPParallelDirective          = 232,
+  CXCursor_OMPParallelDirective = 232,
 
   /** OpenMP SIMD directive.
    */
-  CXCursor_OMPSimdDirective              = 233,
+  CXCursor_OMPSimdDirective = 233,
 
   /** OpenMP for directive.
    */
-  CXCursor_OMPForDirective               = 234,
+  CXCursor_OMPForDirective = 234,
 
   /** OpenMP sections directive.
    */
-  CXCursor_OMPSectionsDirective          = 235,
+  CXCursor_OMPSectionsDirective = 235,
 
   /** OpenMP section directive.
    */
-  CXCursor_OMPSectionDirective           = 236,
+  CXCursor_OMPSectionDirective = 236,
 
   /** OpenMP single directive.
    */
-  CXCursor_OMPSingleDirective            = 237,
+  CXCursor_OMPSingleDirective = 237,
 
   /** OpenMP parallel for directive.
    */
-  CXCursor_OMPParallelForDirective       = 238,
+  CXCursor_OMPParallelForDirective = 238,
 
   /** OpenMP parallel sections directive.
    */
-  CXCursor_OMPParallelSectionsDirective  = 239,
+  CXCursor_OMPParallelSectionsDirective = 239,
 
   /** OpenMP task directive.
    */
-  CXCursor_OMPTaskDirective              = 240,
+  CXCursor_OMPTaskDirective = 240,
 
   /** OpenMP master directive.
    */
-  CXCursor_OMPMasterDirective            = 241,
+  CXCursor_OMPMasterDirective = 241,
 
   /** OpenMP critical directive.
    */
-  CXCursor_OMPCriticalDirective          = 242,
+  CXCursor_OMPCriticalDirective = 242,
 
   /** OpenMP taskyield directive.
    */
-  CXCursor_OMPTaskyieldDirective         = 243,
+  CXCursor_OMPTaskyieldDirective = 243,
 
   /** OpenMP barrier directive.
    */
-  CXCursor_OMPBarrierDirective           = 244,
+  CXCursor_OMPBarrierDirective = 244,
 
   /** OpenMP taskwait directive.
    */
-  CXCursor_OMPTaskwaitDirective          = 245,
+  CXCursor_OMPTaskwaitDirective = 245,
 
   /** OpenMP flush directive.
    */
-  CXCursor_OMPFlushDirective             = 246,
+  CXCursor_OMPFlushDirective = 246,
 
   /** Windows Structured Exception Handling's leave statement.
    */
-  CXCursor_SEHLeaveStmt                  = 247,
+  CXCursor_SEHLeaveStmt = 247,
 
   /** OpenMP ordered directive.
    */
-  CXCursor_OMPOrderedDirective           = 248,
+  CXCursor_OMPOrderedDirective = 248,
 
   /** OpenMP atomic directive.
    */
-  CXCursor_OMPAtomicDirective            = 249,
+  CXCursor_OMPAtomicDirective = 249,
 
   /** OpenMP for SIMD directive.
    */
-  CXCursor_OMPForSimdDirective           = 250,
+  CXCursor_OMPForSimdDirective = 250,
 
   /** OpenMP parallel for SIMD directive.
    */
-  CXCursor_OMPParallelForSimdDirective   = 251,
+  CXCursor_OMPParallelForSimdDirective = 251,
 
   /** OpenMP target directive.
    */
-  CXCursor_OMPTargetDirective            = 252,
+  CXCursor_OMPTargetDirective = 252,
 
   /** OpenMP teams directive.
    */
-  CXCursor_OMPTeamsDirective             = 253,
+  CXCursor_OMPTeamsDirective = 253,
 
   /** OpenMP taskgroup directive.
    */
-  CXCursor_OMPTaskgroupDirective         = 254,
+  CXCursor_OMPTaskgroupDirective = 254,
 
   /** OpenMP cancellation point directive.
    */
@@ -2456,35 +2456,35 @@ enum CXCursorKind {
 
   /** OpenMP cancel directive.
    */
-  CXCursor_OMPCancelDirective            = 256,
+  CXCursor_OMPCancelDirective = 256,
 
   /** OpenMP target data directive.
    */
-  CXCursor_OMPTargetDataDirective        = 257,
+  CXCursor_OMPTargetDataDirective = 257,
 
   /** OpenMP taskloop directive.
    */
-  CXCursor_OMPTaskLoopDirective          = 258,
+  CXCursor_OMPTaskLoopDirective = 258,
 
   /** OpenMP taskloop simd directive.
    */
-  CXCursor_OMPTaskLoopSimdDirective      = 259,
+  CXCursor_OMPTaskLoopSimdDirective = 259,
 
   /** OpenMP distribute directive.
    */
-  CXCursor_OMPDistributeDirective        = 260,
+  CXCursor_OMPDistributeDirective = 260,
 
   /** OpenMP target enter data directive.
    */
-  CXCursor_OMPTargetEnterDataDirective   = 261,
+  CXCursor_OMPTargetEnterDataDirective = 261,
 
   /** OpenMP target exit data directive.
    */
-  CXCursor_OMPTargetExitDataDirective    = 262,
+  CXCursor_OMPTargetExitDataDirective = 262,
 
   /** OpenMP target parallel directive.
    */
-  CXCursor_OMPTargetParallelDirective    = 263,
+  CXCursor_OMPTargetParallelDirective = 263,
 
   /** OpenMP target parallel for directive.
    */
@@ -2492,7 +2492,7 @@ enum CXCursorKind {
 
   /** OpenMP target update directive.
    */
-  CXCursor_OMPTargetUpdateDirective      = 265,
+  CXCursor_OMPTargetUpdateDirective = 265,
 
   /** OpenMP distribute parallel for directive.
    */
@@ -2564,23 +2564,23 @@ enum CXCursorKind {
 
   /** OpenMP master taskloop simd directive.
    */
-  CXCursor_OMPMasterTaskLoopSimdDirective      = 283,
+  CXCursor_OMPMasterTaskLoopSimdDirective = 283,
 
   /** OpenMP parallel master taskloop simd directive.
    */
-  CXCursor_OMPParallelMasterTaskLoopSimdDirective      = 284,
+  CXCursor_OMPParallelMasterTaskLoopSimdDirective = 284,
 
   /** OpenMP parallel master directive.
    */
-  CXCursor_OMPParallelMasterDirective      = 285,
+  CXCursor_OMPParallelMasterDirective = 285,
 
   /** OpenMP depobj directive.
    */
-  CXCursor_OMPDepobjDirective             = 286,
+  CXCursor_OMPDepobjDirective = 286,
 
   /** OpenMP tile directive.
    */
-  CXCursor_OMPTileDirective  = 287,
+  CXCursor_OMPTileDirective = 287,
 
   CXCursor_LastStmt = CXCursor_OMPTileDirective,
 
@@ -2590,89 +2590,89 @@ enum CXCursorKind {
    * The translation unit cursor exists primarily to act as the root
    * cursor for traversing the contents of a translation unit.
    */
-  CXCursor_TranslationUnit               = 300,
+  CXCursor_TranslationUnit = 300,
 
   /* Attributes */
-  CXCursor_FirstAttr                     = 400,
+  CXCursor_FirstAttr = 400,
   /**
    * An attribute whose specific kind is not exposed via this
    * interface.
    */
-  CXCursor_UnexposedAttr                 = 400,
+  CXCursor_UnexposedAttr = 400,
 
-  CXCursor_IBActionAttr                  = 401,
-  CXCursor_IBOutletAttr                  = 402,
-  CXCursor_IBOutletCollectionAttr        = 403,
-  CXCursor_CXXFinalAttr                  = 404,
-  CXCursor_CXXOverrideAttr               = 405,
-  CXCursor_AnnotateAttr                  = 406,
-  CXCursor_AsmLabelAttr                  = 407,
-  CXCursor_PackedAttr                    = 408,
-  CXCursor_PureAttr                      = 409,
-  CXCursor_ConstAttr                     = 410,
-  CXCursor_NoDuplicateAttr               = 411,
-  CXCursor_CUDAConstantAttr              = 412,
-  CXCursor_CUDADeviceAttr                = 413,
-  CXCursor_CUDAGlobalAttr                = 414,
-  CXCursor_CUDAHostAttr                  = 415,
-  CXCursor_CUDASharedAttr                = 416,
-  CXCursor_VisibilityAttr                = 417,
-  CXCursor_DLLExport                     = 418,
-  CXCursor_DLLImport                     = 419,
-  CXCursor_NSReturnsRetained             = 420,
-  CXCursor_NSReturnsNotRetained          = 421,
-  CXCursor_NSReturnsAutoreleased         = 422,
-  CXCursor_NSConsumesSelf                = 423,
-  CXCursor_NSConsumed                    = 424,
-  CXCursor_ObjCException                 = 425,
-  CXCursor_ObjCNSObject                  = 426,
-  CXCursor_ObjCIndependentClass          = 427,
-  CXCursor_ObjCPreciseLifetime           = 428,
-  CXCursor_ObjCReturnsInnerPointer       = 429,
-  CXCursor_ObjCRequiresSuper             = 430,
-  CXCursor_ObjCRootClass                 = 431,
-  CXCursor_ObjCSubclassingRestricted     = 432,
-  CXCursor_ObjCExplicitProtocolImpl      = 433,
-  CXCursor_ObjCDesignatedInitializer     = 434,
-  CXCursor_ObjCRuntimeVisible            = 435,
-  CXCursor_ObjCBoxable                   = 436,
-  CXCursor_FlagEnum                      = 437,
-  CXCursor_ConvergentAttr                = 438,
-  CXCursor_WarnUnusedAttr                = 439,
-  CXCursor_WarnUnusedResultAttr          = 440,
-  CXCursor_AlignedAttr                   = 441,
-  CXCursor_LastAttr                      = CXCursor_AlignedAttr,
+  CXCursor_IBActionAttr = 401,
+  CXCursor_IBOutletAttr = 402,
+  CXCursor_IBOutletCollectionAttr = 403,
+  CXCursor_CXXFinalAttr = 404,
+  CXCursor_CXXOverrideAttr = 405,
+  CXCursor_AnnotateAttr = 406,
+  CXCursor_AsmLabelAttr = 407,
+  CXCursor_PackedAttr = 408,
+  CXCursor_PureAttr = 409,
+  CXCursor_ConstAttr = 410,
+  CXCursor_NoDuplicateAttr = 411,
+  CXCursor_CUDAConstantAttr = 412,
+  CXCursor_CUDADeviceAttr = 413,
+  CXCursor_CUDAGlobalAttr = 414,
+  CXCursor_CUDAHostAttr = 415,
+  CXCursor_CUDASharedAttr = 416,
+  CXCursor_VisibilityAttr = 417,
+  CXCursor_DLLExport = 418,
+  CXCursor_DLLImport = 419,
+  CXCursor_NSReturnsRetained = 420,
+  CXCursor_NSReturnsNotRetained = 421,
+  CXCursor_NSReturnsAutoreleased = 422,
+  CXCursor_NSConsumesSelf = 423,
+  CXCursor_NSConsumed = 424,
+  CXCursor_ObjCException = 425,
+  CXCursor_ObjCNSObject = 426,
+  CXCursor_ObjCIndependentClass = 427,
+  CXCursor_ObjCPreciseLifetime = 428,
+  CXCursor_ObjCReturnsInnerPointer = 429,
+  CXCursor_ObjCRequiresSuper = 430,
+  CXCursor_ObjCRootClass = 431,
+  CXCursor_ObjCSubclassingRestricted = 432,
+  CXCursor_ObjCExplicitProtocolImpl = 433,
+  CXCursor_ObjCDesignatedInitializer = 434,
+  CXCursor_ObjCRuntimeVisible = 435,
+  CXCursor_ObjCBoxable = 436,
+  CXCursor_FlagEnum = 437,
+  CXCursor_ConvergentAttr = 438,
+  CXCursor_WarnUnusedAttr = 439,
+  CXCursor_WarnUnusedResultAttr = 440,
+  CXCursor_AlignedAttr = 441,
+  CXCursor_LastAttr = CXCursor_AlignedAttr,
 
   /* Preprocessing */
-  CXCursor_PreprocessingDirective        = 500,
-  CXCursor_MacroDefinition               = 501,
-  CXCursor_MacroExpansion                = 502,
-  CXCursor_MacroInstantiation            = CXCursor_MacroExpansion,
-  CXCursor_InclusionDirective            = 503,
-  CXCursor_FirstPreprocessing            = CXCursor_PreprocessingDirective,
-  CXCursor_LastPreprocessing             = CXCursor_InclusionDirective,
+  CXCursor_PreprocessingDirective = 500,
+  CXCursor_MacroDefinition = 501,
+  CXCursor_MacroExpansion = 502,
+  CXCursor_MacroInstantiation = CXCursor_MacroExpansion,
+  CXCursor_InclusionDirective = 503,
+  CXCursor_FirstPreprocessing = CXCursor_PreprocessingDirective,
+  CXCursor_LastPreprocessing = CXCursor_InclusionDirective,
 
   /* Extra Declarations */
   /**
    * A module import declaration.
    */
-  CXCursor_ModuleImportDecl              = 600,
-  CXCursor_TypeAliasTemplateDecl         = 601,
+  CXCursor_ModuleImportDecl = 600,
+  CXCursor_TypeAliasTemplateDecl = 601,
   /**
    * A static_assert or _Static_assert node
    */
-  CXCursor_StaticAssert                  = 602,
+  CXCursor_StaticAssert = 602,
   /**
    * a friend declaration.
    */
-  CXCursor_FriendDecl                    = 603,
-  CXCursor_FirstExtraDecl                = CXCursor_ModuleImportDecl,
-  CXCursor_LastExtraDecl                 = CXCursor_FriendDecl,
+  CXCursor_FriendDecl = 603,
+  CXCursor_FirstExtraDecl = CXCursor_ModuleImportDecl,
+  CXCursor_LastExtraDecl = CXCursor_FriendDecl,
 
   /**
    * A code completion overload candidate.
    */
-  CXCursor_OverloadCandidate             = 700
+  CXCursor_OverloadCandidate = 700
 };
 
 /**

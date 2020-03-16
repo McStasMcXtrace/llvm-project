@@ -6827,30 +6827,32 @@ public:
   }
 };
 
-
-
- class OMPSizesClause final : public OMPClause , private llvm::TrailingObjects<OMPSizesClause, Expr *>  {
+class OMPSizesClause final
+    : public OMPClause,
+      private llvm::TrailingObjects<OMPSizesClause, Expr *> {
   friend class OMPClauseReader;
-  friend class llvm::TrailingObjects<OMPSizesClause, Expr*>;
+  friend class llvm::TrailingObjects<OMPSizesClause, Expr *>;
 
   /// Location of '('.
   SourceLocation LParenLoc;
 
-
-
   unsigned NumSizes;
 
-  OMPSizesClause(SourceLocation StartLoc,  SourceLocation LParenLoc, SourceLocation EndLoc, unsigned NumSizes)
-    : OMPClause(OMPC_sizes, StartLoc, EndLoc), LParenLoc(LParenLoc), NumSizes(NumSizes) {}
+  OMPSizesClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                 SourceLocation EndLoc, unsigned NumSizes)
+      : OMPClause(OMPC_sizes, StartLoc, EndLoc), LParenLoc(LParenLoc),
+        NumSizes(NumSizes) {}
 
   /// Build an empty clause.
-  explicit OMPSizesClause(int NumSizes) : OMPClause(OMPC_sizes, SourceLocation(), SourceLocation()) , NumSizes (NumSizes) {}
-
+  explicit OMPSizesClause(int NumSizes)
+      : OMPClause(OMPC_sizes, SourceLocation(), SourceLocation()),
+        NumSizes(NumSizes) {}
 
 public:
-  static OMPSizesClause *create(const ASTContext &C, SourceLocation StartLoc,  SourceLocation LParenLoc, SourceLocation EndLoc, ArrayRef<Expr *> Sizes);
+  static OMPSizesClause *create(const ASTContext &C, SourceLocation StartLoc,
+                                SourceLocation LParenLoc, SourceLocation EndLoc,
+                                ArrayRef<Expr *> Sizes);
   static OMPSizesClause *createEmpty(const ASTContext &C, unsigned NumSizes);
-
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -6861,31 +6863,34 @@ public:
   unsigned getNumSizes() const { return NumSizes; }
 
   MutableArrayRef<Expr *> getSizesRefs() {
-    return MutableArrayRef<Expr *>(static_cast<OMPSizesClause *>(this)->template getTrailingObjects<Expr *>(), NumSizes);
+    return MutableArrayRef<Expr *>(static_cast<OMPSizesClause *>(this)
+                                       ->template getTrailingObjects<Expr *>(),
+                                   NumSizes);
   }
 
   ArrayRef<Expr *> getSizesRefs() const {
-    return ArrayRef<Expr *>(static_cast<const OMPSizesClause *>(this)->template getTrailingObjects<Expr *>(), NumSizes);
+    return ArrayRef<Expr *>(static_cast<const OMPSizesClause *>(this)
+                                ->template getTrailingObjects<Expr *>(),
+                            NumSizes);
   }
 
   void setSizesRefs(ArrayRef<Expr *> VL) {
-    assert(VL.size() == NumSizes );
-    std::copy(VL.begin(), VL.end(), static_cast<OMPSizesClause *>(this)->template getTrailingObjects<Expr *>());
+    assert(VL.size() == NumSizes);
+    std::copy(VL.begin(), VL.end(),
+              static_cast<OMPSizesClause *>(this)
+                  ->template getTrailingObjects<Expr *>());
   }
-
-
-
-
 
   child_range children() {
     MutableArrayRef<Expr *> Sizes = getSizesRefs();
-    return child_range( reinterpret_cast<Stmt**>(   Sizes.begin()),reinterpret_cast<Stmt**>(  Sizes.end() )   );
+    return child_range(reinterpret_cast<Stmt **>(Sizes.begin()),
+                       reinterpret_cast<Stmt **>(Sizes.end()));
   }
-
 
   const_child_range children() const {
     ArrayRef<Expr *> Sizes = getSizesRefs();
-    return const_child_range(reinterpret_cast<Stmt*const *>(Sizes.begin()),reinterpret_cast<Stmt*const*>(  Sizes.end() ));
+    return const_child_range(reinterpret_cast<Stmt *const *>(Sizes.begin()),
+                             reinterpret_cast<Stmt *const *>(Sizes.end()));
   }
 
 #if 1
@@ -6901,7 +6906,6 @@ public:
     return T->getClauseKind() == OMPC_sizes;
   }
 };
-
 
 /// This class implements a simple visitor for OMPClause
 /// subclasses.

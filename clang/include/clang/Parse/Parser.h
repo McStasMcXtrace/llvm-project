@@ -3020,7 +3020,7 @@ private:
   OMPClause *ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          bool ParseOnly);
 
-  OMPClause* ParseOpenMPSizesClause();
+  OMPClause *ParseOpenMPSizesClause();
 
   /// Parses simple clause of a kind \a Kind.
   ///

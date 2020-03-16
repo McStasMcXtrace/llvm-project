@@ -145,7 +145,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_destroy:
-    case OMPC_sizes:
+  case OMPC_sizes:
     break;
   }
 
@@ -232,7 +232,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_destroy:
-    case OMPC_sizes:
+  case OMPC_sizes:
     break;
   }
 
@@ -1248,21 +1248,23 @@ void OMPNontemporalClause::setPrivateRefs(ArrayRef<Expr *> VL) {
   std::copy(VL.begin(), VL.end(), varlist_end());
 }
 
-
-OMPSizesClause* OMPSizesClause::create(const ASTContext& C, SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation EndLoc, ArrayRef<Expr*> Sizes) {
+OMPSizesClause *OMPSizesClause::create(const ASTContext &C,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc,
+                                       ArrayRef<Expr *> Sizes) {
   size_t NumSizes = Sizes.size();
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr*>(NumSizes));
-  auto Clause = new (Mem) OMPSizesClause(StartLoc, LParenLoc, EndLoc, NumSizes );
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
+  auto Clause = new (Mem) OMPSizesClause(StartLoc, LParenLoc, EndLoc, NumSizes);
   Clause->setSizesRefs(Sizes);
   return Clause;
 }
- 
- 
- OMPSizesClause* OMPSizesClause::createEmpty(const ASTContext& C, unsigned NumSizes) {
-   void *Mem = C.Allocate(totalSizeToAlloc<Expr*>(NumSizes));
-   return new (Mem) OMPSizesClause( NumSizes);
- }
 
+OMPSizesClause *OMPSizesClause::createEmpty(const ASTContext &C,
+                                            unsigned NumSizes) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
+  return new (Mem) OMPSizesClause(NumSizes);
+}
 
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods
@@ -1312,12 +1314,10 @@ void OMPClausePrinter::VisitOMPCollapseClause(OMPCollapseClause *Node) {
   OS << ")";
 }
 
-
-
 void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
   OS << "sizes(";
   bool First = true;
-  for (auto Size :  Node->getSizesRefs()) {
+  for (auto Size : Node->getSizesRefs()) {
     if (!First)
       OS << ", ";
     Size->printPretty(OS, nullptr, Policy, 0);
@@ -1325,7 +1325,6 @@ void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
   }
   OS << ")";
 }
-
 
 void OMPClausePrinter::VisitOMPDefaultClause(OMPDefaultClause *Node) {
   OS << "default("

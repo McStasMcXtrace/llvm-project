@@ -2156,7 +2156,7 @@ void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   Record.push_back(D->hasCancel() ? 1 : 0);
   Code = serialization::STMT_OMP_FOR_DIRECTIVE;
 }
- 
+
 void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
   VisitOMPLoopDirective(D);
   Record.AddStmt(D->getTransformedCompoundStmt());

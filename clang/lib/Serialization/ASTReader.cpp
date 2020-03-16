@@ -2764,7 +2764,7 @@ ASTReader::ReadControlBlock(ModuleFile &F,
       if (StringRef(CurBranch) != ASTBranch && !DisableValidation) {
         if ((ClientLoadCapabilities & ARR_VersionMismatch) == 0)
           Diag(diag::err_pch_different_branch) << ASTBranch << CurBranch;
-        //return VersionMismatch;
+        // return VersionMismatch;
       }
       break;
     }
@@ -11895,9 +11895,8 @@ void OMPClauseReader::VisitOMPCollapseClause(OMPCollapseClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
 }
 
-
 void OMPClauseReader::VisitOMPSizesClause(OMPSizesClause *C) {
-  for (auto& E : C->getSizesRefs())
+  for (auto &E : C->getSizesRefs())
     E = Record.readSubExpr();
   C->setLParenLoc(Record.readSourceLocation());
 }
