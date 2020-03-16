@@ -2576,7 +2576,7 @@ enum CXCursorKind {
 
   /** OpenMP depobj directive.
    */
-  CXCursor_OMPDepobjDirective             = 286,
+  CXCursor_OMPDepobjDirective = 286,
 
   CXCursor_LastStmt = CXCursor_OMPDepobjDirective,
 

@@ -1788,7 +1788,7 @@ namespace serialization {
       EXPR_MATERIALIZE_TEMPORARY,             // MaterializeTemporaryExpr
       EXPR_CXX_FOLD,                          // CXXFoldExpr
       EXPR_CONCEPT_SPECIALIZATION,            // ConceptSpecializationExpr
-      EXPR_REQUIRES,              // RequiresExpr
+      EXPR_REQUIRES,                          // RequiresExpr
 
       // CUDA
       EXPR_CUDA_KERNEL_CALL, // CUDAKernelCallExpr
