@@ -3493,7 +3493,7 @@ bool RecursiveASTVisitor<Derived>::VisitOMPOrderClause(OMPOrderClause *) {
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSizesClause(OMPSizesClause *C) {
-  for (Expr *E : C->getSizesRefs()) 
+  for (Expr *E : C->getSizesRefs())
     TRY_TO(TraverseStmt(E));
   return true;
 }

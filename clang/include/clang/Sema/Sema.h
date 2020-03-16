@@ -10265,7 +10265,8 @@ public:
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
 
-/// Called on well-formed '#pragma omp tile' after parsing of its clauses and the associated statement.
+  /// Called on well-formed '#pragma omp tile' after parsing of its clauses and
+  /// the associated statement.
   StmtResult
   ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
                            SourceLocation StartLoc, SourceLocation EndLoc,
@@ -10635,7 +10636,7 @@ public:
                                           SourceLocation LParenLoc,
                                           SourceLocation EndLoc);
 
-/// Called on well-form 'size' clause.
+  /// Called on well-form 'size' clause.
   OMPClause *ActOnOpenMPSizesClause(ArrayRef<Expr *> SizeExprs,
                                     SourceLocation StartLoc,
                                     SourceLocation LParenLoc,

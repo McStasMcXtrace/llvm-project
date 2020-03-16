@@ -3036,7 +3036,7 @@ private:
   OMPClause *ParseOpenMPSingleExprWithArgClause(OpenMPClauseKind Kind,
                                                 bool ParseOnly);
 
-/// Parses the 'sizes' clause of a '#pragma omp tile' directive.
+  /// Parses the 'sizes' clause of a '#pragma omp tile' directive.
   OMPClause *ParseOpenMPSizesClause();
 
   /// Parses clause without any additional arguments.

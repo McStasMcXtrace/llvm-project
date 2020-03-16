@@ -87,12 +87,10 @@ protected:
     *child_begin() = S;
   }
 
-
   /// Returns the number of Stmt*'s trailing the object.
-///
-/// This is not the number of elements returned by children().
+  ///
+  /// This is not the number of elements returned by children().
   unsigned getNumStmts() const { return NumChildren; }
-
 
 public:
   /// Iterates over expressions/statements used in the construct.
@@ -271,7 +269,8 @@ public:
   //
   // \param RegionKind Component region kind.
   const CapturedStmt *getCapturedStmt(OpenMPDirectiveKind RegionKind) const {
-    assert(!isOpenMPLoopTransformationDirective(RegionKind) && "Loop transformations do not capture");
+    assert(!isOpenMPLoopTransformationDirective(RegionKind) &&
+           "Loop transformations do not capture");
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
     getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
     assert(std::any_of(
@@ -289,8 +288,9 @@ public:
 
   /// Get innermost captured statement for the construct.
   CapturedStmt *getInnermostCapturedStmt() {
-    assert(!isOpenMPLoopTransformationDirective(getDirectiveKind()) &&
-           "Loop transformations do not capture; consider using ignoreCaptures()");
+    assert(
+        !isOpenMPLoopTransformationDirective(getDirectiveKind()) &&
+        "Loop transformations do not capture; consider using ignoreCaptures()");
     assert(hasAssociatedStmt() && getAssociatedStmt() &&
            "Must have associated statement.");
     SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
@@ -308,20 +308,26 @@ public:
         ->getInnermostCapturedStmt();
   }
 
-/// Return the associated code without captures.
-///
-/// Methods with similar functionality:
-///
-///  * IgnoreContainers(true) - Not specific to OpenMP; also ignores containers/captures potentially inside the associated code.
-///
-///  * getCapturedStmt(Kind) - Return the capture of the specified kind; requires the captured decl/stmt to exist.
-///
-///  * getInnermostCapturedStmt() - Returns the innermost capture containing the associated code; also cannot be used if there is no CapturedStmt, e.g. for loop transformations.
-///
-///  * getBody() - In addition to ignoring captures, also skips associated loops.
-///
-///  * getStructuredBlock() - For loop-associated directives, returns the body; for others, returns the captured statement.
-///
+  /// Return the associated code without captures.
+  ///
+  /// Methods with similar functionality:
+  ///
+  ///  * IgnoreContainers(true) - Not specific to OpenMP; also ignores
+  ///  containers/captures potentially inside the associated code.
+  ///
+  ///  * getCapturedStmt(Kind) - Return the capture of the specified kind;
+  ///  requires the captured decl/stmt to exist.
+  ///
+  ///  * getInnermostCapturedStmt() - Returns the innermost capture containing
+  ///  the associated code; also cannot be used if there is no CapturedStmt,
+  ///  e.g. for loop transformations.
+  ///
+  ///  * getBody() - In addition to ignoring captures, also skips associated
+  ///  loops.
+  ///
+  ///  * getStructuredBlock() - For loop-associated directives, returns the
+  ///  body; for others, returns the captured statement.
+  ///
   Stmt *ignoreCaptures();
   const Stmt *ignoreCaptures() const {
     return const_cast<OMPExecutableDirective *>(this)->ignoreCaptures();
@@ -466,8 +472,10 @@ class OMPLoopDirective : public OMPExecutableDirective {
   /// PrevEnsureUpperBound is used as the EnsureUpperBound expression for the
   /// for loop when combined with a previous distribute loop in the same pragma
   /// (e.g. 'distribute parallel for')
-///
-/// Loop transformations, such as OMPTileDirective, only use AssociatedStmtOffset. Its specific statments/expressions are stored as object members.
+  ///
+  /// Loop transformations, such as OMPTileDirective, only use
+  /// AssociatedStmtOffset. Its specific statments/expressions are stored as
+  /// object members.
   ///
   enum {
     AssociatedStmtOffset = 0,
@@ -1151,21 +1159,24 @@ public:
   /// CurStmt.
   /// \param TryImperfectlyNestedLoops true, if we need to try to look for the
   /// imperfectly nested loop.
-/// \param PreInits If set, collects additional statemants that have to be executed before the loop; typically variable declarations.
-  static Stmt *tryToFindNextInnerLoop(Stmt *CurStmt,
-                                      bool TryImperfectlyNestedLoops,
-                                      llvm::SmallVectorImpl<Stmt *> *PreInits = nullptr);
+  /// \param PreInits If set, collects additional statemants that have to be
+  /// executed before the loop; typically variable declarations.
+  static Stmt *
+  tryToFindNextInnerLoop(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
+                         llvm::SmallVectorImpl<Stmt *> *PreInits = nullptr);
   static const Stmt *
   tryToFindNextInnerLoop(const Stmt *CurStmt, bool TryImperfectlyNestedLoops,
-                         llvm::SmallVectorImpl<Stmt *> *PreInits=nullptr) {
+                         llvm::SmallVectorImpl<Stmt *> *PreInits = nullptr) {
     return tryToFindNextInnerLoop(const_cast<Stmt *>(CurStmt),
                                   TryImperfectlyNestedLoops, PreInits);
   }
 
-/// Collect the loops associated to this directive, taking loop transformations into account.
-///
-/// \param Loops    Receives the associated loops.
-/// \param PreInits Receives statements that have to be executed before the loop; typically variable declarations.
+  /// Collect the loops associated to this directive, taking loop
+  /// transformations into account.
+  ///
+  /// \param Loops    Receives the associated loops.
+  /// \param PreInits Receives statements that have to be executed before the
+  /// loop; typically variable declarations.
   void collectAssociatedLoops(llvm::SmallVectorImpl<Stmt *> &Loops,
                               llvm::SmallVectorImpl<Stmt *> &PreInits);
   void collectAssociatedLoops(llvm::SmallVectorImpl<const Stmt *> &Loops,
@@ -1173,7 +1184,6 @@ public:
     const_cast<OMPLoopDirective *>(this)->collectAssociatedLoops(
         *reinterpret_cast<llvm::SmallVectorImpl<Stmt *> *>(&Loops), PreInits);
   }
-
 
   Stmt *getBody();
   const Stmt *getBody() const {
@@ -4770,27 +4780,27 @@ public:
 
 /// This represents the '#pragma omp tile' loop transformation directive.
 class OMPTileDirective final
-  : public OMPLoopDirective,
-  private llvm::TrailingObjects<OMPTileDirective, OMPClause*, Stmt*> {
+    : public OMPLoopDirective,
+      private llvm::TrailingObjects<OMPTileDirective, OMPClause *, Stmt *> {
   friend class ASTStmtReader;
   friend TrailingObjects;
 
   /// The loop nest after being tiled.
-  Stmt* TransformedStmt = nullptr;
+  Stmt *TransformedStmt = nullptr;
 
-  size_t numTrailingObjects(OverloadToken<OMPClause*>) const {
+  size_t numTrailingObjects(OverloadToken<OMPClause *>) const {
     return getNumClauses();
   }
 
-  size_t numTrailingObjects(OverloadToken<Stmt*>) const {
+  size_t numTrailingObjects(OverloadToken<Stmt *>) const {
     return getNumStmts();
   }
 
   explicit OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc,
-    unsigned NumClauses, unsigned NumLoops)
-    : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
-      StartLoc, EndLoc, NumLoops, NumClauses,
-      /*NumSpecialChildren=*/0) {}
+                            unsigned NumClauses, unsigned NumLoops)
+      : OMPLoopDirective(this, OMPTileDirectiveClass, llvm::omp::OMPD_tile,
+                         StartLoc, EndLoc, NumLoops, NumClauses,
+                         /*NumSpecialChildren=*/0) {}
 
 public:
   /// Create a new AST node represention '#pragma omp tile'.
@@ -4799,25 +4809,25 @@ public:
   /// \param StartLoc  Location of the introducer (e.g. the 'omp' token).
   /// \param EndLoc    Location of the directive's end (e.g. the tok::eod).
   /// \param Clauses   The directive's clauses.
-  /// \param NumLoops  Number of associated loops (number of items in the 'sizes' clause).
-  /// \param AssociatedStmt The outermost associated loop.
-  /// \param TransformedStmt The loop nest after tiling, or nullptr in dependenct contexts.
-  static OMPTileDirective*
-    Create(const ASTContext& C, SourceLocation StartLoc, SourceLocation EndLoc,
-      ArrayRef<OMPClause*> Clauses, unsigned NumLoops, Stmt* AssociatedStmt,
-      Stmt* TransformedStmt);
+  /// \param NumLoops  Number of associated loops (number of items in the
+  /// 'sizes' clause). \param AssociatedStmt The outermost associated loop.
+  /// \param TransformedStmt The loop nest after tiling, or nullptr in
+  /// dependenct contexts.
+  static OMPTileDirective *Create(const ASTContext &C, SourceLocation StartLoc,
+                                  SourceLocation EndLoc,
+                                  ArrayRef<OMPClause *> Clauses,
+                                  unsigned NumLoops, Stmt *AssociatedStmt,
+                                  Stmt *TransformedStmt);
 
   /// Build an empty '#pragma omp tile' AST node for deserialization.
   ///
   /// \param C     Context of the AST.
   /// \param NumClauses Number of clauses to allocate.
   /// \param NumLoops  Number of associated loops to allocate.
-  static OMPTileDirective* CreateEmpty(const ASTContext& C, unsigned NumClauses,
-    unsigned NumLoops);
+  static OMPTileDirective *CreateEmpty(const ASTContext &C, unsigned NumClauses,
+                                       unsigned NumLoops);
 
-  unsigned getNumAssociatedLoops() const {
-    return getCollapsedNumber();
-  }
+  unsigned getNumAssociatedLoops() const { return getCollapsedNumber(); }
 
   /// Gets/sets the associated loops after tiling.
   ///
@@ -4831,35 +4841,33 @@ public:
   /// }
   /// \endcode
   ///
-  /// Note that if the generated loops a become associated loops of another directive, they may need to be hoisted before them.
-  Stmt* getTransformedStmt() const { return TransformedStmt; }
+  /// Note that if the generated loops a become associated loops of another
+  /// directive, they may need to be hoisted before them.
+  Stmt *getTransformedStmt() const { return TransformedStmt; }
   void setTransformedStmt(Stmt *S) {
     assert(!S || isa<CompoundStmt>(S));
     TransformedStmt = S;
   }
 
-/// Return the pre-init statements.
-///
-/// These must be executed before the loop. Typically, these are declarations for compiler-introduced variables.
+  /// Return the pre-init statements.
+  ///
+  /// These must be executed before the loop. Typically, these are declarations
+  /// for compiler-introduced variables.
   auto getPreInits() const {
-    CompoundStmt* C = cast<CompoundStmt>(TransformedStmt);
+    CompoundStmt *C = cast<CompoundStmt>(TransformedStmt);
     return llvm::make_range(C->body_begin(), C->body_begin() + C->size() - 1);
   }
 
-/// Return the transformed (tiled) for-loop.
-  Stmt* getTransformedForStmt() {
-    CompoundStmt* C = cast<CompoundStmt>(TransformedStmt);
+  /// Return the transformed (tiled) for-loop.
+  Stmt *getTransformedForStmt() {
+    CompoundStmt *C = cast<CompoundStmt>(TransformedStmt);
     return C->body_back();
-}
-
-
-
+  }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTileDirectiveClass;
   }
 };
-
 
 /// Determine the first associated statement of a loop-associated directive.
 Stmt *

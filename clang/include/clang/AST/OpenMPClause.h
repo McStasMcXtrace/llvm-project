@@ -6843,7 +6843,7 @@ class OMPSizesClause final
   /// Location of '('.
   SourceLocation LParenLoc;
 
-/// Number of tile sizes in the clause.
+  /// Number of tile sizes in the clause.
   unsigned NumSizes;
 
   OMPSizesClause(SourceLocation StartLoc, SourceLocation LParenLoc,
@@ -6857,21 +6857,21 @@ class OMPSizesClause final
         NumSizes(NumSizes) {}
 
 public:
-/// Build a 'sizes' AST node.
-///
-/// \param C         Context of the AST.
-/// \param StartLoc  Location of the 'sizes' identifier.
-/// \param LParenLoc Location of '('.
-/// \param EndLoc    Location of ')'.
-/// \param Sizes     Content of the clause.
+  /// Build a 'sizes' AST node.
+  ///
+  /// \param C         Context of the AST.
+  /// \param StartLoc  Location of the 'sizes' identifier.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc    Location of ')'.
+  /// \param Sizes     Content of the clause.
   static OMPSizesClause *create(const ASTContext &C, SourceLocation StartLoc,
                                 SourceLocation LParenLoc, SourceLocation EndLoc,
                                 ArrayRef<Expr *> Sizes);
 
-/// Build an empty 'sizes' AST node for deserialization.
-///
-/// \param C     Context of the AST.
-/// \param Sizes Number of items in the clause.
+  /// Build an empty 'sizes' AST node for deserialization.
+  ///
+  /// \param C     Context of the AST.
+  /// \param Sizes Number of items in the clause.
   static OMPSizesClause *createEmpty(const ASTContext &C, unsigned NumSizes);
 
   /// Sets the location of '('.
@@ -6883,7 +6883,7 @@ public:
   /// Returns the number of list items.
   unsigned getNumSizes() const { return NumSizes; }
 
-/// Returns the tile size expressions.
+  /// Returns the tile size expressions.
   MutableArrayRef<Expr *> getSizesRefs() {
     return MutableArrayRef<Expr *>(static_cast<OMPSizesClause *>(this)
                                        ->template getTrailingObjects<Expr *>(),
@@ -6895,7 +6895,7 @@ public:
                             NumSizes);
   }
 
-/// Sets the tile size expressions.
+  /// Sets the tile size expressions.
   void setSizesRefs(ArrayRef<Expr *> VL) {
     assert(VL.size() == NumSizes);
     std::copy(VL.begin(), VL.end(),

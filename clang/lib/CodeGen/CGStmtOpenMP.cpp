@@ -1553,7 +1553,8 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
       S = CXXFor->getBody();
     }
     if (Level + 1 < MaxLevel) {
-      NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(S, /*TryImperfectlyNestedLoops=*/true, nullptr);
+      NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(
+          S, /*TryImperfectlyNestedLoops=*/true, nullptr);
       emitBody(CGF, S, NextLoop, MaxLevel, Level + 1);
       return;
     }
@@ -1596,7 +1597,8 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   // Emit loop body.
 
   emitBody(*this, Body,
-           OMPLoopDirective::tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true, nullptr),
+           OMPLoopDirective::tryToFindNextInnerLoop(
+               Body, /*TryImperfectlyNestedLoops=*/true, nullptr),
            D.getCollapsedNumber());
 
   // The end (updates/cleanups).

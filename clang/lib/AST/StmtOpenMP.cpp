@@ -52,9 +52,9 @@ const Stmt *OMPExecutableDirective::getStructuredBlock() const {
   return ignoreCaptures();
 }
 
-Stmt *clang::getTopmostAssociatedStructuredBlock(Stmt *S, llvm::SmallVectorImpl<Stmt *> *PreInits) {
+Stmt *clang::getTopmostAssociatedStructuredBlock(
+    Stmt *S, llvm::SmallVectorImpl<Stmt *> *PreInits) {
   assert(S && "Must be a valid statement");
-  
 
   while (true) {
     S = S->IgnoreContainers(/* IgnoreCaptured */ true);
@@ -63,8 +63,9 @@ Stmt *clang::getTopmostAssociatedStructuredBlock(Stmt *S, llvm::SmallVectorImpl<
             cast<OMPExecutableDirective>(S)->getDirectiveKind()))
       break;
 
-    if (auto D = dyn_cast<OMPTileDirective>(S)) {      
-      if (PreInits) {auto PreInit = D->getPreInits();
+    if (auto D = dyn_cast<OMPTileDirective>(S)) {
+      if (PreInits) {
+        auto PreInit = D->getPreInits();
         PreInits->append(PreInit.begin(), PreInit.end());
       }
       S = D->getTransformedForStmt();
@@ -123,7 +124,6 @@ Stmt *OMPLoopDirective::tryToFindNextInnerLoop(
   return CurStmt;
 }
 
-
 void OMPLoopDirective::collectAssociatedLoops(
     llvm::SmallVectorImpl<Stmt *> &Loops,
     llvm::SmallVectorImpl<Stmt *> &PreInits) {
@@ -142,13 +142,13 @@ void OMPLoopDirective::collectAssociatedLoops(
     if (auto *For = dyn_cast<ForStmt>(Loop)) {
       Body = For->getBody();
     } else {
-      assert(isa<CXXForRangeStmt>(Body) && "Expected canonical for loop or range-based for loop.");
+      assert(isa<CXXForRangeStmt>(Body) &&
+             "Expected canonical for loop or range-based for loop.");
       auto *CXXFor = cast<CXXForRangeStmt>(Loop);
       Body = CXXFor->getBody();
     }
   }
 }
-
 
 Stmt *OMPLoopDirective::getBody() {
   // This relies on the loop form is already checked by Sema.
@@ -167,7 +167,8 @@ Stmt *OMPLoopDirective::getBody() {
     Body = cast<CXXForRangeStmt>(Body)->getBody();
   }
   for (unsigned Cnt = 1; Cnt < CollapsedNum; ++Cnt) {
-    Body = tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true,nullptr);
+    Body = tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true,
+                                  nullptr);
     if (auto *For = dyn_cast<ForStmt>(Body)) {
       Body = For->getBody();
     } else {
@@ -452,8 +453,6 @@ static Stmt *getCapturedLoop(Stmt *Stmt) {
   }
   return Stmt;
 }
-
-
 
 OMPForSimdDirective *
 OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,

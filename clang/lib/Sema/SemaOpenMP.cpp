@@ -8080,7 +8080,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DependentCounters.resize(NestedLoopCount);
   Built.DependentInits.resize(NestedLoopCount);
   Built.FinalsConditions.resize(NestedLoopCount);
-  //Built.Bodys.resize(NestedLoopCount);
+  // Built.Bodys.resize(NestedLoopCount);
   {
     // We implement the following algorithm for obtaining the
     // original loop iteration variable values based on the
@@ -8186,8 +8186,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
             Built.Inits[NestedLoopCount - 1 - IS.LoopDependentIdx];
         Built.FinalsConditions[Cnt] = IS.FinalCondition;
       }
-      //Built.Loops[Cnt] = IS.LoopStmt;
-      //Built.Bodys[Cnt] = IS.Body;
+      // Built.Loops[Cnt] = IS.LoopStmt;
+      // Built.Bodys[Cnt] = IS.Body;
     }
   }
 
@@ -8227,7 +8227,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.NUB = CombNextUB.get();
   Built.DistCombinedFields.DistCond = CombDistCond.get();
   Built.DistCombinedFields.ParForInDistCond = ParForInDistCond.get();
-  //Built.InnermostBody = IterSpaces.back().Body;
+  // Built.InnermostBody = IterSpaces.back().Body;
 
   assert(Capturing || Captures.empty());
 
@@ -8400,9 +8400,8 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
 
   // Delay tiling to when template is completely instantiated.
   if (CurContext->isDependentContext()) {
-    auto Result =
-        OMPTileDirective::Create(Context, StartLoc, EndLoc, Clauses, NumLoops,
-                                 AStmt, nullptr);
+    auto Result = OMPTileDirective::Create(Context, StartLoc, EndLoc, Clauses,
+                                           NumLoops, AStmt, nullptr);
     return Result;
   }
 
@@ -8412,7 +8411,9 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
     // Derive per-loop logical iteration space.
     auto LoopStmt = NestHelper.Loops[i];
     VarsWithInheritedDSAType Dummy;
-    auto SingleNumLoops = checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt, *this, *DSAStack, Dummy, LoopHelpers[i], 1, false);
+    auto SingleNumLoops =
+        checkOpenMPLoop(OMPD_tile, nullptr, nullptr, LoopStmt, *this, *DSAStack,
+                        Dummy, LoopHelpers[i], 1, false);
     assert(SingleNumLoops == 1);
     (void)SingleNumLoops;
   }
@@ -8440,8 +8441,8 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
       auto *FloorCntDecl =
           buildVarDecl(*this, {}, CntTy, FloorCntName, nullptr, OrigCntVar);
       Decl *D = FloorCntDecl;
-      auto DeclS = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D, 1),
-        {}, {});
+      auto DeclS =
+          new (Context) DeclStmt(DeclGroupRef::Create(Context, &D, 1), {}, {});
       //  GlobalDecls.push_back(FloorCntDecl);
       PreInits.push_back(DeclS);
       FloorIndVars[i] = FloorCntDecl;
@@ -8455,17 +8456,15 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
       auto TileCntDecl = cast<VarDecl>(IterationVarRef->getDecl());
       TileCntDecl->setDeclName(&PP.getIdentifierTable().get(TileCntName));
       Decl *D = TileCntDecl;
-      auto DeclS = new (Context) DeclStmt(DeclGroupRef::Create(Context, &D, 1),
-        {}, {});
+      auto DeclS =
+          new (Context) DeclStmt(DeclGroupRef::Create(Context, &D, 1), {}, {});
       //   GlobalDecls.push_back(TileCntDecl);
       PreInits.push_back(DeclS);
       TileIndVars[i] = TileCntDecl;
     }
   }
 
-
-
-  Stmt* Inner = NestHelper.Bodys.back();
+  Stmt *Inner = NestHelper.Bodys.back();
   SmallVector<Stmt *, 9> BodyParts;
   BodyParts.reserve(2 * NumLoops + 1);
 
@@ -8682,9 +8681,8 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
 
   auto PreTopmostStmt = CompoundStmt::Create(Context, PreInits, {}, {});
 
-  auto Result =
-      OMPTileDirective::Create(Context, StartLoc, EndLoc, Clauses, NumLoops,
-                               AStmt, PreTopmostStmt);
+  auto Result = OMPTileDirective::Create(Context, StartLoc, EndLoc, Clauses,
+                                         NumLoops, AStmt, PreTopmostStmt);
   // Result->dump();
   return Result;
 }
