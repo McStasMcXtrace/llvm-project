@@ -7055,7 +7055,7 @@ static bool checkOpenMPIterationSpace(
   auto *For = dyn_cast_or_null<ForStmt>(S);
   auto *CXXFor = dyn_cast_or_null<CXXForRangeStmt>(S);
   // Ranged for is supported only in OpenMP 5.0.
-  if (!For && (SemaRef.LangOpts.OpenMP <= 45 || !CXXFor)) {
+  if ( !For && (SemaRef.LangOpts.OpenMP <= 45 || !CXXFor)) {
     SemaRef.Diag(S->getBeginLoc(), diag::err_omp_not_for)
         << (CollapseLoopCountExpr != nullptr || OrderedLoopCountExpr != nullptr)
         << getOpenMPDirectiveName(DKind) << TotalNestedLoopCount
@@ -8369,7 +8369,7 @@ Sema::ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,  Sour
       BodyParts.push_back(Inner);
 
        // TODO: Check if Inner also has a canonical loop nest; if yes, sink even further
-      Inner = CompoundStmt::Create(Context, BodyParts, {}, {});
+      Inner = CompoundStmt::Create(Context, BodyParts, AStmt->getBeginLoc(), AStmt->getEndLoc());
     }
 
     // Create loops from the inside to the outside

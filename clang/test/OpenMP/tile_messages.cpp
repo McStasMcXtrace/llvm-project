@@ -1,9 +1,6 @@
 // RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -std=c++17 -fopenmp -fopenmp-version=51 -fsyntax-only -Wuninitialized -verify %s
 
-
-
 void func() {
-#if 0
   // expected-error@+1 {{expected '('}}
 #pragma omp tile sizes
   ;
@@ -85,8 +82,8 @@ void func() {
 
   // expected-error@+2 {{statement after '#pragma omp tile' must be a for loop}}
 #pragma omp tile sizes(5,5)
-  for (int i = 0; i < 7; ++i)
-  {
+  for (int i = 0; i < 7; ++i) {
+    int k = 3;
     for (int j = 0; j < 7; ++j);
   }
 
@@ -112,29 +109,31 @@ void func() {
 #pragma omp tile sizes(5,5)
   for (int i = 0; i < 7; ++i)
     for (int j = 0; j < i; ++j);
-#endif
 
 
-
-
-
-
-
+  // expected-error@+4 {{expected 3 for loops after '#pragma omp for', but found only 2}}
+  // expected-note@+1 {{as specified in 'collapse' clause}}
 #pragma omp for collapse(3)
 #pragma omp tile sizes(5)
-  for (int i = 0; i < 7; ++i);
+  for (int i = 0; i < 7; ++i)
+    ;
 
-#if 0
 
+  // expected-error@+2 {{statement after '#pragma omp tile' must be a for loop}}
 #pragma omp tile sizes(5)
 #pragma omp for
   for (int i = 0; i < 7; ++i);
 
+  // expected-error@+2 {{condition of OpenMP for loop must be a relational comparison ('<', '<=', '>', '>=', or '!=') of loop variable 'i'}}
 #pragma omp tile sizes(5)
   for (int i = 0; i/3<7; ++i);
 
 
 
+
+
+#if 0
+  // TODO
   double A[] = { 1,2,3 };
 #pragma omp tile sizes(5)
   for (auto b : A) {}
