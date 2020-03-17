@@ -1255,10 +1255,10 @@ OMPSizesClause *OMPSizesClause::Create(const ASTContext &C,
                                        SourceLocation LParenLoc,
                                        SourceLocation EndLoc,
                                        ArrayRef<Expr *> Sizes) {
-  OMPSizesClause* Clause = CreateEmpty(C, Sizes.size());
-Clause->setLocStart(StartLoc); 
- Clause->setLParenLoc(LParenLoc);
-Clause->setLocEnd(EndLoc);
+  OMPSizesClause *Clause = CreateEmpty(C, Sizes.size());
+  Clause->setLocStart(StartLoc);
+  Clause->setLParenLoc(LParenLoc);
+  Clause->setLocEnd(EndLoc);
   Clause->setSizesRefs(Sizes);
   return Clause;
 }
