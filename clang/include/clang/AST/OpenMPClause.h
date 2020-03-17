@@ -6908,11 +6908,6 @@ class OMPSizesClause final
   /// Number of tile sizes in the clause.
   unsigned NumSizes;
 
-  OMPSizesClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-                 SourceLocation EndLoc, unsigned NumSizes)
-      : OMPClause(OMPC_sizes, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        NumSizes(NumSizes) {}
-
   /// Build an empty clause.
   explicit OMPSizesClause(int NumSizes)
       : OMPClause(OMPC_sizes, SourceLocation(), SourceLocation()),
@@ -6926,7 +6921,7 @@ public:
   /// \param LParenLoc Location of '('.
   /// \param EndLoc    Location of ')'.
   /// \param Sizes     Content of the clause.
-  static OMPSizesClause *create(const ASTContext &C, SourceLocation StartLoc,
+  static OMPSizesClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                 SourceLocation LParenLoc, SourceLocation EndLoc,
                                 ArrayRef<Expr *> Sizes);
 
@@ -6934,7 +6929,7 @@ public:
   ///
   /// \param C     Context of the AST.
   /// \param Sizes Number of items in the clause.
-  static OMPSizesClause *createEmpty(const ASTContext &C, unsigned NumSizes);
+  static OMPSizesClause *CreateEmpty(const ASTContext &C, unsigned NumSizes);
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }

@@ -646,9 +646,7 @@ void StmtPrinter::PrintOMPExecutableDirective(OMPExecutableDirective *S,
       Printer.Visit(Clause);
     }
   OS << NL;
-  if (auto Tile = dyn_cast<OMPTileDirective>(S))
-    PrintStmt(Tile->getUntransformedForStmt());
-  else if (!ForceNoStmt && S->hasAssociatedStmt())
+  if (!ForceNoStmt && S->hasAssociatedStmt())
     PrintStmt(S->ignoreCaptures());
 }
 

@@ -1160,7 +1160,7 @@ public:
   /// \param TryImperfectlyNestedLoops true, if we need to try to look for the
   /// imperfectly nested loop.
   /// \param PreInits If set, collects additional statemants that have to be
-  /// executed before the loop; typically variable declarations.
+  ///                 executed before the loop; typically variable declarations.
   static Stmt *
   tryToFindNextInnerLoop(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
                          llvm::SmallVectorImpl<Stmt *> *PreInits = nullptr);
@@ -1176,7 +1176,7 @@ public:
   ///
   /// \param Loops    Receives the associated loops.
   /// \param PreInits Receives statements that have to be executed before the
-  /// loop; typically variable declarations.
+  ///                 loop; typically variable declarations.
   void collectAssociatedLoops(llvm::SmallVectorImpl<Stmt *> &Loops,
                               llvm::SmallVectorImpl<Stmt *> &PreInits);
   void collectAssociatedLoops(llvm::SmallVectorImpl<const Stmt *> &Loops,
@@ -4810,9 +4810,10 @@ public:
   /// \param EndLoc    Location of the directive's end (e.g. the tok::eod).
   /// \param Clauses   The directive's clauses.
   /// \param NumLoops  Number of associated loops (number of items in the
-  /// 'sizes' clause). \param AssociatedStmt The outermost associated loop.
+  ///                  'sizes' clause). \param AssociatedStmt The outermost
+  ///                  associated loop.
   /// \param TransformedStmt The loop nest after tiling, or nullptr in
-  /// dependenct contexts.
+  ///                        dependenct contexts.
   static OMPTileDirective *Create(const ASTContext &C, SourceLocation StartLoc,
                                   SourceLocation EndLoc,
                                   ArrayRef<OMPClause *> Clauses,
@@ -4821,9 +4822,9 @@ public:
 
   /// Build an empty '#pragma omp tile' AST node for deserialization.
   ///
-  /// \param C     Context of the AST.
+  /// \param C          Context of the AST.
   /// \param NumClauses Number of clauses to allocate.
-  /// \param NumLoops  Number of associated loops to allocate.
+  /// \param NumLoops   Number of associated loops to allocate.
   static OMPTileDirective *CreateEmpty(const ASTContext &C, unsigned NumClauses,
                                        unsigned NumLoops);
 

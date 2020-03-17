@@ -1250,19 +1250,20 @@ void OMPNontemporalClause::setPrivateRefs(ArrayRef<Expr *> VL) {
   std::copy(VL.begin(), VL.end(), varlist_end());
 }
 
-OMPSizesClause *OMPSizesClause::create(const ASTContext &C,
+OMPSizesClause *OMPSizesClause::Create(const ASTContext &C,
                                        SourceLocation StartLoc,
                                        SourceLocation LParenLoc,
                                        SourceLocation EndLoc,
                                        ArrayRef<Expr *> Sizes) {
-  size_t NumSizes = Sizes.size();
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
-  auto Clause = new (Mem) OMPSizesClause(StartLoc, LParenLoc, EndLoc, NumSizes);
+  OMPSizesClause* Clause = CreateEmpty(C, Sizes.size());
+Clause->setLocStart(StartLoc); 
+ Clause->setLParenLoc(LParenLoc);
+Clause->setLocEnd(EndLoc);
   Clause->setSizesRefs(Sizes);
   return Clause;
 }
 
-OMPSizesClause *OMPSizesClause::createEmpty(const ASTContext &C,
+OMPSizesClause *OMPSizesClause::CreateEmpty(const ASTContext &C,
                                             unsigned NumSizes) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
   return new (Mem) OMPSizesClause(NumSizes);

@@ -12602,7 +12602,7 @@ OMPClause *Sema::ActOnOpenMPSizesClause(ArrayRef<Expr *> SizeExprs,
 
   DSAStack->setAssociatedLoops(SizeExprs.size());
 
-  return OMPSizesClause::create(Context, StartLoc, LParenLoc, EndLoc,
+  return OMPSizesClause::Create(Context, StartLoc, LParenLoc, EndLoc,
                                 SizeExprs);
 }
 
