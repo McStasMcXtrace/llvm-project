@@ -2218,6 +2218,10 @@ void OMPClauseEnqueue::VisitOMPOrderedClause(const OMPOrderedClause *C) {
   Visitor->AddStmt(C->getNumForLoops());
 }
 
+void OMPClauseEnqueue::VisitOMPDetachClause(const OMPDetachClause *C) {
+  Visitor->AddStmt(C->getEventHandler());
+}
+
 void OMPClauseEnqueue::VisitOMPNowaitClause(const OMPNowaitClause *) {}
 
 void OMPClauseEnqueue::VisitOMPUntiedClause(const OMPUntiedClause *) {}
