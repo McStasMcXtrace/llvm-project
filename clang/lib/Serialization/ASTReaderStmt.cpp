@@ -2267,11 +2267,6 @@ void ASTStmtReader::VisitOMPForDirective(OMPForDirective *D) {
   D->setHasCancel(Record.readInt());
 }
 
-void ASTStmtReader::VisitOMPTileDirective(OMPTileDirective *D) {
-  VisitOMPLoopDirective(D);
-  D->setTransformedStmt(Record.readStmt());
-}
-
 void ASTStmtReader::VisitOMPForSimdDirective(OMPForSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
@@ -2578,6 +2573,12 @@ void ASTStmtReader::VisitOMPTargetTeamsDistributeSimdDirective(
     OMPTargetTeamsDistributeSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
+
+void ASTStmtReader::VisitOMPTileDirective(OMPTileDirective *D) {
+  VisitOMPLoopDirective(D);
+  D->setTransformedStmt(Record.readStmt());
+}
+
 
 //===----------------------------------------------------------------------===//
 // ASTReader Implementation
@@ -3129,13 +3130,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
 
-    case STMT_OMP_TILE_DIRECTIVE: {
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
-      unsigned NumLoops = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPTileDirective::CreateEmpty(Context, NumClauses, NumLoops);
-      break;
-    }
-
     case STMT_OMP_FOR_SIMD_DIRECTIVE: {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
       unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
@@ -3450,6 +3444,13 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       auto CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPTargetTeamsDistributeSimdDirective::CreateEmpty(
           Context, NumClauses, CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_TILE_DIRECTIVE: {
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumLoops = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTileDirective::CreateEmpty(Context, NumClauses, NumLoops);
       break;
     }
 

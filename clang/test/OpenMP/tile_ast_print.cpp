@@ -26,15 +26,15 @@ void foo1() {
   // DUMP-NEXT:   OMPSizesClause
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
-#pragma omp tile sizes(5,5)
+  #pragma omp tile sizes(5,5)
   // PRINT: for (int i = 7; i < 17; i += 3)
   // DUMP-NEXT: ForStmt
   for (int i = 7; i < 17; i += 3)
     // PRINT: for (int j = 7; j < 17; j += 3)
     // DUMP:  ForStmt
     for (int j = 7; j < 17; j += 3)
-      // PRINT: body(i, j);
-      // DUMP:  CallExpr
+    // PRINT: body(i, j);
+    // DUMP:  CallExpr
       body(i, j);
 }
 
@@ -47,7 +47,7 @@ void foo2(int start1, int start2, int end1, int end2) {
   // DUMP-NEXT:   OMPSizesClause
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
-#pragma omp tile sizes(5,5)
+  #pragma omp tile sizes(5,5)
   // PRINT: for (int i = start1; i < end1; i += 1)
   // DUMP-NEXT: ForStmt
   for (int i = start1; i < end1; i += 1)
@@ -60,7 +60,6 @@ void foo2(int start1, int start2, int end1, int end2) {
 }
 
 
-
 // PRINT-LABEL: void foo3(
 // DUMP-LABEL:  FunctionDecl {{.*}} foo3
 void foo3() {
@@ -68,12 +67,12 @@ void foo3() {
   // DUMP:  OMPForDirective
   // DUMP-NEXT:    CapturedStmt
   // DUMP-NEXT:      CapturedDecl
-#pragma omp for
+  #pragma omp for
   // PRINT:     #pragma omp tile sizes(5)
   // DUMP-NEXT:      OMPTileDirective
   // DUMP-NEXT:   OMPSizesClause
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
-#pragma omp tile sizes(5)
+  #pragma omp tile sizes(5)
   for (int i = 7; i < 17; i += 3)
     // PRINT: body(i);
     // DUMP:  CallExpr
@@ -91,13 +90,13 @@ void foo4() {
   // DUMP-NEXT:  IntegerLiteral {{.*}} 3
   // DUMP-NEXT:    CapturedStmt
   // DUMP-NEXT:      CapturedDecl
-#pragma omp for collapse(3)
+  #pragma omp for collapse(3)
   // PRINT:     #pragma omp tile sizes(5, 5)
   // DUMP:      OMPTileDirective
   // DUMP-NEXT:   OMPSizesClause
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
   // DUMP-NEXT:     IntegerLiteral {{.*}} 5
-#pragma omp tile sizes(5, 5)
+  #pragma omp tile sizes(5, 5)
   // PRINT: for (int i = 7; i < 17; i += 1)
   // DUMP-NEXT: ForStmt
   for (int i = 7; i < 17; i += 1)
@@ -110,7 +109,6 @@ void foo4() {
 }
 
 
-
 // PRINT-LABEL: void foo5(
 // DUMP-LABEL:  FunctionDecl {{.*}} foo5
 void foo5(int start, int end, int step) {
@@ -121,7 +119,7 @@ void foo5(int start, int end, int step) {
   // DUMP-NEXT:    IntegerLiteral {{.*}} 2
   // DUMP-NEXT:  CapturedStmt
   // DUMP-NEXT:    CapturedDecl
-#pragma omp for collapse(2)
+  #pragma omp for collapse(2)
   // PRINT: for (int i = 7; i < 17; i += 1)
   // DUMP-NEXT: ForStmt
   for (int i = 7; i < 17; i += 1)
@@ -129,7 +127,7 @@ void foo5(int start, int end, int step) {
     // DUMP:      OMPTileDirective
     // DUMP-NEXT:   OMPSizesClause
     // DUMP-NEXT:     IntegerLiteral {{.*}} 5
-#pragma omp tile sizes(5)
+    #pragma omp tile sizes(5)
     // PRINT: for (int j = 7; j < 17; j += 1)
     // DUMP-NEXT: ForStmt
     for (int j = 7; j < 17; j += 1)
@@ -143,17 +141,17 @@ void foo5(int start, int end, int step) {
 // DUMP-LABEL: FunctionTemplateDecl {{.*}} foo6
 template<typename T, T Step, T Tile>
 void foo6(T start, T end) {
-// PRINT: #pragma omp tile sizes(Tile)
-// DUMP:      OMPTileDirective
-// DUMP-NEXT:   OMPSizesClause
-// DUMP-NEXT:     DeclRefExpr {{.*}} 'Tile' 'T'
-#pragma omp tile sizes(Tile)
-// PRINT-NEXT:  for (T i = start; i < end; i += Step)
-// DUMP-NEXT: ForStmt
-  for (T i = start; i < end; i += Step)
-// PRINT-NEXT: body(i);
-// DUMP:  CallExpr
-    body(i);
+  // PRINT: #pragma omp tile sizes(Tile)
+  // DUMP:      OMPTileDirective
+  // DUMP-NEXT:   OMPSizesClause
+  // DUMP-NEXT:     DeclRefExpr {{.*}} 'Tile' 'T'
+  #pragma omp tile sizes(Tile)
+    // PRINT-NEXT:  for (T i = start; i < end; i += Step)
+    // DUMP-NEXT: ForStmt
+    for (T i = start; i < end; i += Step)
+      // PRINT-NEXT: body(i);
+      // DUMP:  CallExpr
+      body(i);
 }
 
 // Also test instantiating the template.
@@ -163,3 +161,4 @@ void tfoo6() {
 
 
 #endif
+

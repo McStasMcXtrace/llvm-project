@@ -477,12 +477,6 @@ void OMPClauseProfiler::VisitOMPDetachClause(const OMPDetachClause *C) {
     Profiler->VisitStmt(Evt);
 }
 
-void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
-  for (auto E : C->getSizesRefs())
-    if (E)
-      Profiler->VisitExpr(E);
-}
-
 void OMPClauseProfiler::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 
 void OMPClauseProfiler::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
@@ -802,6 +796,12 @@ void OMPClauseProfiler::VisitOMPNontemporalClause(
     Profiler->VisitStmt(E);
 }
 void OMPClauseProfiler::VisitOMPOrderClause(const OMPOrderClause *C) {}
+
+void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
+  for (auto E : C->getSizesRefs())
+    if (E)
+      Profiler->VisitExpr(E);
+}
 } // namespace
 
 void
@@ -828,10 +828,6 @@ void StmtProfiler::VisitOMPSimdDirective(const OMPSimdDirective *S) {
 }
 
 void StmtProfiler::VisitOMPForDirective(const OMPForDirective *S) {
-  VisitOMPLoopDirective(S);
-}
-
-void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
   VisitOMPLoopDirective(S);
 }
 
@@ -1076,6 +1072,12 @@ void StmtProfiler::VisitOMPTargetTeamsDistributeSimdDirective(
     const OMPTargetTeamsDistributeSimdDirective *S) {
   VisitOMPLoopDirective(S);
 }
+
+
+void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
 
 void StmtProfiler::VisitExpr(const Expr *S) {
   VisitStmt(S);

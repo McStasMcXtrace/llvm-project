@@ -2157,12 +2157,6 @@ void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   Code = serialization::STMT_OMP_FOR_DIRECTIVE;
 }
 
-void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
-  VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTransformedCompoundStmt());
-  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
-}
-
 void ASTStmtWriter::VisitOMPForSimdDirective(OMPForSimdDirective *D) {
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_FOR_SIMD_DIRECTIVE;
@@ -2505,6 +2499,14 @@ void ASTStmtWriter::VisitOMPTargetTeamsDistributeSimdDirective(
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE;
 }
+
+
+void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
+  VisitOMPLoopDirective(D);
+  Record.AddStmt(D->getTransformedStmt());
+  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
+}
+
 
 //===----------------------------------------------------------------------===//
 // ASTWriter Implementation

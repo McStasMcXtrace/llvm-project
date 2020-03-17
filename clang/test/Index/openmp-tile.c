@@ -9,3 +9,4 @@ void test() {
 // CHECK: openmp-tile.c:4:1: OMPTileDirective= Extent=[4:1 - 4:26]
 // CHECK: openmp-tile.c:4:24: IntegerLiteral= Extent=[4:24 - 4:25]
 // CHECK: openmp-tile.c:5:3: ForStmt= Extent=[5:3 - 6:6]
+

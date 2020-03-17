@@ -199,9 +199,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPForDirectiveClass:
     EmitOMPForDirective(cast<OMPForDirective>(*S));
     break;
-  case Stmt::OMPTileDirectiveClass:
-    EmitOMPTileDirective(cast<OMPTileDirective>(*S));
-    break;
   case Stmt::OMPForSimdDirectiveClass:
     EmitOMPForSimdDirective(cast<OMPForSimdDirective>(*S));
     break;
@@ -364,6 +361,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
     EmitOMPTargetTeamsDistributeSimdDirective(
         cast<OMPTargetTeamsDistributeSimdDirective>(*S));
+    break;
+  case Stmt::OMPTileDirectiveClass:
+    EmitOMPTileDirective(cast<OMPTileDirective>(*S));
     break;
   }
 }

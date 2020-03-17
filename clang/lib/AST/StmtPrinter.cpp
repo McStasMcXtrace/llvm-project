@@ -665,11 +665,6 @@ void StmtPrinter::VisitOMPForDirective(OMPForDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
-void StmtPrinter::VisitOMPTileDirective(OMPTileDirective *Node) {
-  Indent() << "#pragma omp tile";
-  PrintOMPExecutableDirective(Node);
-}
-
 void StmtPrinter::VisitOMPForSimdDirective(OMPForSimdDirective *Node) {
   Indent() << "#pragma omp for simd";
   PrintOMPExecutableDirective(Node);
@@ -950,6 +945,11 @@ void StmtPrinter::VisitOMPTargetTeamsDistributeParallelForSimdDirective(
 void StmtPrinter::VisitOMPTargetTeamsDistributeSimdDirective(
     OMPTargetTeamsDistributeSimdDirective *Node) {
   Indent() << "#pragma omp target teams distribute simd";
+  PrintOMPExecutableDirective(Node);
+}
+
+void StmtPrinter::VisitOMPTileDirective(OMPTileDirective *Node) {
+  Indent() << "#pragma omp tile";
   PrintOMPExecutableDirective(Node);
 }
 

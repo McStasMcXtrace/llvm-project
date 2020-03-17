@@ -2026,7 +2026,6 @@ public:
   void VisitOMPParallelDirective(const OMPParallelDirective *D);
   void VisitOMPSimdDirective(const OMPSimdDirective *D);
   void VisitOMPForDirective(const OMPForDirective *D);
-  void VisitOMPTileDirective(const OMPTileDirective *D);
   void VisitOMPForSimdDirective(const OMPForSimdDirective *D);
   void VisitOMPSectionsDirective(const OMPSectionsDirective *D);
   void VisitOMPSectionDirective(const OMPSectionDirective *D);
@@ -2091,6 +2090,7 @@ public:
       const OMPTargetTeamsDistributeParallelForSimdDirective *D);
   void VisitOMPTargetTeamsDistributeSimdDirective(
       const OMPTargetTeamsDistributeSimdDirective *D);
+  void VisitOMPTileDirective(const OMPTileDirective *D);
 
 private:
   void AddDeclarationNameInfo(const Stmt *S);
@@ -2204,11 +2204,6 @@ void OMPClauseEnqueue::VisitOMPAllocatorClause(const OMPAllocatorClause *C) {
 
 void OMPClauseEnqueue::VisitOMPCollapseClause(const OMPCollapseClause *C) {
   Visitor->AddStmt(C->getNumForLoops());
-}
-
-void OMPClauseEnqueue::VisitOMPSizesClause(const OMPSizesClause *C) {
-  for (auto E : C->getSizesRefs())
-    Visitor->AddStmt(E);
 }
 
 void OMPClauseEnqueue::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
@@ -2490,6 +2485,11 @@ void OMPClauseEnqueue::VisitOMPNontemporalClause(
     Visitor->AddStmt(E);
 }
 void OMPClauseEnqueue::VisitOMPOrderClause(const OMPOrderClause *C) {}
+}
+
+void OMPClauseEnqueue::VisitOMPSizesClause(const OMPSizesClause *C) {
+  for (auto E : C->getSizesRefs())
+    Visitor->AddStmt(E);
 }
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
@@ -2812,10 +2812,6 @@ void EnqueueVisitor::VisitOMPForDirective(const OMPForDirective *D) {
   VisitOMPLoopDirective(D);
 }
 
-void EnqueueVisitor::VisitOMPTileDirective(const OMPTileDirective *D) {
-  VisitOMPLoopDirective(D);
-}
-
 void EnqueueVisitor::VisitOMPForSimdDirective(const OMPForSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
@@ -3044,6 +3040,10 @@ void EnqueueVisitor::VisitOMPTargetTeamsDistributeParallelForSimdDirective(
 
 void EnqueueVisitor::VisitOMPTargetTeamsDistributeSimdDirective(
     const OMPTargetTeamsDistributeSimdDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPTileDirective(const OMPTileDirective *D) {
   VisitOMPLoopDirective(D);
 }
 
@@ -5493,8 +5493,6 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPSimdDirective");
   case CXCursor_OMPForDirective:
     return cxstring::createRef("OMPForDirective");
-  case CXCursor_OMPTileDirective:
-    return cxstring::createRef("OMPTileDirective");
   case CXCursor_OMPForSimdDirective:
     return cxstring::createRef("OMPForSimdDirective");
   case CXCursor_OMPSectionsDirective:
@@ -5594,6 +5592,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
   case CXCursor_OMPTargetTeamsDistributeParallelForSimdDirective:
     return cxstring::createRef(
         "OMPTargetTeamsDistributeParallelForSimdDirective");
+  case CXCursor_OMPTileDirective:
+    return cxstring::createRef("OMPTileDirective");
   case CXCursor_OMPTargetTeamsDistributeSimdDirective:
     return cxstring::createRef("OMPTargetTeamsDistributeSimdDirective");
   case CXCursor_OverloadCandidate:

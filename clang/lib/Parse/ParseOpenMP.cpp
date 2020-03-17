@@ -1844,7 +1844,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_flush:
   case OMPD_depobj:
   case OMPD_for:
-  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_section:
@@ -1889,6 +1888,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd:
+  case OMPD_tile:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -2087,7 +2087,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_for:
-  case OMPD_tile:
   case OMPD_for_simd:
   case OMPD_sections:
   case OMPD_single:
@@ -2127,7 +2126,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_teams_distribute:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
-  case OMPD_target_teams_distribute_simd: {
+  case OMPD_target_teams_distribute_simd:
+  case OMPD_tile: {
     // Special processing for flush and depobj clauses.
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;
@@ -2225,6 +2225,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     if (DKind == OMPD_tile && !FirstClauses[OMPC_sizes].getInt()) {
       Diag(Loc, diag::err_omp_required_clause)
           << getOpenMPDirectiveName(OMPD_tile) << "sizes";
+ErrorFound = true;
     }
 
     StmtResult AssociatedStmt;
@@ -2458,15 +2459,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;
-  case OMPC_sizes:
-    if (!FirstClause) {
-      Diag(Tok, diag::err_omp_more_one_clause)
-          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
-      ErrorFound = true;
-    }
-
-    Clause = ParseOpenMPSizesClause();
-    break;
   case OMPC_default:
   case OMPC_proc_bind:
   case OMPC_atomic_default_mem_order:
@@ -2583,6 +2575,15 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       Diag(Tok, diag::err_omp_unexpected_clause)
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::comma, tok::annot_pragma_openmp_end, StopBeforeMatch);
+    break;
+  case OMPC_sizes:
+    if (!FirstClause) {
+      Diag(Tok, diag::err_omp_more_one_clause)
+          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+      ErrorFound = true;
+    }
+
+    Clause = ParseOpenMPSizesClause();
     break;
   }
   return ErrorFound ? nullptr : Clause;

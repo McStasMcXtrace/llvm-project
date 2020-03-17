@@ -4870,7 +4870,7 @@ public:
   }
 };
 
-/// Determine the first associated statement of a loop-associated directive.
+/// Determine the first associated statement of a loop-associated directive. If the statement is a loop transformation directive, uses the result of the loop transformation.
 Stmt *
 getTopmostAssociatedStructuredBlock(Stmt *S,
                                     llvm::SmallVectorImpl<Stmt *> *PreInits);

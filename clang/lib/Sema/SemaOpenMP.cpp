@@ -34,9 +34,7 @@
 #include "llvm/ADT/IndexedMap.h"
 #include "llvm/ADT/PointerEmbeddedInt.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
-
 using namespace clang;
 using namespace llvm::omp;
 
@@ -209,14 +207,12 @@ private:
   }
 
   // Convenience operations to get at the elements of the stack.
-public:
+
   bool isStackEmpty() const {
     return Stack.empty() ||
            Stack.back().second != CurrentNonCapturingFunctionScope ||
            Stack.back().first.size() <= IgnoredStackElements;
   }
-
-private:
   size_t getStackSize() const {
     return isStackEmpty() ? 0
                           : Stack.back().first.size() - IgnoredStackElements;
@@ -4057,7 +4053,7 @@ static bool checkOrderedOrderSpecified(Sema &S,
 
 StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
                                       ArrayRef<OMPClause *> Clauses) {
-  assert(!DSAStack->isStackEmpty());
+  //assert(!DSAStack->isStackEmpty());
   // if (isOpenMPLoopDirective( DSAStack->getCurrentDirective()))
   //  return
 
@@ -4807,10 +4803,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPForDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,
                                   VarsWithInheritedDSA);
     break;
-  case OMPD_tile:
-    Res = ActOnOpenMPTileDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,
-                                   VarsWithInheritedDSA);
-    break;
   case OMPD_for_simd:
     Res = ActOnOpenMPForSimdDirective(ClausesWithImplicit, AStmt, StartLoc,
                                       EndLoc, VarsWithInheritedDSA);
@@ -5092,6 +5084,10 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     if (LangOpts.OpenMP >= 50)
       AllowedNameModifiers.push_back(OMPD_simd);
     break;
+  case OMPD_tile:
+    Res = ActOnOpenMPTileDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc,
+                                   VarsWithInheritedDSA);
+    break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_threadprivate:
@@ -5145,7 +5141,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_thread_limit:
       case OMPC_hint:
       case OMPC_collapse:
-      case OMPC_sizes:
       case OMPC_safelen:
       case OMPC_simdlen:
       case OMPC_default:
@@ -5187,6 +5182,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_nontemporal:
       case OMPC_order:
       case OMPC_destroy:
+      case OMPC_sizes:
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -5881,7 +5877,7 @@ struct LoopIterationSpace final {
   /// finished.
   Expr *FinalCondition = nullptr;
 
-  Stmt *LoopStmt = nullptr;
+  Stmt *Loop = nullptr;
   Stmt *Body = nullptr;
 };
 
@@ -7591,7 +7587,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
                                   VarsWithImplicitDSA, IterSpaces, Captures,
                                   Capturing, SupportsNonRectangular, EmitDiags))
       return 0;
-    IterSpaces[Cnt].LoopStmt =
+    IterSpaces[Cnt].Loop =
         CurStmt; // TODO: Should be set in checkOpenMPIterationSpace (if needed
                  // at all)
 
@@ -8093,7 +8089,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DependentCounters.resize(NestedLoopCount);
   Built.DependentInits.resize(NestedLoopCount);
   Built.FinalsConditions.resize(NestedLoopCount);
-  // Built.Bodys.resize(NestedLoopCount);
+Built.Loops.resize(NestedLoopCount);
+  Built.Bodys.resize(NestedLoopCount);
   {
     // We implement the following algorithm for obtaining the
     // original loop iteration variable values based on the
@@ -8199,8 +8196,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
             Built.Inits[NestedLoopCount - 1 - IS.LoopDependentIdx];
         Built.FinalsConditions[Cnt] = IS.FinalCondition;
       }
-      // Built.Loops[Cnt] = IS.LoopStmt;
-      // Built.Bodys[Cnt] = IS.Body;
+      Built.Loops[Cnt] = IS.Loop;
+      Built.Bodys[Cnt] = IS.Body;
     }
   }
 
@@ -8240,7 +8237,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.NUB = CombNextUB.get();
   Built.DistCombinedFields.DistCond = CombDistCond.get();
   Built.DistCombinedFields.ParForInDistCond = ParForInDistCond.get();
-  // Built.InnermostBody = IterSpaces.back().Body;
+
 
   assert(Capturing || Captures.empty());
 

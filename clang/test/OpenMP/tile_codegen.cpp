@@ -120,8 +120,6 @@ extern "C" void foo1(int start, int end, int step) {
 }
 
 
-
-
 // IR-LABEL: @foo2(
 // IR-NEXT:  entry:
 // IR-NEXT:    [[START_ADDR:%.*]] = alloca i32, align 4
@@ -558,6 +556,7 @@ extern "C" void foo4() {
       ;
 }
 
+
 // IR-LABEL: @foo5(
 // IR-NEXT:  entry:
 // IR-NEXT:    [[DOTOMP_IV:%.*]] = alloca i64, align 8
@@ -977,3 +976,4 @@ extern "C" void tfoo7() {
 
 
 #endif /* HEADER */
+

@@ -27,7 +27,6 @@
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/AtomicOrdering.h"
-
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
@@ -2880,7 +2879,8 @@ void CodeGenFunction::EmitOMPForDirective(const OMPForDirective &S) {
 }
 
 void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
-  EmitStmt(S.getTransformedCompoundStmt());
+  // Emit the de-sugared statement.
+  EmitStmt(S.getTransformedStmt());
 }
 
 void CodeGenFunction::EmitOMPForSimdDirective(const OMPForSimdDirective &S) {
