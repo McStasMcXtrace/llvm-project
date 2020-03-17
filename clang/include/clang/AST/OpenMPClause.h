@@ -6889,7 +6889,6 @@ public:
   }
 };
 
-
 /// This represents the 'sizes' clause in the '#pragma omp tile' directive.
 ///
 /// \code
@@ -6988,7 +6987,6 @@ public:
     return T->getClauseKind() == OMPC_sizes;
   }
 };
-
 
 /// This class implements a simple visitor for OMPClause
 /// subclasses.

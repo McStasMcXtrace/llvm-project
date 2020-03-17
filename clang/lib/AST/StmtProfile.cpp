@@ -483,7 +483,6 @@ void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
       Profiler->VisitExpr(E);
 }
 
-
 void OMPClauseProfiler::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 
 void OMPClauseProfiler::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
