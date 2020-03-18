@@ -137,7 +137,7 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
 
     // Emit statements required by nested loop transformations. Has to be done
     // before PreCondVars.
-    for (Stmt* APreInit : AssociatedPreInits) 
+    for (Stmt *APreInit : AssociatedPreInits)
       CGF.EmitStmt(APreInit);
 
     CodeGenFunction::OMPMapVars PreCondVars;
@@ -164,7 +164,7 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
     }
     (void)PreCondVars.apply(CGF);
     // Emit init, __range and __end variables for C++ range loops.
-    for (const Stmt* Body : Loops) {
+    for (const Stmt *Body : Loops) {
       if (auto *CXXFor = dyn_cast<CXXForRangeStmt>(Body)) {
         if (const Stmt *Init = CXXFor->getInit())
           CGF.EmitStmt(Init);
@@ -1525,7 +1525,8 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
                      int MaxLevel, int Level = 0) {
   assert(Level < MaxLevel && "Too deep lookup during loop body codegen.");
-  const Stmt *SimplifiedS = getTopmostAssociatedStructuredBlock( S->IgnoreContainers(), nullptr);
+  const Stmt *SimplifiedS =
+      getTopmostAssociatedStructuredBlock(S->IgnoreContainers(), nullptr);
   if (const auto *CS = dyn_cast<CompoundStmt>(SimplifiedS)) {
     PrettyStackTraceLoc CrashInfo(
         CGF.getContext().getSourceManager(), CS->getLBracLoc(),
@@ -4990,12 +4991,10 @@ void CodeGenFunction::EmitOMPTargetTeamsDistributeSimdDirective(
   emitCommonOMPTargetDirective(*this, S, CodeGen);
 }
 
-
 void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
   // Emit the de-sugared statement.
   EmitStmt(S.getTransformedStmt());
 }
-
 
 void CodeGenFunction::EmitOMPTeamsDistributeDirective(
     const OMPTeamsDistributeDirective &S) {
@@ -5901,4 +5900,3 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
   // Check for outer lastprivate conditional update.
   checkForLastprivateConditionalUpdate(*this, D);
 }
-
