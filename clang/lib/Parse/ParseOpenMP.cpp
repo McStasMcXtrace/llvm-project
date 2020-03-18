@@ -2196,8 +2196,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       if (Clause) {
         FirstClauses[CKind].setPointer(Clause);
         Clauses.push_back(Clause);
-      } else
-        ErrorFound = true;
+      }
 
       // Skip ',' if any.
       if (Tok.is(tok::comma))

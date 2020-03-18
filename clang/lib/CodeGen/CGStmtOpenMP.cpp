@@ -23,7 +23,6 @@
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/PrettyStackTrace.h"
-#include "llvm/ADT/Sequence.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -131,16 +130,15 @@ public:
 class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
   void emitPreInitStmt(CodeGenFunction &CGF, const OMPLoopDirective &S) {
 
-    // Collect loop nest
+    // Collect loop nests and the pre-inits of associated loops.
     SmallVector<const Stmt *, 4> Loops;
-    llvm::SmallVector<Stmt *, 8> AssociatedPreInits;
+    SmallVector<Stmt *, 8> AssociatedPreInits;
     S.collectAssociatedLoops(Loops, AssociatedPreInits);
 
     // Emit statements required by nested loop transformations. Has to be done
     // before PreCondVars.
-    for (auto APreInit : AssociatedPreInits) {
+    for (Stmt* APreInit : AssociatedPreInits) 
       CGF.EmitStmt(APreInit);
-    }
 
     CodeGenFunction::OMPMapVars PreCondVars;
     llvm::DenseSet<const VarDecl *> EmittedAsPrivate;
@@ -165,9 +163,8 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
     (void)PreCondVars.apply(CGF);
-
     // Emit init, __range and __end variables for C++ range loops.
-    for (auto Body : Loops) {
+    for (const Stmt* Body : Loops) {
       if (auto *CXXFor = dyn_cast<CXXForRangeStmt>(Body)) {
         if (const Stmt *Init = CXXFor->getInit())
           CGF.EmitStmt(Init);
@@ -176,7 +173,7 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
 
-    // Emit captures
+    // Emit captures.
     if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
@@ -1528,8 +1525,7 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
                      int MaxLevel, int Level = 0) {
   assert(Level < MaxLevel && "Too deep lookup during loop body codegen.");
-  const Stmt *SimplifiedS = S->IgnoreContainers();
-  SimplifiedS = getTopmostAssociatedStructuredBlock(SimplifiedS, nullptr);
+  const Stmt *SimplifiedS = getTopmostAssociatedStructuredBlock( S->IgnoreContainers(), nullptr);
   if (const auto *CS = dyn_cast<CompoundStmt>(SimplifiedS)) {
     PrettyStackTraceLoc CrashInfo(
         CGF.getContext().getSourceManager(), CS->getLBracLoc(),
@@ -1553,7 +1549,7 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
     }
     if (Level + 1 < MaxLevel) {
       NextLoop = OMPLoopDirective::tryToFindNextInnerLoop(
-          S, /*TryImperfectlyNestedLoops=*/true, nullptr);
+          S, /*TryImperfectlyNestedLoops=*/true);
       emitBody(CGF, S, NextLoop, MaxLevel, Level + 1);
       return;
     }
@@ -1594,10 +1590,9 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   const Stmt *Body =
       D.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
   // Emit loop body.
-
   emitBody(*this, Body,
            OMPLoopDirective::tryToFindNextInnerLoop(
-               Body, /*TryImperfectlyNestedLoops=*/true, nullptr),
+               Body, /*TryImperfectlyNestedLoops=*/true),
            D.getCollapsedNumber());
 
   // The end (updates/cleanups).
@@ -2876,11 +2871,6 @@ void CodeGenFunction::EmitOMPForDirective(const OMPForDirective &S) {
     CGM.getOpenMPRuntime().emitBarrierCall(*this, S.getBeginLoc(), OMPD_for);
   // Check for outer lastprivate conditional update.
   checkForLastprivateConditionalUpdate(*this, S);
-}
-
-void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
-  // Emit the de-sugared statement.
-  EmitStmt(S.getTransformedStmt());
 }
 
 void CodeGenFunction::EmitOMPForSimdDirective(const OMPForSimdDirective &S) {
@@ -5000,6 +4990,13 @@ void CodeGenFunction::EmitOMPTargetTeamsDistributeSimdDirective(
   emitCommonOMPTargetDirective(*this, S, CodeGen);
 }
 
+
+void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
+  // Emit the de-sugared statement.
+  EmitStmt(S.getTransformedStmt());
+}
+
+
 void CodeGenFunction::EmitOMPTeamsDistributeDirective(
     const OMPTeamsDistributeDirective &S) {
 
@@ -5904,3 +5901,4 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
   // Check for outer lastprivate conditional update.
   checkForLastprivateConditionalUpdate(*this, D);
 }
+
