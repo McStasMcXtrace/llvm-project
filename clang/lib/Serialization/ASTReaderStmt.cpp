@@ -2579,7 +2579,6 @@ void ASTStmtReader::VisitOMPTileDirective(OMPTileDirective *D) {
   D->setTransformedStmt(Record.readStmt());
 }
 
-
 //===----------------------------------------------------------------------===//
 // ASTReader Implementation
 //===----------------------------------------------------------------------===//

@@ -8692,9 +8692,6 @@ TreeTransform<Derived>::TransformOMPTileDirective(OMPTileDirective *D) {
   return Res;
 }
 
-
-
-
 //===----------------------------------------------------------------------===//
 // OpenMP clause transformation
 //===----------------------------------------------------------------------===//
@@ -9561,7 +9558,6 @@ OMPClause *TreeTransform<Derived>::TransformOMPSizesClause(OMPSizesClause *C) {
   return RebuildOMPSizesClause(TransformedSizes, C->getBeginLoc(),
                                C->getLParenLoc(), C->getEndLoc());
 }
-
 
 //===----------------------------------------------------------------------===//
 // Expression transformation

@@ -2225,7 +2225,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     if (DKind == OMPD_tile && !FirstClauses[OMPC_sizes].getInt()) {
       Diag(Loc, diag::err_omp_required_clause)
           << getOpenMPDirectiveName(OMPD_tile) << "sizes";
-ErrorFound = true;
+      ErrorFound = true;
     }
 
     StmtResult AssociatedStmt;

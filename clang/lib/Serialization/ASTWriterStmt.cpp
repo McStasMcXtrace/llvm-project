@@ -2500,13 +2500,11 @@ void ASTStmtWriter::VisitOMPTargetTeamsDistributeSimdDirective(
   Code = serialization::STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE;
 }
 
-
 void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
   VisitOMPLoopDirective(D);
   Record.AddStmt(D->getTransformedStmt());
   Code = serialization::STMT_OMP_TILE_DIRECTIVE;
 }
-
 
 //===----------------------------------------------------------------------===//
 // ASTWriter Implementation

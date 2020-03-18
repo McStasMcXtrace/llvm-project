@@ -87,8 +87,6 @@ extern "C" void body(...) {}
 // IR:       for.body21:
 // IR-NEXT:    [[TMP17:%.*]] = load i32, i32* [[START_ADDR]], align 4
 // IR-NEXT:    store i32 [[TMP17]], i32* [[I]], align 4
-// IR-NEXT:    [[TMP18:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
-// IR-NEXT:    store i32 [[TMP18]], i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP19:%.*]] = load i32, i32* [[START_ADDR]], align 4
 // IR-NEXT:    [[TMP20:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP21:%.*]] = load i32, i32* [[STEP_ADDR]], align 4
@@ -189,15 +187,11 @@ extern "C" void foo1(int start, int end, int step) {
 // IR-NEXT:    br i1 [[CMP17]], label [[FOR_BODY18:%.*]], label [[FOR_END:%.*]]
 // IR:       for.body18:
 // IR-NEXT:    store i32 7, i32* [[I]], align 4
-// IR-NEXT:    [[TMP10:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
-// IR-NEXT:    store i32 [[TMP10]], i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP11:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP11]], 3
 // IR-NEXT:    [[ADD19:%.*]] = add nsw i32 7, [[MUL]]
 // IR-NEXT:    store i32 [[ADD19]], i32* [[I]], align 4
 // IR-NEXT:    store i32 7, i32* [[J]], align 4
-// IR-NEXT:    [[TMP12:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
-// IR-NEXT:    store i32 [[TMP12]], i32* [[DOTTILE_1_IV_J]], align 4
 // IR-NEXT:    [[TMP13:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
 // IR-NEXT:    [[MUL20:%.*]] = mul nsw i32 [[TMP13]], 3
 // IR-NEXT:    [[ADD21:%.*]] = add nsw i32 7, [[MUL20]]
@@ -336,15 +330,11 @@ extern "C" void foo2(int start, int end, int step) {
 // IR-NEXT:    br i1 [[CMP22]], label [[FOR_BODY23:%.*]], label [[FOR_END:%.*]]
 // IR:       for.body23:
 // IR-NEXT:    store i32 7, i32* [[I]], align 4
-// IR-NEXT:    [[TMP16:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
-// IR-NEXT:    store i32 [[TMP16]], i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP17:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[MUL24:%.*]] = mul nsw i32 [[TMP17]], 3
 // IR-NEXT:    [[ADD25:%.*]] = add nsw i32 7, [[MUL24]]
 // IR-NEXT:    store i32 [[ADD25]], i32* [[I]], align 4
 // IR-NEXT:    store i32 7, i32* [[J]], align 4
-// IR-NEXT:    [[TMP18:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
-// IR-NEXT:    store i32 [[TMP18]], i32* [[DOTTILE_1_IV_J]], align 4
 // IR-NEXT:    [[TMP19:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
 // IR-NEXT:    [[MUL26:%.*]] = mul nsw i32 [[TMP19]], 3
 // IR-NEXT:    [[ADD27:%.*]] = add nsw i32 7, [[MUL26]]
@@ -498,15 +488,11 @@ extern "C" void foo3() {
 // IR-NEXT:    br i1 [[CMP27]], label [[FOR_BODY28:%.*]], label [[FOR_END:%.*]]
 // IR:       for.body28:
 // IR-NEXT:    store i32 7, i32* [[I]], align 4
-// IR-NEXT:    [[TMP18:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
-// IR-NEXT:    store i32 [[TMP18]], i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP19:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[MUL29:%.*]] = mul nsw i32 [[TMP19]], 3
 // IR-NEXT:    [[ADD30:%.*]] = add nsw i32 7, [[MUL29]]
 // IR-NEXT:    store i32 [[ADD30]], i32* [[I]], align 4
 // IR-NEXT:    store i32 7, i32* [[J]], align 4
-// IR-NEXT:    [[TMP20:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
-// IR-NEXT:    store i32 [[TMP20]], i32* [[DOTTILE_1_IV_J]], align 4
 // IR-NEXT:    [[TMP21:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
 // IR-NEXT:    [[MUL31:%.*]] = mul nsw i32 [[TMP21]], 3
 // IR-NEXT:    [[ADD32:%.*]] = add nsw i32 7, [[MUL31]]
@@ -742,8 +728,6 @@ extern "C" void foo4() {
 // IR-NEXT:    [[CONV94:%.*]] = trunc i64 [[ADD93]] to i32
 // IR-NEXT:    store i32 [[CONV94]], i32* [[J15]], align 4
 // IR-NEXT:    store i32 7, i32* [[I]], align 4
-// IR-NEXT:    [[TMP39:%.*]] = load i32, i32* [[DOTTILE_0_IV_I14]], align 4
-// IR-NEXT:    store i32 [[TMP39]], i32* [[DOTTILE_0_IV_I14]], align 4
 // IR-NEXT:    [[TMP40:%.*]] = load i32, i32* [[DOTTILE_0_IV_I14]], align 4
 // IR-NEXT:    [[MUL95:%.*]] = mul nsw i32 [[TMP40]], 3
 // IR-NEXT:    [[ADD96:%.*]] = add nsw i32 7, [[MUL95]]
@@ -842,8 +826,6 @@ extern "C" void foo5() {
 // IR-NEXT:    br i1 [[CMP10]], label [[FOR_BODY:%.*]], label [[FOR_END:%.*]]
 // IR:       for.body:
 // IR-NEXT:    store i32 7, i32* [[I]], align 4
-// IR-NEXT:    [[TMP12:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
-// IR-NEXT:    store i32 [[TMP12]], i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP13:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[MUL11:%.*]] = mul nsw i32 [[TMP13]], 3
 // IR-NEXT:    [[ADD12:%.*]] = add nsw i32 7, [[MUL11]]
@@ -939,8 +921,6 @@ extern "C" void foo6() {
 // IR:       for.body21:
 // IR-NEXT:    [[TMP11:%.*]] = load i32, i32* [[START_ADDR]], align 4
 // IR-NEXT:    store i32 [[TMP11]], i32* [[I]], align 4
-// IR-NEXT:    [[TMP12:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
-// IR-NEXT:    store i32 [[TMP12]], i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[TMP13:%.*]] = load i32, i32* [[START_ADDR]], align 4
 // IR-NEXT:    [[TMP14:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
 // IR-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP14]], 3

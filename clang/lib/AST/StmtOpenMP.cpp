@@ -22,8 +22,6 @@ void OMPExecutableDirective::setClauses(ArrayRef<OMPClause *> Clauses) {
   std::copy(Clauses.begin(), Clauses.end(), getClauses().begin());
 }
 
-
-
 bool OMPExecutableDirective::isStandaloneDirective() const {
   // Special case: 'omp target enter data', 'omp target exit data',
   // 'omp target update' are stand-alone directives, but for implementation
@@ -127,30 +125,30 @@ Stmt *OMPLoopDirective::tryToFindNextInnerLoop(
 void OMPLoopDirective::collectAssociatedLoops(
     llvm::SmallVectorImpl<Stmt *> &Loops,
     llvm::SmallVectorImpl<Stmt *> &PreInits) {
-  Stmt* Body = ignoreCaptures()->IgnoreContainers();
+  Stmt *Body = ignoreCaptures()->IgnoreContainers();
   unsigned NumLoops = getCollapsedNumber();
   assert(NumLoops >= 1);
 
   // For each nest level, find the loop and its body.
   // The topmost loop must not be surrounded by other code.
   for (unsigned Cnt = 0; Cnt < NumLoops; ++Cnt) {
-    Stmt* Loop = OMPLoopDirective::tryToFindNextInnerLoop(
-        Body, /*TryImperfectlyNestedLoops=*/ (Cnt > 0), &PreInits);
+    Stmt *Loop = OMPLoopDirective::tryToFindNextInnerLoop(
+        Body, /*TryImperfectlyNestedLoops=*/(Cnt > 0), &PreInits);
     Loops.push_back(Loop);
 
     // Get body to look next loop in
     if (auto *For = dyn_cast<ForStmt>(Loop)) {
       Body = For->getBody();
-    } else if (auto CXXFor = dyn_cast<CXXForRangeStmt>(Loop) ) {
+    } else if (auto CXXFor = dyn_cast<CXXForRangeStmt>(Loop)) {
       Body = CXXFor->getBody();
-    } else 
-      llvm_unreachable(  "Expected canonical for loop or range-based for loop.");
+    } else
+      llvm_unreachable("Expected canonical for loop or range-based for loop.");
   }
 }
 
 Stmt *OMPLoopDirective::getBody() {
   // This relies on the loop form is already checked by Sema.
-  Stmt *Body  = getTopmostAssociatedStructuredBlock(ignoreCaptures(), nullptr);
+  Stmt *Body = getTopmostAssociatedStructuredBlock(ignoreCaptures(), nullptr);
   if (auto *For = dyn_cast<ForStmt>(Body)) {
     Body = For->getBody();
   } else {

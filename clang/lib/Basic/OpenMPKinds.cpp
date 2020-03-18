@@ -1158,11 +1158,9 @@ bool clang::isOpenMPLoopBoundSharingDirective(OpenMPDirectiveKind Kind) {
          Kind == OMPD_target_teams_distribute_parallel_for_simd;
 }
 
-
 bool clang::isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind) {
   return DKind == OMPD_tile;
 }
-
 
 void clang::getOpenMPCaptureRegions(
     SmallVectorImpl<OpenMPDirectiveKind> &CaptureRegions,

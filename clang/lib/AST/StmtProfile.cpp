@@ -1073,11 +1073,9 @@ void StmtProfiler::VisitOMPTargetTeamsDistributeSimdDirective(
   VisitOMPLoopDirective(S);
 }
 
-
 void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
   VisitOMPLoopDirective(S);
 }
-
 
 void StmtProfiler::VisitExpr(const Expr *S) {
   VisitStmt(S);

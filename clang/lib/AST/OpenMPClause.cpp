@@ -1821,7 +1821,6 @@ void OMPClausePrinter::VisitOMPOrderClause(OMPOrderClause *Node) {
      << ")";
 }
 
-
 void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
   OS << "sizes(";
   bool First = true;
@@ -1833,7 +1832,6 @@ void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
   }
   OS << ")";
 }
-
 
 void OMPTraitInfo::getAsVariantMatchInfo(
     ASTContext &ASTCtx, llvm::omp::VariantMatchInfo &VMI) const {

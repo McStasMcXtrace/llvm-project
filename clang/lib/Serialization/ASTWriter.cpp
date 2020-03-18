@@ -6597,14 +6597,12 @@ void OMPClauseWriter::VisitOMPOrderClause(OMPOrderClause *C) {
   Record.AddSourceLocation(C->getKindKwLoc());
 }
 
-
 void OMPClauseWriter::VisitOMPSizesClause(OMPSizesClause *C) {
   Record.push_back(C->getNumSizes());
   for (auto Size : C->getSizesRefs())
     Record.AddStmt(Size);
   Record.AddSourceLocation(C->getLParenLoc());
 }
-
 
 void ASTRecordWriter::writeOMPTraitInfo(const OMPTraitInfo &TI) {
   writeUInt32(TI.Sets.size());
