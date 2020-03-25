@@ -356,11 +356,8 @@ void AbstractDependenceGraphBuilder<G>::createMemoryDependencyEdges() {
             }
             if (!ReversedEdge)
               createForwardEdge(**SrcIt, **DstIt);
-          }
-          else {
-            assert(!D->isInput());
+          } else
             createForwardEdge(**SrcIt, **DstIt);
-          }
 
           // Avoid creating duplicate edges.
           if (ForwardEdgeCreated && BackwardEdgeCreated)
