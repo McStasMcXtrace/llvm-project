@@ -7083,7 +7083,6 @@ public:
   }
 };
 
-
 /// This represents the 'sizes' clause in the '#pragma omp tile' directive.
 ///
 /// \code
