@@ -787,6 +787,7 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_atomic:
     case OMPD_flush:
     case OMPD_depobj:
+    case OMPD_scan:
     case OMPD_teams:
     case OMPD_target_data:
     case OMPD_target_exit_data:
@@ -865,6 +866,7 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_atomic:
   case OMPD_flush:
   case OMPD_depobj:
+  case OMPD_scan:
   case OMPD_teams:
   case OMPD_target_data:
   case OMPD_target_exit_data:
@@ -1036,6 +1038,7 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_atomic:
     case OMPD_flush:
     case OMPD_depobj:
+    case OMPD_scan:
     case OMPD_teams:
     case OMPD_target_data:
     case OMPD_target_exit_data:
@@ -1120,6 +1123,7 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_atomic:
   case OMPD_flush:
   case OMPD_depobj:
+  case OMPD_scan:
   case OMPD_teams:
   case OMPD_target_data:
   case OMPD_target_exit_data:

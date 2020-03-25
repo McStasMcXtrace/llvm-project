@@ -212,6 +212,15 @@
 #ifndef OPENMP_DEPOBJ_CLAUSE
 #define OPENMP_DEPOBJ_CLAUSE(Name)
 #endif
+#ifndef OPENMP_DEVICE_MODIFIER
+#define OPENMP_DEVICE_MODIFIER(Name)
+#endif
+#ifndef OPENMP_SCAN_CLAUSE
+#define OPENMP_SCAN_CLAUSE(Name)
+#endif
+#ifndef OPENMP_REDUCTION_MODIFIER
+#define OPENMP_REDUCTION_MODIFIER(Name)
+#endif
 #ifndef OPENMP_TILE_CLAUSE
 #  define OPENMP_TILE_CLAUSE(Name)
 #endif
@@ -281,7 +290,13 @@ OPENMP_CLAUSE(order, OMPOrderClause)
 OPENMP_CLAUSE(depobj, OMPDepobjClause)
 OPENMP_CLAUSE(destroy, OMPDestroyClause)
 OPENMP_CLAUSE(detach, OMPDetachClause)
+OPENMP_CLAUSE(inclusive, OMPInclusiveClause)
+OPENMP_CLAUSE(exclusive, OMPExclusiveClause)
 OPENMP_CLAUSE(sizes, OMPSizesClause)
+
+// Clauses allowed for OpenMP directive 'scan'.
+OPENMP_SCAN_CLAUSE(inclusive)
+OPENMP_SCAN_CLAUSE(exclusive)
 
 // Clauses allowed for OpenMP directive 'parallel'.
 OPENMP_PARALLEL_CLAUSE(if)
@@ -369,6 +384,10 @@ OPENMP_SCHEDULE_KIND(runtime)
 OPENMP_SCHEDULE_MODIFIER(monotonic)
 OPENMP_SCHEDULE_MODIFIER(nonmonotonic)
 OPENMP_SCHEDULE_MODIFIER(simd)
+
+// Modifiers for 'device' clause.
+OPENMP_DEVICE_MODIFIER(ancestor)
+OPENMP_DEVICE_MODIFIER(device_num)
 
 // Static attributes for 'defaultmap' clause.
 OPENMP_DEFAULTMAP_KIND(scalar)
@@ -1095,9 +1114,15 @@ OPENMP_DEPOBJ_CLAUSE(depend)
 OPENMP_DEPOBJ_CLAUSE(destroy)
 OPENMP_DEPOBJ_CLAUSE(update)
 
+// Modifiers for 'reduction' clause.
+OPENMP_REDUCTION_MODIFIER(default)
+
 // Clauses allowed for directive 'omp tile'.
 OPENMP_TILE_CLAUSE(sizes)
 
+#undef OPENMP_REDUCTION_MODIFIER
+#undef OPENMP_SCAN_CLAUSE
+#undef OPENMP_DEVICE_MODIFIER
 #undef OPENMP_DEPOBJ_CLAUSE
 #undef OPENMP_FLUSH_CLAUSE
 #undef OPENMP_ORDER_KIND
