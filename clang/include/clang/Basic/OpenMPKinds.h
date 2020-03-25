@@ -161,6 +161,12 @@ enum OpenMPOrderClauseKind {
   OMPC_ORDER_unknown,
 };
 
+enum OpenMPTileClauseKind {
+#define OPENMP_TILE_KIND(Name) OMPC_TILE_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_TILE_unknown,
+};
+
 /// Scheduling data for loop-based OpenMP directives.
 struct OpenMPScheduleTy final {
   OpenMPScheduleClauseKind Schedule = OMPC_SCHEDULE_unknown;
@@ -281,6 +287,11 @@ bool isOpenMPTaskingDirective(OpenMPDirectiveKind Kind);
 /// directives that need loop bound sharing across loops outlined in nested
 /// functions
 bool isOpenMPLoopBoundSharingDirective(OpenMPDirectiveKind Kind);
+
+/// Checks if the specified directive is a loop transformation directive.
+/// \param DKind Specified directive.
+/// \return True iff the directive is a loop transformation.
+bool isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind);
 
 /// Return the captured regions of an OpenMP directive.
 void getOpenMPCaptureRegions(

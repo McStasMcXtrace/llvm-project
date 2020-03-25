@@ -148,6 +148,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
+  case OMPC_sizes:
     break;
   }
 
@@ -237,6 +238,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
+  case OMPC_sizes:
     break;
   }
 
@@ -1290,6 +1292,25 @@ OMPExclusiveClause *OMPExclusiveClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPExclusiveClause(N);
 }
 
+OMPSizesClause *OMPSizesClause::Create(const ASTContext &C,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc,
+                                       ArrayRef<Expr *> Sizes) {
+  OMPSizesClause *Clause = CreateEmpty(C, Sizes.size());
+  Clause->setLocStart(StartLoc);
+  Clause->setLParenLoc(LParenLoc);
+  Clause->setLocEnd(EndLoc);
+  Clause->setSizesRefs(Sizes);
+  return Clause;
+}
+
+OMPSizesClause *OMPSizesClause::CreateEmpty(const ASTContext &C,
+                                            unsigned NumSizes) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
+  return new (Mem) OMPSizesClause(NumSizes);
+}
+
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods
 //===----------------------------------------------------------------------===//
@@ -1848,6 +1869,18 @@ void OMPClausePrinter::VisitOMPNontemporalClause(OMPNontemporalClause *Node) {
 void OMPClausePrinter::VisitOMPOrderClause(OMPOrderClause *Node) {
   OS << "order(" << getOpenMPSimpleClauseTypeName(OMPC_order, Node->getKind())
      << ")";
+}
+
+void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
+  OS << "sizes(";
+  bool First = true;
+  for (auto Size : Node->getSizesRefs()) {
+    if (!First)
+      OS << ", ";
+    Size->printPretty(OS, nullptr, Policy, 0);
+    First = false;
+  }
+  OS << ")";
 }
 
 void OMPClausePrinter::VisitOMPInclusiveClause(OMPInclusiveClause *Node) {

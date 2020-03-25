@@ -129,6 +129,17 @@ public:
 /// of used expression from loop statement.
 class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
   void emitPreInitStmt(CodeGenFunction &CGF, const OMPLoopDirective &S) {
+
+    // Collect loop nests and the pre-inits of associated loops.
+    SmallVector<const Stmt *, 4> Loops;
+    SmallVector<Stmt *, 8> AssociatedPreInits;
+    S.collectAssociatedLoops(Loops, AssociatedPreInits);
+
+    // Emit statements required by nested loop transformations. Has to be done
+    // before PreCondVars.
+    for (Stmt *APreInit : AssociatedPreInits)
+      CGF.EmitStmt(APreInit);
+
     CodeGenFunction::OMPMapVars PreCondVars;
     llvm::DenseSet<const VarDecl *> EmittedAsPrivate;
     for (const auto *E : S.counters()) {
@@ -153,24 +164,16 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
     }
     (void)PreCondVars.apply(CGF);
     // Emit init, __range and __end variables for C++ range loops.
-    const Stmt *Body =
-        S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
-    for (unsigned Cnt = 0; Cnt < S.getCollapsedNumber(); ++Cnt) {
-      Body = OMPLoopDirective::tryToFindNextInnerLoop(
-          Body, /*TryImperfectlyNestedLoops=*/true);
-      if (auto *For = dyn_cast<ForStmt>(Body)) {
-        Body = For->getBody();
-      } else {
-        assert(isa<CXXForRangeStmt>(Body) &&
-               "Expected canonical for loop or range-based for loop.");
-        auto *CXXFor = cast<CXXForRangeStmt>(Body);
+    for (const Stmt *Body : Loops) {
+      if (auto *CXXFor = dyn_cast<CXXForRangeStmt>(Body)) {
         if (const Stmt *Init = CXXFor->getInit())
           CGF.EmitStmt(Init);
         CGF.EmitStmt(CXXFor->getRangeStmt());
         CGF.EmitStmt(CXXFor->getEndStmt());
-        Body = CXXFor->getBody();
       }
     }
+
+    // Emit captures.
     if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
@@ -1522,7 +1525,8 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
                      int MaxLevel, int Level = 0) {
   assert(Level < MaxLevel && "Too deep lookup during loop body codegen.");
-  const Stmt *SimplifiedS = S->IgnoreContainers();
+  const Stmt *SimplifiedS =
+      getTopmostAssociatedStructuredBlock(S->IgnoreContainers(), nullptr);
   if (const auto *CS = dyn_cast<CompoundStmt>(SimplifiedS)) {
     PrettyStackTraceLoc CrashInfo(
         CGF.getContext().getSourceManager(), CS->getLBracLoc(),
@@ -4618,6 +4622,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
+  case OMPC_sizes:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
@@ -4987,6 +4992,11 @@ void CodeGenFunction::EmitOMPTargetTeamsDistributeSimdDirective(
     emitTargetTeamsDistributeSimdRegion(CGF, Action, S);
   };
   emitCommonOMPTargetDirective(*this, S, CodeGen);
+}
+
+void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
+  // Emit the de-sugared statement.
+  EmitStmt(S.getTransformedStmt());
 }
 
 void CodeGenFunction::EmitOMPTeamsDistributeDirective(

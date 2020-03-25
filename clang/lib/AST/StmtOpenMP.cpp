@@ -33,18 +33,55 @@ bool OMPExecutableDirective::isStandaloneDirective() const {
   return !hasAssociatedStmt() || !getAssociatedStmt();
 }
 
+Stmt *OMPExecutableDirective::ignoreCaptures() {
+  SmallVector<OpenMPDirectiveKind, 4> CaptureRegions;
+  getOpenMPCaptureRegions(CaptureRegions, getDirectiveKind());
+  auto Result = getAssociatedStmt();
+  for (auto ThisCaptureRegion : CaptureRegions) {
+    (void)ThisCaptureRegion;
+    Result = cast<CapturedStmt>(Result)->getCapturedStmt();
+  }
+  return Result;
+}
+
 const Stmt *OMPExecutableDirective::getStructuredBlock() const {
   assert(!isStandaloneDirective() &&
          "Standalone Executable Directives don't have Structured Blocks.");
   if (auto *LD = dyn_cast<OMPLoopDirective>(this))
     return LD->getBody();
-  return getInnermostCapturedStmt()->getCapturedStmt();
+  return ignoreCaptures();
 }
 
-Stmt *OMPLoopDirective::tryToFindNextInnerLoop(Stmt *CurStmt,
-                                               bool TryImperfectlyNestedLoops) {
+Stmt *clang::getTopmostAssociatedStructuredBlock(
+    Stmt *S, llvm::SmallVectorImpl<Stmt *> *PreInits) {
+  assert(S && "Must be a valid statement");
+
+  while (true) {
+    S = S->IgnoreContainers(/* IgnoreCaptured */ true);
+    if (!isa<OMPExecutableDirective>(S) ||
+        !isOpenMPLoopTransformationDirective(
+            cast<OMPExecutableDirective>(S)->getDirectiveKind()))
+      break;
+
+    if (auto *D = dyn_cast<OMPTileDirective>(S)) {
+      if (PreInits) {
+        auto PreInit = D->getPreInits();
+        PreInits->append(PreInit.begin(), PreInit.end());
+      }
+      S = D->getTransformedForStmt();
+      continue;
+    }
+    llvm_unreachable("Unhandled loop transformation");
+  }
+  return S;
+}
+
+Stmt *OMPLoopDirective::tryToFindNextInnerLoop(
+    Stmt *CurStmt, bool TryImperfectlyNestedLoops,
+    llvm::SmallVectorImpl<Stmt *> *PreInits) {
   Stmt *OrigStmt = CurStmt;
-  CurStmt = CurStmt->IgnoreContainers();
+  CurStmt = getTopmostAssociatedStructuredBlock(CurStmt, PreInits);
+
   // Additional work for imperfectly nested loops, introduced in OpenMP 5.0.
   if (TryImperfectlyNestedLoops) {
     if (auto *CS = dyn_cast<CompoundStmt>(CurStmt)) {
@@ -85,10 +122,33 @@ Stmt *OMPLoopDirective::tryToFindNextInnerLoop(Stmt *CurStmt,
   return CurStmt;
 }
 
+void OMPLoopDirective::collectAssociatedLoops(
+    llvm::SmallVectorImpl<Stmt *> &Loops,
+    llvm::SmallVectorImpl<Stmt *> &PreInits) {
+  Stmt *Body = ignoreCaptures()->IgnoreContainers();
+  unsigned NumLoops = getCollapsedNumber();
+  assert(NumLoops >= 1);
+
+  // For each nest level, find the loop and its body.
+  // The topmost loop must not be surrounded by other code.
+  for (unsigned Cnt = 0; Cnt < NumLoops; ++Cnt) {
+    Stmt *Loop = OMPLoopDirective::tryToFindNextInnerLoop(
+        Body, /*TryImperfectlyNestedLoops=*/(Cnt > 0), &PreInits);
+    Loops.push_back(Loop);
+
+    // Get body to look next loop in
+    if (auto *For = dyn_cast<ForStmt>(Loop)) {
+      Body = For->getBody();
+    } else if (auto CXXFor = dyn_cast<CXXForRangeStmt>(Loop)) {
+      Body = CXXFor->getBody();
+    } else
+      llvm_unreachable("Expected canonical for loop or range-based for loop.");
+  }
+}
+
 Stmt *OMPLoopDirective::getBody() {
   // This relies on the loop form is already checked by Sema.
-  Stmt *Body =
-      getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+  Stmt *Body = getTopmostAssociatedStructuredBlock(ignoreCaptures(), nullptr);
   if (auto *For = dyn_cast<ForStmt>(Body)) {
     Body = For->getBody();
   } else {
@@ -277,6 +337,28 @@ OMPForDirective *OMPForDirective::CreateEmpty(const ASTContext &C,
       C.Allocate(Size + sizeof(OMPClause *) * NumClauses +
                  sizeof(Stmt *) * numLoopChildren(CollapsedNum, OMPD_for));
   return new (Mem) OMPForDirective(CollapsedNum, NumClauses);
+}
+
+OMPTileDirective *
+OMPTileDirective::Create(const ASTContext &C, SourceLocation StartLoc,
+                         SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
+                         unsigned NumLoops, Stmt *AssociatedStmt,
+                         Stmt *TransformedStmt) {
+  OMPTileDirective *Dir = CreateEmpty(C, Clauses.size(), NumLoops);
+  Dir->setLocStart(StartLoc);
+  Dir->setLocEnd(EndLoc);
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setTransformedStmt(TransformedStmt);
+  return Dir;
+}
+
+OMPTileDirective *OMPTileDirective::CreateEmpty(const ASTContext &C,
+                                                unsigned NumClauses,
+                                                unsigned NumLoops) {
+  void *Mem = C.Allocate(totalSizeToAlloc<OMPClause *, Stmt *>(
+      NumClauses, numLoopChildren(NumLoops, OMPD_tile)));
+  return new (Mem) OMPTileDirective({}, {}, NumClauses, NumLoops);
 }
 
 OMPForSimdDirective *
