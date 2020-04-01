@@ -2100,6 +2100,10 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.push_back(D->getNumClauses());
   Record.push_back(D->getCollapsedNumber());
   VisitOMPExecutableDirective(D);
+
+  if (isOpenMPLoopTransformationDirective(D->getDirectiveKind()))
+    return;
+
   Record.AddStmt(D->getIterationVariable());
   Record.AddStmt(D->getLastIteration());
   Record.AddStmt(D->getCalcLastIteration());
@@ -2525,6 +2529,12 @@ void ASTStmtWriter::VisitOMPTargetTeamsDistributeSimdDirective(
     OMPTargetTeamsDistributeSimdDirective *D) {
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
+  VisitOMPLoopDirective(D);
+  Record.AddStmt(D->getTransformedStmt());
+  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
 }
 
 //===----------------------------------------------------------------------===//

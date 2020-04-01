@@ -802,6 +802,12 @@ void OMPClauseProfiler::VisitOMPExclusiveClause(const OMPExclusiveClause *C) {
   VisitOMPClauseList(C);
 }
 void OMPClauseProfiler::VisitOMPOrderClause(const OMPOrderClause *C) {}
+
+void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
+  for (auto E : C->getSizesRefs())
+    if (E)
+      Profiler->VisitExpr(E);
+}
 } // namespace
 
 void
@@ -1074,6 +1080,10 @@ void StmtProfiler::VisitOMPTargetTeamsDistributeParallelForSimdDirective(
 
 void StmtProfiler::VisitOMPTargetTeamsDistributeSimdDirective(
     const OMPTargetTeamsDistributeSimdDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
   VisitOMPLoopDirective(S);
 }
 

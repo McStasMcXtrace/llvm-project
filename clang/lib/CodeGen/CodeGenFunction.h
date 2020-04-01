@@ -1729,7 +1729,7 @@ private:
                                 llvm::Function *Fn);
 
 public:
-  CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
+  CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext = false);
   ~CodeGenFunction();
 
   CodeGenTypes &getTypes() const { return CGM.getTypes(); }
@@ -3312,6 +3312,7 @@ public:
       const OMPTargetTeamsDistributeParallelForSimdDirective &S);
   void EmitOMPTargetTeamsDistributeSimdDirective(
       const OMPTargetTeamsDistributeSimdDirective &S);
+  void EmitOMPTileDirective(const OMPTileDirective &S);
 
   /// Emit device code for the target directive.
   static void EmitOMPTargetDeviceFunction(CodeGenModule &CGM,

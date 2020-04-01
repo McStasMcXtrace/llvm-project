@@ -221,6 +221,9 @@
 #ifndef OPENMP_REDUCTION_MODIFIER
 #define OPENMP_REDUCTION_MODIFIER(Name)
 #endif
+#ifndef OPENMP_TILE_CLAUSE
+#  define OPENMP_TILE_CLAUSE(Name)
+#endif
 
 // OpenMP clauses.
 OPENMP_CLAUSE(allocator, OMPAllocatorClause)
@@ -289,6 +292,7 @@ OPENMP_CLAUSE(destroy, OMPDestroyClause)
 OPENMP_CLAUSE(detach, OMPDetachClause)
 OPENMP_CLAUSE(inclusive, OMPInclusiveClause)
 OPENMP_CLAUSE(exclusive, OMPExclusiveClause)
+OPENMP_CLAUSE(sizes, OMPSizesClause)
 
 // Clauses allowed for OpenMP directive 'scan'.
 OPENMP_SCAN_CLAUSE(inclusive)
@@ -1114,6 +1118,9 @@ OPENMP_DEPOBJ_CLAUSE(update)
 OPENMP_REDUCTION_MODIFIER(default)
 OPENMP_REDUCTION_MODIFIER(inscan)
 
+// Clauses allowed for directive 'omp tile'.
+OPENMP_TILE_CLAUSE(sizes)
+
 #undef OPENMP_REDUCTION_MODIFIER
 #undef OPENMP_SCAN_CLAUSE
 #undef OPENMP_DEVICE_MODIFIER
@@ -1184,3 +1191,4 @@ OPENMP_REDUCTION_MODIFIER(inscan)
 #undef OPENMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_CLAUSE
 #undef OPENMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD_CLAUSE
 #undef OPENMP_TARGET_TEAMS_DISTRIBUTE_SIMD_CLAUSE
+#undef OPENMP_TILE_CLAUSE

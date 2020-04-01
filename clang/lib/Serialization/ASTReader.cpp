@@ -11722,7 +11722,7 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_atomic_default_mem_order:
     C = new (Context) OMPAtomicDefaultMemOrderClause();
     break;
- case OMPC_private:
+  case OMPC_private:
     C = OMPPrivateClause::CreateEmpty(Context, Record.readInt());
     break;
   case OMPC_firstprivate:
@@ -11860,6 +11860,11 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_detach:
     C = new (Context) OMPDetachClause();
     break;
+  case OMPC_sizes: {
+    unsigned NumSizes = Record.readInt();
+    C = OMPSizesClause::CreateEmpty(Context, NumSizes);
+    break;
+  }
   }
   assert(C && "Unknown OMPClause type");
 
@@ -11918,6 +11923,12 @@ void OMPClauseReader::VisitOMPAllocatorClause(OMPAllocatorClause *C) {
 
 void OMPClauseReader::VisitOMPCollapseClause(OMPCollapseClause *C) {
   C->setNumForLoops(Record.readSubExpr());
+  C->setLParenLoc(Record.readSourceLocation());
+}
+
+void OMPClauseReader::VisitOMPSizesClause(OMPSizesClause *C) {
+  for (auto &E : C->getSizesRefs())
+    E = Record.readSubExpr();
   C->setLParenLoc(Record.readSourceLocation());
 }
 

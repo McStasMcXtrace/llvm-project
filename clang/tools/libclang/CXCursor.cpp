@@ -788,6 +788,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
     K = CXCursor_OMPTargetTeamsDistributeSimdDirective;
     break;
+  case Stmt::OMPTileDirectiveClass:
+    K = CXCursor_OMPTileDirective;
+    break;
   case Stmt::BuiltinBitCastExprClass:
     K = CXCursor_BuiltinBitCastExpr;
   }

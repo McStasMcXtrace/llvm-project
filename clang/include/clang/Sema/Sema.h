@@ -10355,6 +10355,13 @@ public:
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
 
+  /// Called on well-formed '#pragma omp tile' after parsing of its clauses and
+  /// the associated statement.
+  StmtResult
+  ActOnOpenMPTileDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
+                           SourceLocation StartLoc, SourceLocation EndLoc,
+                           VarsWithInheritedDSAType &VarsWithImplicitDSA);
+
   /// Checks correctness of linear modifiers.
   bool CheckOpenMPLinearModifier(OpenMPLinearClauseKind LinKind,
                                  SourceLocation LinLoc);
@@ -10735,6 +10742,12 @@ public:
                                           SourceLocation StartLoc,
                                           SourceLocation LParenLoc,
                                           SourceLocation EndLoc);
+
+  /// Called on well-form 'size' clause.
+  OMPClause *ActOnOpenMPSizesClause(ArrayRef<Expr *> SizeExprs,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
 
   /// The kind of conversion being performed.
   enum CheckedConversionKind {
