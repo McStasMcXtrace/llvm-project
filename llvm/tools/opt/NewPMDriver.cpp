@@ -100,6 +100,11 @@ static cl::opt<std::string> OptimizerLastEPPipeline(
              "the OptimizerLast extension point into default pipelines"),
     cl::Hidden);
 
+// Individual pipeline tuning options.
+static cl::opt<bool> DisableLoopUnrolling(
+    "new-pm-disable-loop-unrolling",
+    cl::desc("Disable loop unrolling in all relevant passes"), cl::init(false));
+
 extern cl::opt<PGOKind> PGOKindFlag;
 extern cl::opt<std::string> ProfileFile;
 extern cl::opt<CSPGOKind> CSPGOKindFlag;
@@ -194,7 +199,7 @@ static void registerEPCallbacks(PassBuilder &PB, bool VerifyEachPass,
         });
   if (tryParsePipelineText<FunctionPassManager>(PB, OptimizerLastEPPipeline))
     PB.registerOptimizerLastEPCallback(
-        [&PB, VerifyEachPass, DebugLogging](FunctionPassManager &PM,
+        [&PB, VerifyEachPass, DebugLogging](ModulePassManager &PM,
                                             PassBuilder::OptimizationLevel) {
           ExitOnError Err("Unable to parse OptimizerLastEP pipeline: ");
           Err(PB.parsePassPipeline(PM, OptimizerLastEPPipeline, VerifyEachPass,
@@ -209,8 +214,8 @@ static void registerEPCallbacks(PassBuilder &PB, bool VerifyEachPass,
 bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            ToolOutputFile *Out, ToolOutputFile *ThinLTOLinkOut,
                            ToolOutputFile *OptRemarkFile,
-                           StringRef PassPipeline, OutputKind OK,
-                           VerifierKind VK,
+                           StringRef PassPipeline, ArrayRef<StringRef> Passes,
+                           OutputKind OK, VerifierKind VK,
                            bool ShouldPreserveAssemblyUseListOrder,
                            bool ShouldPreserveBitcodeUseListOrder,
                            bool EmitSummaryIndex, bool EmitModuleHash,
@@ -219,47 +224,51 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
 
   Optional<PGOOptions> P;
   switch (PGOKindFlag) {
-    case InstrGen:
-      P = PGOOptions(ProfileFile, "", "", PGOOptions::IRInstr);
-      break;
-    case InstrUse:
-      P = PGOOptions(ProfileFile, "", ProfileRemappingFile, PGOOptions::IRUse);
-      break;
-    case SampleUse:
-      P = PGOOptions(ProfileFile, "", ProfileRemappingFile,
-                     PGOOptions::SampleUse);
-      break;
-    case NoPGO:
-      if (DebugInfoForProfiling)
-        P = PGOOptions("", "", "", PGOOptions::NoAction, PGOOptions::NoCSAction,
-                       true);
-      else
-        P = None;
+  case InstrGen:
+    P = PGOOptions(ProfileFile, "", "", PGOOptions::IRInstr);
+    break;
+  case InstrUse:
+    P = PGOOptions(ProfileFile, "", ProfileRemappingFile, PGOOptions::IRUse);
+    break;
+  case SampleUse:
+    P = PGOOptions(ProfileFile, "", ProfileRemappingFile,
+                   PGOOptions::SampleUse);
+    break;
+  case NoPGO:
+    if (DebugInfoForProfiling)
+      P = PGOOptions("", "", "", PGOOptions::NoAction, PGOOptions::NoCSAction,
+                     true);
+    else
+      P = None;
+  }
+  if (CSPGOKindFlag != NoCSPGO) {
+    if (P && (P->Action == PGOOptions::IRInstr ||
+              P->Action == PGOOptions::SampleUse))
+      errs() << "CSPGOKind cannot be used with IRInstr or SampleUse";
+    if (CSPGOKindFlag == CSInstrGen) {
+      if (CSProfileGenFile.empty())
+        errs() << "CSInstrGen needs to specify CSProfileGenFile";
+      if (P) {
+        P->CSAction = PGOOptions::CSIRInstr;
+        P->CSProfileGenFile = CSProfileGenFile;
+      } else
+        P = PGOOptions("", CSProfileGenFile, ProfileRemappingFile,
+                       PGOOptions::NoAction, PGOOptions::CSIRInstr);
+    } else /* CSPGOKindFlag == CSInstrUse */ {
+      if (!P)
+        errs() << "CSInstrUse needs to be together with InstrUse";
+      P->CSAction = PGOOptions::CSIRUse;
     }
-    if (CSPGOKindFlag != NoCSPGO) {
-      if (P && (P->Action == PGOOptions::IRInstr ||
-                P->Action == PGOOptions::SampleUse))
-        errs() << "CSPGOKind cannot be used with IRInstr or SampleUse";
-      if (CSPGOKindFlag == CSInstrGen) {
-        if (CSProfileGenFile.empty())
-          errs() << "CSInstrGen needs to specify CSProfileGenFile";
-        if (P) {
-          P->CSAction = PGOOptions::CSIRInstr;
-          P->CSProfileGenFile = CSProfileGenFile;
-        } else
-          P = PGOOptions("", CSProfileGenFile, ProfileRemappingFile,
-                         PGOOptions::NoAction, PGOOptions::CSIRInstr);
-      } else /* CSPGOKindFlag == CSInstrUse */ {
-        if (!P)
-          errs() << "CSInstrUse needs to be together with InstrUse";
-        P->CSAction = PGOOptions::CSIRUse;
-      }
-    }
+  }
   PassInstrumentationCallbacks PIC;
   StandardInstrumentations SI;
   SI.registerCallbacks(PIC);
 
   PipelineTuningOptions PTO;
+  // LoopUnrolling defaults on to true and DisableLoopUnrolling is initialized
+  // to false above so we shouldn't necessarily need to check whether or not the
+  // option has been enabled.
+  PTO.LoopUnrolling = !DisableLoopUnrolling;
   PTO.Coroutines = Coroutines;
   PassBuilder PB(TM, PTO, P, &PIC);
   registerEPCallbacks(PB, VerifyEachPass, DebugPM);
@@ -323,10 +332,21 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   if (EnableDebugify)
     MPM.addPass(NewPMDebugifyPass());
 
-  if (auto Err =
-          PB.parsePassPipeline(MPM, PassPipeline, VerifyEachPass, DebugPM)) {
-    errs() << Arg0 << ": " << toString(std::move(Err)) << "\n";
-    return false;
+  if (!PassPipeline.empty()) {
+    assert(Passes.empty() &&
+           "PassPipeline and Passes should not both contain passes");
+    if (auto Err =
+            PB.parsePassPipeline(MPM, PassPipeline, VerifyEachPass, DebugPM)) {
+      errs() << Arg0 << ": " << toString(std::move(Err)) << "\n";
+      return false;
+    }
+  }
+  for (auto PassName : Passes) {
+    if (auto Err =
+            PB.parsePassPipeline(MPM, PassName, VerifyEachPass, DebugPM)) {
+      errs() << Arg0 << ": " << toString(std::move(Err)) << "\n";
+      return false;
+    }
   }
 
   if (VK > VK_NoVerifier)

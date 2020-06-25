@@ -95,9 +95,6 @@ void RegistryMaps::registerMatcher(
 RegistryMaps::RegistryMaps() {
   // TODO: Here is the list of the missing matchers, grouped by reason.
   //
-  // Need Variant/Parser fixes:
-  // ofKind
-  //
   // Polymorphic + argument overload:
   // findAll
   //
@@ -154,6 +151,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(characterLiteral);
   REGISTER_MATCHER(chooseExpr);
   REGISTER_MATCHER(classTemplateDecl);
+  REGISTER_MATCHER(classTemplatePartialSpecializationDecl);
   REGISTER_MATCHER(classTemplateSpecializationDecl);
   REGISTER_MATCHER(complexType);
   REGISTER_MATCHER(compoundLiteralExpr);
@@ -239,6 +237,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(has);
   REGISTER_MATCHER(hasAncestor);
   REGISTER_MATCHER(hasAnyArgument);
+  REGISTER_MATCHER(hasAnyBase);
   REGISTER_MATCHER(hasAnyClause);
   REGISTER_MATCHER(hasAnyConstructorInitializer);
   REGISTER_MATCHER(hasAnyDeclaration);
@@ -297,6 +296,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(hasName);
   REGISTER_MATCHER(hasNullSelector);
   REGISTER_MATCHER(hasObjectExpression);
+  REGISTER_MATCHER(hasOperands);
   REGISTER_MATCHER(hasOperatorName);
   REGISTER_MATCHER(hasOverloadedOperatorName);
   REGISTER_MATCHER(hasParameter);
@@ -353,6 +353,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isArray);
   REGISTER_MATCHER(isArrow);
   REGISTER_MATCHER(isAssignmentOperator);
+  REGISTER_MATCHER(isAtPosition);
   REGISTER_MATCHER(isBaseInitializer);
   REGISTER_MATCHER(isBitField);
   REGISTER_MATCHER(isCatchAll);
@@ -370,7 +371,9 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isDefinition);
   REGISTER_MATCHER(isDelegatingConstructor);
   REGISTER_MATCHER(isDeleted);
+  REGISTER_MATCHER(isEnum);
   REGISTER_MATCHER(isExceptionVariable);
+  REGISTER_MATCHER(isExpandedFromMacro);
   REGISTER_MATCHER(isExpansionInFileMatching);
   REGISTER_MATCHER(isExpansionInMainFile);
   REGISTER_MATCHER(isExpansionInSystemHeader);
@@ -458,6 +461,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(objcThrowStmt);
   REGISTER_MATCHER(objcTryStmt);
   REGISTER_MATCHER(ofClass);
+  REGISTER_MATCHER(ofKind);
   REGISTER_MATCHER(ompDefaultClause);
   REGISTER_MATCHER(ompExecutableDirective);
   REGISTER_MATCHER(on);

@@ -321,7 +321,7 @@ bool COFFAsmParser::ParseSectionSwitch(StringRef Section,
 }
 
 bool COFFAsmParser::ParseSectionName(StringRef &SectionName) {
-  if (!getLexer().is(AsmToken::Identifier))
+  if (!getLexer().is(AsmToken::Identifier) && !getLexer().is(AsmToken::String))
     return true;
 
   SectionName = getTok().getIdentifier();
@@ -591,8 +591,8 @@ bool COFFAsmParser::ParseDirectiveLinkOnce(StringRef, SMLoc Loc) {
     return Error(Loc, "cannot make section associative with .linkonce");
 
   if (Current->getCharacteristics() & COFF::IMAGE_SCN_LNK_COMDAT)
-    return Error(Loc, Twine("section '") + Current->getSectionName() +
-                                                       "' is already linkonce");
+    return Error(Loc, Twine("section '") + Current->getName() +
+                          "' is already linkonce");
 
   Current->setSelection(Type);
 

@@ -26,102 +26,64 @@ define i16 @unpckbw_test(i16 %a0, i16 %a1) {
   ret i16 %res
 }
 
-define <16 x i32>@test_int_x86_avx512_pbroadcastd_gpr_512(i32 %x0, <16 x i32> %x1) {
-; X86-LABEL: test_int_x86_avx512_pbroadcastd_gpr_512:
-; X86:       ## %bb.0:
-; X86-NEXT:    vbroadcastss {{[0-9]+}}(%esp), %zmm0 ## encoding: [0x62,0xf2,0x7d,0x48,0x18,0x44,0x24,0x01]
-; X86-NEXT:    retl ## encoding: [0xc3]
-;
-; X64-LABEL: test_int_x86_avx512_pbroadcastd_gpr_512:
-; X64:       ## %bb.0:
-; X64-NEXT:    vpbroadcastd %edi, %zmm0 ## encoding: [0x62,0xf2,0x7d,0x48,0x7c,0xc7]
-; X64-NEXT:    retq ## encoding: [0xc3]
-  %res = call <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32 %x0, <16 x i32> %x1, i16 -1)
-  ret <16 x i32> %res
-}
-
 define <16 x i32>@test_int_x86_avx512_mask_pbroadcastd_gpr_512(i32 %x0, <16 x i32> %x1, i16 %mask) {
 ; X86-LABEL: test_int_x86_avx512_mask_pbroadcastd_gpr_512:
 ; X86:       ## %bb.0:
+; X86-NEXT:    vpbroadcastd {{[0-9]+}}(%esp), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x4c,0x24,0x01]
 ; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1 ## encoding: [0xc5,0xf8,0x90,0x4c,0x24,0x08]
-; X86-NEXT:    vpbroadcastd {{[0-9]+}}(%esp), %zmm0 {%k1} ## encoding: [0x62,0xf2,0x7d,0x49,0x58,0x44,0x24,0x01]
+; X86-NEXT:    vmovdqa32 %zmm1, %zmm0 {%k1} ## encoding: [0x62,0xf1,0x7d,0x49,0x6f,0xc1]
+; X86-NEXT:    vmovdqa32 %zmm1, %zmm2 {%k1} {z} ## encoding: [0x62,0xf1,0x7d,0xc9,0x6f,0xd1]
+; X86-NEXT:    vpaddd %zmm2, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0x7d,0x48,0xfe,0xc2]
+; X86-NEXT:    vpaddd %zmm0, %zmm1, %zmm0 ## encoding: [0x62,0xf1,0x75,0x48,0xfe,0xc0]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_int_x86_avx512_mask_pbroadcastd_gpr_512:
 ; X64:       ## %bb.0:
+; X64-NEXT:    vpbroadcastd %edi, %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x7c,0xcf]
 ; X64-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; X64-NEXT:    vpbroadcastd %edi, %zmm0 {%k1} ## encoding: [0x62,0xf2,0x7d,0x49,0x7c,0xc7]
+; X64-NEXT:    vpbroadcastd %edi, %zmm2 {%k1} {z} ## encoding: [0x62,0xf2,0x7d,0xc9,0x7c,0xd7]
+; X64-NEXT:    vpaddd %zmm2, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0x7d,0x48,0xfe,0xc2]
+; X64-NEXT:    vpaddd %zmm0, %zmm1, %zmm0 ## encoding: [0x62,0xf1,0x75,0x48,0xfe,0xc0]
 ; X64-NEXT:    retq ## encoding: [0xc3]
-  %res = call <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32 %x0, <16 x i32> %x1, i16 %mask)
-  ret <16 x i32> %res
+  %res = call <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32 %x0, <16 x i32> %x1, i16 -1)
+  %res1 = call <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32 %x0, <16 x i32> %x1, i16 %mask)
+  %res2 = call <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32 %x0, <16 x i32> zeroinitializer, i16 %mask)
+  %res3 = add <16 x i32> %res, %res1
+  %res4 = add <16 x i32> %res2, %res3
+  ret <16 x i32> %res4
 }
-
-define <16 x i32>@test_int_x86_avx512_maskz_pbroadcastd_gpr_512(i32 %x0, i16 %mask) {
-; X86-LABEL: test_int_x86_avx512_maskz_pbroadcastd_gpr_512:
-; X86:       ## %bb.0:
-; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1 ## encoding: [0xc5,0xf8,0x90,0x4c,0x24,0x08]
-; X86-NEXT:    vpbroadcastd {{[0-9]+}}(%esp), %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0x7d,0xc9,0x58,0x44,0x24,0x01]
-; X86-NEXT:    retl ## encoding: [0xc3]
-;
-; X64-LABEL: test_int_x86_avx512_maskz_pbroadcastd_gpr_512:
-; X64:       ## %bb.0:
-; X64-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
-; X64-NEXT:    vpbroadcastd %edi, %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0x7d,0xc9,0x7c,0xc7]
-; X64-NEXT:    retq ## encoding: [0xc3]
-  %res = call <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32 %x0, <16 x i32> zeroinitializer, i16 %mask)
-  ret <16 x i32> %res
-}
-
 declare <16 x i32> @llvm.x86.avx512.mask.pbroadcast.d.gpr.512(i32, <16 x i32>, i16)
 
-define <8 x i64>@test_int_x86_avx512_pbroadcastq_gpr_512(i64 %x0, <8 x i64> %x1) {
-; X86-LABEL: test_int_x86_avx512_pbroadcastq_gpr_512:
-; X86:       ## %bb.0:
-; X86-NEXT:    vbroadcastsd {{[0-9]+}}(%esp), %zmm0 ## encoding: [0x62,0xf2,0xfd,0x48,0x19,0x84,0x24,0x04,0x00,0x00,0x00]
-; X86-NEXT:    retl ## encoding: [0xc3]
-;
-; X64-LABEL: test_int_x86_avx512_pbroadcastq_gpr_512:
-; X64:       ## %bb.0:
-; X64-NEXT:    vpbroadcastq %rdi, %zmm0 ## encoding: [0x62,0xf2,0xfd,0x48,0x7c,0xc7]
-; X64-NEXT:    retq ## encoding: [0xc3]
-  %res = call <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64 %x0, <8 x i64> %x1,i8 -1)
-  ret <8 x i64> %res
-}
 
 define <8 x i64>@test_int_x86_avx512_mask_pbroadcastq_gpr_512(i64 %x0, <8 x i64> %x1, i8 %mask) {
 ; X86-LABEL: test_int_x86_avx512_mask_pbroadcastq_gpr_512:
 ; X86:       ## %bb.0:
+; X86-NEXT:    vpbroadcastq {{[0-9]+}}(%esp), %zmm1 ## encoding: [0x62,0xf2,0xfd,0x48,0x59,0x8c,0x24,0x04,0x00,0x00,0x00]
 ; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x0c]
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpbroadcastq {{[0-9]+}}(%esp), %zmm0 {%k1} ## encoding: [0x62,0xf2,0xfd,0x49,0x59,0x84,0x24,0x04,0x00,0x00,0x00]
+; X86-NEXT:    vmovdqa64 %zmm1, %zmm0 {%k1} ## encoding: [0x62,0xf1,0xfd,0x49,0x6f,0xc1]
+; X86-NEXT:    vmovdqa64 %zmm1, %zmm2 {%k1} {z} ## encoding: [0x62,0xf1,0xfd,0xc9,0x6f,0xd1]
+; X86-NEXT:    vpaddq %zmm2, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0xd4,0xc2]
+; X86-NEXT:    vpaddq %zmm0, %zmm1, %zmm0 ## encoding: [0x62,0xf1,0xf5,0x48,0xd4,0xc0]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_int_x86_avx512_mask_pbroadcastq_gpr_512:
 ; X64:       ## %bb.0:
+; X64-NEXT:    vpbroadcastq %rdi, %zmm1 ## encoding: [0x62,0xf2,0xfd,0x48,0x7c,0xcf]
 ; X64-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; X64-NEXT:    vpbroadcastq %rdi, %zmm0 {%k1} ## encoding: [0x62,0xf2,0xfd,0x49,0x7c,0xc7]
+; X64-NEXT:    vpbroadcastq %rdi, %zmm2 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xc9,0x7c,0xd7]
+; X64-NEXT:    vpaddq %zmm2, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0xd4,0xc2]
+; X64-NEXT:    vpaddq %zmm0, %zmm1, %zmm0 ## encoding: [0x62,0xf1,0xf5,0x48,0xd4,0xc0]
 ; X64-NEXT:    retq ## encoding: [0xc3]
-  %res = call <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64 %x0, <8 x i64> %x1,i8 %mask)
-  ret <8 x i64> %res
+  %res = call <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64 %x0, <8 x i64> %x1,i8 -1)
+  %res1 = call <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64 %x0, <8 x i64> %x1,i8 %mask)
+  %res2 = call <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64 %x0, <8 x i64> zeroinitializer,i8 %mask)
+  %res3 = add <8 x i64> %res, %res1
+  %res4 = add <8 x i64> %res2, %res3
+  ret <8 x i64> %res4
 }
-
-define <8 x i64>@test_int_x86_avx512_maskz_pbroadcastq_gpr_512(i64 %x0, i8 %mask) {
-; X86-LABEL: test_int_x86_avx512_maskz_pbroadcastq_gpr_512:
-; X86:       ## %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x0c]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpbroadcastq {{[0-9]+}}(%esp), %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xc9,0x59,0x84,0x24,0x04,0x00,0x00,0x00]
-; X86-NEXT:    retl ## encoding: [0xc3]
-;
-; X64-LABEL: test_int_x86_avx512_maskz_pbroadcastq_gpr_512:
-; X64:       ## %bb.0:
-; X64-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
-; X64-NEXT:    vpbroadcastq %rdi, %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xc9,0x7c,0xc7]
-; X64-NEXT:    retq ## encoding: [0xc3]
-  %res = call <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64 %x0, <8 x i64> zeroinitializer,i8 %mask)
-  ret <8 x i64> %res
-}
-
 declare <8 x i64> @llvm.x86.avx512.mask.pbroadcast.q.gpr.512(i64, <8 x i64>, i8)
 
 
@@ -5303,14 +5265,14 @@ define <16 x float>@test_int_x86_avx512_mask_vpermilvar_ps_512_constant_pool(<16
 ; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1 ## encoding: [0xc5,0xf8,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vpermilps {{.*#+}} zmm2 {%k1} = zmm0[2,3,0,1,7,6,5,4,9,8,11,10,12,13,14,15]
 ; X86-NEXT:    ## encoding: [0x62,0xf2,0x7d,0x49,0x0c,0x15,A,A,A,A]
-; X86-NEXT:    ## fixup A - offset: 6, value: LCPI303_0, kind: FK_Data_4
+; X86-NEXT:    ## fixup A - offset: 6, value: LCPI299_0, kind: FK_Data_4
 ; X86-NEXT:    vpermilps {{.*#+}} zmm1 {%k1} {z} = zmm0[1,0,3,2,4,5,6,7,9,8,11,10,12,13,14,15]
 ; X86-NEXT:    ## encoding: [0x62,0xf2,0x7d,0xc9,0x0c,0x0d,A,A,A,A]
-; X86-NEXT:    ## fixup A - offset: 6, value: LCPI303_1, kind: FK_Data_4
+; X86-NEXT:    ## fixup A - offset: 6, value: LCPI299_1, kind: FK_Data_4
 ; X86-NEXT:    vaddps %zmm1, %zmm2, %zmm1 ## encoding: [0x62,0xf1,0x6c,0x48,0x58,0xc9]
 ; X86-NEXT:    vpermilps {{.*#+}} zmm0 = zmm0[1,0,3,2,4,5,6,7,10,11,8,9,14,15,13,12]
 ; X86-NEXT:    ## encoding: [0x62,0xf2,0x7d,0x48,0x0c,0x05,A,A,A,A]
-; X86-NEXT:    ## fixup A - offset: 6, value: LCPI303_2, kind: FK_Data_4
+; X86-NEXT:    ## fixup A - offset: 6, value: LCPI299_2, kind: FK_Data_4
 ; X86-NEXT:    vaddps %zmm1, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0x7c,0x48,0x58,0xc1]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
@@ -5319,14 +5281,14 @@ define <16 x float>@test_int_x86_avx512_mask_vpermilvar_ps_512_constant_pool(<16
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vpermilps {{.*#+}} zmm2 {%k1} = zmm0[2,3,0,1,7,6,5,4,9,8,11,10,12,13,14,15]
 ; X64-NEXT:    ## encoding: [0x62,0xf2,0x7d,0x49,0x0c,0x15,A,A,A,A]
-; X64-NEXT:    ## fixup A - offset: 6, value: LCPI303_0-4, kind: reloc_riprel_4byte
+; X64-NEXT:    ## fixup A - offset: 6, value: LCPI299_0-4, kind: reloc_riprel_4byte
 ; X64-NEXT:    vpermilps {{.*#+}} zmm1 {%k1} {z} = zmm0[1,0,3,2,4,5,6,7,9,8,11,10,12,13,14,15]
 ; X64-NEXT:    ## encoding: [0x62,0xf2,0x7d,0xc9,0x0c,0x0d,A,A,A,A]
-; X64-NEXT:    ## fixup A - offset: 6, value: LCPI303_1-4, kind: reloc_riprel_4byte
+; X64-NEXT:    ## fixup A - offset: 6, value: LCPI299_1-4, kind: reloc_riprel_4byte
 ; X64-NEXT:    vaddps %zmm1, %zmm2, %zmm1 ## encoding: [0x62,0xf1,0x6c,0x48,0x58,0xc9]
 ; X64-NEXT:    vpermilps {{.*#+}} zmm0 = zmm0[1,0,3,2,4,5,6,7,10,11,8,9,14,15,13,12]
 ; X64-NEXT:    ## encoding: [0x62,0xf2,0x7d,0x48,0x0c,0x05,A,A,A,A]
-; X64-NEXT:    ## fixup A - offset: 6, value: LCPI303_2-4, kind: reloc_riprel_4byte
+; X64-NEXT:    ## fixup A - offset: 6, value: LCPI299_2-4, kind: reloc_riprel_4byte
 ; X64-NEXT:    vaddps %zmm1, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0x7c,0x48,0x58,0xc1]
 ; X64-NEXT:    retq ## encoding: [0xc3]
   %res = call <16 x float> @llvm.x86.avx512.mask.vpermilvar.ps.512(<16 x float> %x0, <16 x i32> <i32 2, i32 3, i32 0, i32 1, i32 3, i32 2, i32 1, i32 0, i32 1, i32 0, i32 3, i32 2, i32 0, i32 1, i32 2, i32 3>, <16 x float> %x2, i16 %x3)
@@ -5442,8 +5404,7 @@ define <8 x i64> @test_mask_mul_epi32_rmb(<16 x i32> %a, i64* %ptr_b) {
 ; X86-LABEL: test_mask_mul_epi32_rmb:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    vpmuldq %zmm1, %zmm0, %zmm0 ## encoding: [0x62,0xf2,0xfd,0x48,0x28,0xc1]
+; X86-NEXT:    vpmuldq (%eax){1to8}, %zmm0, %zmm0 ## encoding: [0x62,0xf2,0xfd,0x58,0x28,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mask_mul_epi32_rmb:
@@ -5462,10 +5423,9 @@ define <8 x i64> @test_mask_mul_epi32_rmbk(<16 x i32> %a, i64* %ptr_b, <8 x i64>
 ; X86-LABEL: test_mask_mul_epi32_rmbk:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm2 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x10]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuldq %zmm2, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf2,0xfd,0x49,0x28,0xca]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuldq (%eax){1to8}, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf2,0xfd,0x59,0x28,0x08]
 ; X86-NEXT:    vmovdqa64 %zmm1, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0x6f,0xc1]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
@@ -5487,10 +5447,9 @@ define <8 x i64> @test_mask_mul_epi32_rmbkz(<16 x i32> %a, i64* %ptr_b, i8 %mask
 ; X86-LABEL: test_mask_mul_epi32_rmbkz:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuldq %zmm1, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xc9,0x28,0xc1]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuldq (%eax){1to8}, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xd9,0x28,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mask_mul_epi32_rmbkz:
@@ -5613,8 +5572,7 @@ define <8 x i64> @test_mask_mul_epu32_rmb(<16 x i32> %a, i64* %ptr_b) {
 ; X86-LABEL: test_mask_mul_epu32_rmb:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    vpmuludq %zmm1, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0xf4,0xc1]
+; X86-NEXT:    vpmuludq (%eax){1to8}, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x58,0xf4,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mask_mul_epu32_rmb:
@@ -5633,10 +5591,9 @@ define <8 x i64> @test_mask_mul_epu32_rmbk(<16 x i32> %a, i64* %ptr_b, <8 x i64>
 ; X86-LABEL: test_mask_mul_epu32_rmbk:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm2 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x10]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuludq %zmm2, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf1,0xfd,0x49,0xf4,0xca]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuludq (%eax){1to8}, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf1,0xfd,0x59,0xf4,0x08]
 ; X86-NEXT:    vmovdqa64 %zmm1, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0x6f,0xc1]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
@@ -5658,10 +5615,9 @@ define <8 x i64> @test_mask_mul_epu32_rmbkz(<16 x i32> %a, i64* %ptr_b, i8 %mask
 ; X86-LABEL: test_mask_mul_epu32_rmbkz:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuludq %zmm1, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf1,0xfd,0xc9,0xf4,0xc1]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuludq (%eax){1to8}, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf1,0xfd,0xd9,0xf4,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mask_mul_epu32_rmbkz:
@@ -7179,8 +7135,7 @@ define <8 x i64> @test_mul_epi32_rmb(<16 x i32> %a, i64* %ptr_b) {
 ; X86-LABEL: test_mul_epi32_rmb:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    vpmuldq %zmm1, %zmm0, %zmm0 ## encoding: [0x62,0xf2,0xfd,0x48,0x28,0xc1]
+; X86-NEXT:    vpmuldq (%eax){1to8}, %zmm0, %zmm0 ## encoding: [0x62,0xf2,0xfd,0x58,0x28,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mul_epi32_rmb:
@@ -7199,10 +7154,9 @@ define <8 x i64> @test_mul_epi32_rmbk(<16 x i32> %a, i64* %ptr_b, <8 x i64> %pas
 ; X86-LABEL: test_mul_epi32_rmbk:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm2 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x10]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuldq %zmm2, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf2,0xfd,0x49,0x28,0xca]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuldq (%eax){1to8}, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf2,0xfd,0x59,0x28,0x08]
 ; X86-NEXT:    vmovdqa64 %zmm1, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0x6f,0xc1]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
@@ -7226,10 +7180,9 @@ define <8 x i64> @test_mul_epi32_rmbkz(<16 x i32> %a, i64* %ptr_b, i8 %mask) {
 ; X86-LABEL: test_mul_epi32_rmbkz:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuldq %zmm1, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xc9,0x28,0xc1]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuldq (%eax){1to8}, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xfd,0xd9,0x28,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mul_epi32_rmbkz:
@@ -7362,8 +7315,7 @@ define <8 x i64> @test_mul_epu32_rmb(<16 x i32> %a, i64* %ptr_b) {
 ; X86-LABEL: test_mul_epu32_rmb:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    vpmuludq %zmm1, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0xf4,0xc1]
+; X86-NEXT:    vpmuludq (%eax){1to8}, %zmm0, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x58,0xf4,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mul_epu32_rmb:
@@ -7382,10 +7334,9 @@ define <8 x i64> @test_mul_epu32_rmbk(<16 x i32> %a, i64* %ptr_b, <8 x i64> %pas
 ; X86-LABEL: test_mul_epu32_rmbk:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm2 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x10]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuludq %zmm2, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf1,0xfd,0x49,0xf4,0xca]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuludq (%eax){1to8}, %zmm0, %zmm1 {%k1} ## encoding: [0x62,0xf1,0xfd,0x59,0xf4,0x08]
 ; X86-NEXT:    vmovdqa64 %zmm1, %zmm0 ## encoding: [0x62,0xf1,0xfd,0x48,0x6f,0xc1]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
@@ -7409,10 +7360,9 @@ define <8 x i64> @test_mul_epu32_rmbkz(<16 x i32> %a, i64* %ptr_b, i8 %mask) {
 ; X86-LABEL: test_mul_epu32_rmbkz:
 ; X86:       ## %bb.0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax ## encoding: [0x8b,0x44,0x24,0x04]
-; X86-NEXT:    vpbroadcastd (%eax), %zmm1 ## encoding: [0x62,0xf2,0x7d,0x48,0x58,0x08]
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax ## encoding: [0x0f,0xb6,0x44,0x24,0x08]
-; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
-; X86-NEXT:    vpmuludq %zmm1, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf1,0xfd,0xc9,0xf4,0xc1]
+; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx ## encoding: [0x0f,0xb6,0x4c,0x24,0x08]
+; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
+; X86-NEXT:    vpmuludq (%eax){1to8}, %zmm0, %zmm0 {%k1} {z} ## encoding: [0x62,0xf1,0xfd,0xd9,0xf4,0x00]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_mul_epu32_rmbkz:
@@ -9892,7 +9842,7 @@ define <2 x double>@test_int_x86_avx512_mask_vfmadd_sd(<2 x double> %x0, <2 x do
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovapd %xmm0, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xd8]
 ; X86-NEXT:    vfmadd213sd %xmm2, %xmm1, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xf5,0x09,0xa9,0xda]
-; X86-NEXT:    ## xmm3 = (xmm1 * xmm3) + xmm2
+; X86-NEXT:    ## xmm3 {%k1} = (xmm1 * xmm3) + xmm2
 ; X86-NEXT:    vmovapd %xmm0, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe0]
 ; X86-NEXT:    vfmadd213sd {rz-sae}, %xmm2, %xmm1, %xmm4 ## encoding: [0x62,0xf2,0xf5,0x78,0xa9,0xe2]
 ; X86-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -9905,7 +9855,7 @@ define <2 x double>@test_int_x86_avx512_mask_vfmadd_sd(<2 x double> %x0, <2 x do
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovapd %xmm0, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xd8]
 ; X64-NEXT:    vfmadd213sd %xmm2, %xmm1, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xf5,0x09,0xa9,0xda]
-; X64-NEXT:    ## xmm3 = (xmm1 * xmm3) + xmm2
+; X64-NEXT:    ## xmm3 {%k1} = (xmm1 * xmm3) + xmm2
 ; X64-NEXT:    vmovapd %xmm0, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe0]
 ; X64-NEXT:    vfmadd213sd {rz-sae}, %xmm2, %xmm1, %xmm4 ## encoding: [0x62,0xf2,0xf5,0x78,0xa9,0xe2]
 ; X64-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -9929,7 +9879,7 @@ define <4 x float>@test_int_x86_avx512_mask_vfmadd_ss(<4 x float> %x0, <4 x floa
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovaps %xmm0, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xd8]
 ; X86-NEXT:    vfmadd213ss %xmm2, %xmm1, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x75,0x09,0xa9,0xda]
-; X86-NEXT:    ## xmm3 = (xmm1 * xmm3) + xmm2
+; X86-NEXT:    ## xmm3 {%k1} = (xmm1 * xmm3) + xmm2
 ; X86-NEXT:    vmovaps %xmm0, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe0]
 ; X86-NEXT:    vfmadd213ss {rz-sae}, %xmm2, %xmm1, %xmm4 ## encoding: [0x62,0xf2,0x75,0x78,0xa9,0xe2]
 ; X86-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -9942,7 +9892,7 @@ define <4 x float>@test_int_x86_avx512_mask_vfmadd_ss(<4 x float> %x0, <4 x floa
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovaps %xmm0, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xd8]
 ; X64-NEXT:    vfmadd213ss %xmm2, %xmm1, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x75,0x09,0xa9,0xda]
-; X64-NEXT:    ## xmm3 = (xmm1 * xmm3) + xmm2
+; X64-NEXT:    ## xmm3 {%k1} = (xmm1 * xmm3) + xmm2
 ; X64-NEXT:    vmovaps %xmm0, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe0]
 ; X64-NEXT:    vfmadd213ss {rz-sae}, %xmm2, %xmm1, %xmm4 ## encoding: [0x62,0xf2,0x75,0x78,0xa9,0xe2]
 ; X64-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -9966,7 +9916,7 @@ define <2 x double>@test_int_x86_avx512_maskz_vfmadd_sd(<2 x double> %x0, <2 x d
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovapd %xmm0, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xd8]
 ; X86-NEXT:    vfmadd213sd %xmm2, %xmm1, %xmm3 {%k1} {z} ## encoding: [0x62,0xf2,0xf5,0x89,0xa9,0xda]
-; X86-NEXT:    ## xmm3 = (xmm1 * xmm3) + xmm2
+; X86-NEXT:    ## xmm3 {%k1} {z} = (xmm1 * xmm3) + xmm2
 ; X86-NEXT:    vfmadd213sd {rz-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xf5,0xf9,0xa9,0xc2]
 ; X86-NEXT:    vaddpd %xmm0, %xmm3, %xmm0 ## encoding: [0xc5,0xe1,0x58,0xc0]
 ; X86-NEXT:    retl ## encoding: [0xc3]
@@ -9976,7 +9926,7 @@ define <2 x double>@test_int_x86_avx512_maskz_vfmadd_sd(<2 x double> %x0, <2 x d
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovapd %xmm0, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xd8]
 ; X64-NEXT:    vfmadd213sd %xmm2, %xmm1, %xmm3 {%k1} {z} ## encoding: [0x62,0xf2,0xf5,0x89,0xa9,0xda]
-; X64-NEXT:    ## xmm3 = (xmm1 * xmm3) + xmm2
+; X64-NEXT:    ## xmm3 {%k1} {z} = (xmm1 * xmm3) + xmm2
 ; X64-NEXT:    vfmadd213sd {rz-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z} ## encoding: [0x62,0xf2,0xf5,0xf9,0xa9,0xc2]
 ; X64-NEXT:    vaddpd %xmm0, %xmm3, %xmm0 ## encoding: [0xc5,0xe1,0x58,0xc0]
 ; X64-NEXT:    retq ## encoding: [0xc3]
@@ -9994,14 +9944,14 @@ define <4 x float>@test_int_x86_avx512_maskz_vfmadd_ss(<4 x float> %x0, <4 x flo
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al ## encoding: [0x8a,0x44,0x24,0x04]
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vfmadd213ss %xmm2, %xmm1, %xmm0 {%k1} {z} ## encoding: [0x62,0xf2,0x75,0x89,0xa9,0xc2]
-; X86-NEXT:    ## xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    ## xmm0 {%k1} {z} = (xmm1 * xmm0) + xmm2
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_int_x86_avx512_maskz_vfmadd_ss:
 ; X64:       ## %bb.0:
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vfmadd213ss %xmm2, %xmm1, %xmm0 {%k1} {z} ## encoding: [0x62,0xf2,0x75,0x89,0xa9,0xc2]
-; X64-NEXT:    ## xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    ## xmm0 {%k1} {z} = (xmm1 * xmm0) + xmm2
 ; X64-NEXT:    retq ## encoding: [0xc3]
   %res = call <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2, i8 %x3, i32 4)
   %res1 = call <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2, i8 %x3, i32 11)
@@ -10017,7 +9967,7 @@ define <2 x double>@test_int_x86_avx512_mask3_vfmadd_sd(<2 x double> %x0, <2 x d
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovapd %xmm2, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xda]
 ; X86-NEXT:    vfmadd231sd %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0xb9,0xd9]
-; X86-NEXT:    ## xmm3 = (xmm0 * xmm1) + xmm3
+; X86-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) + xmm3
 ; X86-NEXT:    vmovapd %xmm2, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe2]
 ; X86-NEXT:    vfmadd231sd {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0xfd,0x78,0xb9,0xe1]
 ; X86-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -10030,7 +9980,7 @@ define <2 x double>@test_int_x86_avx512_mask3_vfmadd_sd(<2 x double> %x0, <2 x d
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovapd %xmm2, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xda]
 ; X64-NEXT:    vfmadd231sd %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0xb9,0xd9]
-; X64-NEXT:    ## xmm3 = (xmm0 * xmm1) + xmm3
+; X64-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) + xmm3
 ; X64-NEXT:    vmovapd %xmm2, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe2]
 ; X64-NEXT:    vfmadd231sd {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0xfd,0x78,0xb9,0xe1]
 ; X64-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -10054,7 +10004,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfmadd_ss(<4 x float> %x0, <4 x flo
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovaps %xmm2, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xda]
 ; X86-NEXT:    vfmadd231ss %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xb9,0xd9]
-; X86-NEXT:    ## xmm3 = (xmm0 * xmm1) + xmm3
+; X86-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) + xmm3
 ; X86-NEXT:    vmovaps %xmm2, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe2]
 ; X86-NEXT:    vfmadd231ss {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0x7d,0x78,0xb9,0xe1]
 ; X86-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -10067,7 +10017,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfmadd_ss(<4 x float> %x0, <4 x flo
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovaps %xmm2, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xda]
 ; X64-NEXT:    vfmadd231ss %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xb9,0xd9]
-; X64-NEXT:    ## xmm3 = (xmm0 * xmm1) + xmm3
+; X64-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) + xmm3
 ; X64-NEXT:    vmovaps %xmm2, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe2]
 ; X64-NEXT:    vfmadd231ss {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0x7d,0x78,0xb9,0xe1]
 ; X64-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -10267,7 +10217,7 @@ define <2 x double>@test_int_x86_avx512_mask3_vfmsub_sd(<2 x double> %x0, <2 x d
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovapd %xmm2, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xda]
 ; X86-NEXT:    vfmsub231sd %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0xbb,0xd9]
-; X86-NEXT:    ## xmm3 = (xmm0 * xmm1) - xmm3
+; X86-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) - xmm3
 ; X86-NEXT:    vmovapd %xmm2, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe2]
 ; X86-NEXT:    vfmsub231sd {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0xfd,0x78,0xbb,0xe1]
 ; X86-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -10280,7 +10230,7 @@ define <2 x double>@test_int_x86_avx512_mask3_vfmsub_sd(<2 x double> %x0, <2 x d
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovapd %xmm2, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xda]
 ; X64-NEXT:    vfmsub231sd %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0xbb,0xd9]
-; X64-NEXT:    ## xmm3 = (xmm0 * xmm1) - xmm3
+; X64-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) - xmm3
 ; X64-NEXT:    vmovapd %xmm2, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe2]
 ; X64-NEXT:    vfmsub231sd {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0xfd,0x78,0xbb,0xe1]
 ; X64-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -10304,7 +10254,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfmsub_ss(<4 x float> %x0, <4 x flo
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovaps %xmm2, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xda]
 ; X86-NEXT:    vfmsub231ss %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xbb,0xd9]
-; X86-NEXT:    ## xmm3 = (xmm0 * xmm1) - xmm3
+; X86-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) - xmm3
 ; X86-NEXT:    vmovaps %xmm2, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe2]
 ; X86-NEXT:    vfmsub231ss {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0x7d,0x78,0xbb,0xe1]
 ; X86-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -10317,7 +10267,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfmsub_ss(<4 x float> %x0, <4 x flo
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovaps %xmm2, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xda]
 ; X64-NEXT:    vfmsub231ss %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xbb,0xd9]
-; X64-NEXT:    ## xmm3 = (xmm0 * xmm1) - xmm3
+; X64-NEXT:    ## xmm3 {%k1} = (xmm0 * xmm1) - xmm3
 ; X64-NEXT:    vmovaps %xmm2, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe2]
 ; X64-NEXT:    vfmsub231ss {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0x7d,0x78,0xbb,0xe1]
 ; X64-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -10341,7 +10291,7 @@ define <2 x double>@test_int_x86_avx512_mask3_vfnmsub_sd(<2 x double> %x0, <2 x 
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovapd %xmm2, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xda]
 ; X86-NEXT:    vfnmsub231sd %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0xbf,0xd9]
-; X86-NEXT:    ## xmm3 = -(xmm0 * xmm1) - xmm3
+; X86-NEXT:    ## xmm3 {%k1} = -(xmm0 * xmm1) - xmm3
 ; X86-NEXT:    vmovapd %xmm2, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe2]
 ; X86-NEXT:    vfnmsub231sd {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0xfd,0x78,0xbf,0xe1]
 ; X86-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -10354,7 +10304,7 @@ define <2 x double>@test_int_x86_avx512_mask3_vfnmsub_sd(<2 x double> %x0, <2 x 
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovapd %xmm2, %xmm3 ## encoding: [0xc5,0xf9,0x28,0xda]
 ; X64-NEXT:    vfnmsub231sd %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0xfd,0x09,0xbf,0xd9]
-; X64-NEXT:    ## xmm3 = -(xmm0 * xmm1) - xmm3
+; X64-NEXT:    ## xmm3 {%k1} = -(xmm0 * xmm1) - xmm3
 ; X64-NEXT:    vmovapd %xmm2, %xmm4 ## encoding: [0xc5,0xf9,0x28,0xe2]
 ; X64-NEXT:    vfnmsub231sd {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0xfd,0x78,0xbf,0xe1]
 ; X64-NEXT:    vaddpd %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe1,0x58,0xdc]
@@ -10378,7 +10328,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfnmsub_ss(<4 x float> %x0, <4 x fl
 ; X86-NEXT:    kmovw %eax, %k1 ## encoding: [0xc5,0xf8,0x92,0xc8]
 ; X86-NEXT:    vmovaps %xmm2, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xda]
 ; X86-NEXT:    vfnmsub231ss %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xbf,0xd9]
-; X86-NEXT:    ## xmm3 = -(xmm0 * xmm1) - xmm3
+; X86-NEXT:    ## xmm3 {%k1} = -(xmm0 * xmm1) - xmm3
 ; X86-NEXT:    vmovaps %xmm2, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe2]
 ; X86-NEXT:    vfnmsub231ss {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0x7d,0x78,0xbf,0xe1]
 ; X86-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -10391,7 +10341,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfnmsub_ss(<4 x float> %x0, <4 x fl
 ; X64-NEXT:    kmovw %edi, %k1 ## encoding: [0xc5,0xf8,0x92,0xcf]
 ; X64-NEXT:    vmovaps %xmm2, %xmm3 ## encoding: [0xc5,0xf8,0x28,0xda]
 ; X64-NEXT:    vfnmsub231ss %xmm1, %xmm0, %xmm3 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xbf,0xd9]
-; X64-NEXT:    ## xmm3 = -(xmm0 * xmm1) - xmm3
+; X64-NEXT:    ## xmm3 {%k1} = -(xmm0 * xmm1) - xmm3
 ; X64-NEXT:    vmovaps %xmm2, %xmm4 ## encoding: [0xc5,0xf8,0x28,0xe2]
 ; X64-NEXT:    vfnmsub231ss {rz-sae}, %xmm1, %xmm0, %xmm4 ## encoding: [0x62,0xf2,0x7d,0x78,0xbf,0xe1]
 ; X64-NEXT:    vaddps %xmm4, %xmm3, %xmm3 ## encoding: [0xc5,0xe0,0x58,0xdc]
@@ -10413,7 +10363,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfmadd_ss_rm(<4 x float> %x0, <4 x 
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %cl ## encoding: [0x8a,0x4c,0x24,0x08]
 ; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
 ; X86-NEXT:    vfmadd231ss (%eax), %xmm0, %xmm1 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xb9,0x08]
-; X86-NEXT:    ## xmm1 = (xmm0 * mem) + xmm1
+; X86-NEXT:    ## xmm1 {%k1} = (xmm0 * mem) + xmm1
 ; X86-NEXT:    vmovaps %xmm1, %xmm0 ## encoding: [0xc5,0xf8,0x28,0xc1]
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
@@ -10421,7 +10371,7 @@ define <4 x float>@test_int_x86_avx512_mask3_vfmadd_ss_rm(<4 x float> %x0, <4 x 
 ; X64:       ## %bb.0:
 ; X64-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; X64-NEXT:    vfmadd231ss (%rdi), %xmm0, %xmm1 {%k1} ## encoding: [0x62,0xf2,0x7d,0x09,0xb9,0x0f]
-; X64-NEXT:    ## xmm1 = (xmm0 * mem) + xmm1
+; X64-NEXT:    ## xmm1 {%k1} = (xmm0 * mem) + xmm1
 ; X64-NEXT:    vmovaps %xmm1, %xmm0 ## encoding: [0xc5,0xf8,0x28,0xc1]
 ; X64-NEXT:    retq ## encoding: [0xc3]
   %q = load float, float* %ptr_b
@@ -10437,14 +10387,14 @@ define <4 x float>@test_int_x86_avx512_mask_vfmadd_ss_rm(<4 x float> %x0, <4 x f
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %cl ## encoding: [0x8a,0x4c,0x24,0x08]
 ; X86-NEXT:    kmovw %ecx, %k1 ## encoding: [0xc5,0xf8,0x92,0xc9]
 ; X86-NEXT:    vfmadd132ss (%eax), %xmm1, %xmm0 {%k1} ## encoding: [0x62,0xf2,0x75,0x09,0x99,0x00]
-; X86-NEXT:    ## xmm0 = (xmm0 * mem) + xmm1
+; X86-NEXT:    ## xmm0 {%k1} = (xmm0 * mem) + xmm1
 ; X86-NEXT:    retl ## encoding: [0xc3]
 ;
 ; X64-LABEL: test_int_x86_avx512_mask_vfmadd_ss_rm:
 ; X64:       ## %bb.0:
 ; X64-NEXT:    kmovw %esi, %k1 ## encoding: [0xc5,0xf8,0x92,0xce]
 ; X64-NEXT:    vfmadd132ss (%rdi), %xmm1, %xmm0 {%k1} ## encoding: [0x62,0xf2,0x75,0x09,0x99,0x07]
-; X64-NEXT:    ## xmm0 = (xmm0 * mem) + xmm1
+; X64-NEXT:    ## xmm0 {%k1} = (xmm0 * mem) + xmm1
 ; X64-NEXT:    retq ## encoding: [0xc3]
   %q = load float, float* %ptr_b
   %vecinit.i = insertelement <4 x float> undef, float %q, i32 0

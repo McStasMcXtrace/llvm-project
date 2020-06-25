@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "PassDetail.h"
 #include "mlir/Analysis/AffineAnalysis.h"
 #include "mlir/Analysis/AffineStructures.h"
 #include "mlir/Analysis/LoopAnalysis.h"
@@ -20,7 +21,6 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/LoopUtils.h"
 #include "mlir/Transforms/Utils.h"
 #include "llvm/ADT/DenseMap.h"
@@ -41,7 +41,8 @@ namespace {
 /// TODO(asabne) : Check for the presence of side effects before hoisting.
 /// TODO: This code should be removed once the new LICM pass can handle its
 ///       uses.
-struct LoopInvariantCodeMotion : public FunctionPass<LoopInvariantCodeMotion> {
+struct LoopInvariantCodeMotion
+    : public AffineLoopInvariantCodeMotionBase<LoopInvariantCodeMotion> {
   void runOnFunction() override;
   void runOnAffineForOp(AffineForOp forOp);
 };
@@ -62,10 +63,7 @@ areAllOpsInTheBlockListInvariant(Region &blockList, Value indVar,
 
 static bool isMemRefDereferencingOp(Operation &op) {
   // TODO(asabne): Support DMA Ops.
-  if (isa<AffineLoadOp>(op) || isa<AffineStoreOp>(op)) {
-    return true;
-  }
-  return false;
+  return isa<AffineLoadOp, AffineStoreOp>(op);
 }
 
 // Returns true if the individual op is loop invariant.
@@ -228,11 +226,7 @@ void LoopInvariantCodeMotion::runOnFunction() {
   });
 }
 
-std::unique_ptr<OpPassBase<FuncOp>>
+std::unique_ptr<OperationPass<FuncOp>>
 mlir::createAffineLoopInvariantCodeMotionPass() {
   return std::make_unique<LoopInvariantCodeMotion>();
 }
-
-static PassRegistration<LoopInvariantCodeMotion>
-    pass("affine-loop-invariant-code-motion",
-         "Hoist loop invariant instructions outside of the loop");

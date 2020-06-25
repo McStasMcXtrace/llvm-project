@@ -108,6 +108,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::StaticAssert: // static_assert(X, ""); [C++0x]
   case Decl::Label:        // __label__ x;
   case Decl::Import:
+  case Decl::MSGuid:    // __declspec(uuid("..."))
   case Decl::OMPThreadPrivate:
   case Decl::OMPAllocate:
   case Decl::OMPCapturedExpr:
@@ -341,7 +342,7 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
   // the global to match the initializer.  (We have to do this
   // because some types, like unions, can't be completely represented
   // in the LLVM type system.)
-  if (GV->getType()->getElementType() != Init->getType()) {
+  if (GV->getValueType() != Init->getType()) {
     llvm::GlobalVariable *OldGV = GV;
 
     GV = new llvm::GlobalVariable(CGM.getModule(), Init->getType(),
@@ -761,10 +762,8 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
 
   // If we're emitting a value with lifetime, we have to do the
   // initialization *before* we leave the cleanup scopes.
-  if (const FullExpr *fe = dyn_cast<FullExpr>(init)) {
-    enterFullExpression(fe);
-    init = fe->getSubExpr();
-  }
+  if (const ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(init))
+    init = EWC->getSubExpr();
   CodeGenFunction::RunCleanupsScope Scope(*this);
 
   // We have to maintain the illusion that the variable is
@@ -1678,9 +1677,13 @@ void CodeGenFunction::emitZeroOrPatternForAutoVarInit(QualType type,
     case LangOptions::TrivialAutoVarInitKind::Uninitialized:
       llvm_unreachable("Uninitialized handled by caller");
     case LangOptions::TrivialAutoVarInitKind::Zero:
+      if (CGM.stopAutoInit())
+        return;
       emitStoresForZeroInit(CGM, D, Loc, isVolatile, Builder);
       break;
     case LangOptions::TrivialAutoVarInitKind::Pattern:
+      if (CGM.stopAutoInit())
+        return;
       emitStoresForPatternInit(CGM, D, Loc, isVolatile, Builder);
       break;
     }
@@ -1703,6 +1706,8 @@ void CodeGenFunction::emitZeroOrPatternForAutoVarInit(QualType type,
     llvm_unreachable("Uninitialized handled by caller");
 
   case LangOptions::TrivialAutoVarInitKind::Zero:
+    if (CGM.stopAutoInit())
+      return;
     if (!EltSize.isOne())
       SizeVal = Builder.CreateNUWMul(SizeVal, CGM.getSize(EltSize));
     Builder.CreateMemSet(Loc, llvm::ConstantInt::get(Int8Ty, 0), SizeVal,
@@ -1710,6 +1715,8 @@ void CodeGenFunction::emitZeroOrPatternForAutoVarInit(QualType type,
     break;
 
   case LangOptions::TrivialAutoVarInitKind::Pattern: {
+    if (CGM.stopAutoInit())
+      return;
     llvm::Type *ElTy = Loc.getElementType();
     llvm::Constant *Constant = constWithPadding(
         CGM, IsPattern::Yes, initializationPatternFor(CGM, ElTy));

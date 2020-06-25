@@ -1253,7 +1253,7 @@ Symtab *ObjectFileMachO::GetSymtab() {
   if (module_sp) {
     std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
     if (m_symtab_up == nullptr) {
-      m_symtab_up.reset(new Symtab(this));
+      m_symtab_up = std::make_unique<Symtab>(this);
       std::lock_guard<std::recursive_mutex> symtab_guard(
           m_symtab_up->GetMutex());
       ParseSymtab();
@@ -1820,7 +1820,7 @@ void ObjectFileMachO::CreateSections(SectionList &unified_section_list) {
   if (m_sections_up)
     return;
 
-  m_sections_up.reset(new SectionList());
+  m_sections_up = std::make_unique<SectionList>();
 
   lldb::offset_t offset = MachHeaderSizeFromMagic(m_header.magic);
   // bool dump_sections = false;
@@ -2034,6 +2034,66 @@ static bool ParseTrieEntries(DataExtractor &data, lldb::offset_t offset,
     nameSlices.pop_back();
   }
   return true;
+}
+
+static SymbolType GetSymbolType(const char *&symbol_name,
+                                bool &demangled_is_synthesized,
+                                const SectionSP &text_section_sp,
+                                const SectionSP &data_section_sp,
+                                const SectionSP &data_dirty_section_sp,
+                                const SectionSP &data_const_section_sp,
+                                const SectionSP &symbol_section) {
+  SymbolType type = eSymbolTypeInvalid;
+
+  const char *symbol_sect_name = symbol_section->GetName().AsCString();
+  if (symbol_section->IsDescendant(text_section_sp.get())) {
+    if (symbol_section->IsClear(S_ATTR_PURE_INSTRUCTIONS |
+                                S_ATTR_SELF_MODIFYING_CODE |
+                                S_ATTR_SOME_INSTRUCTIONS))
+      type = eSymbolTypeData;
+    else
+      type = eSymbolTypeCode;
+  } else if (symbol_section->IsDescendant(data_section_sp.get()) ||
+             symbol_section->IsDescendant(data_dirty_section_sp.get()) ||
+             symbol_section->IsDescendant(data_const_section_sp.get())) {
+    if (symbol_sect_name &&
+        ::strstr(symbol_sect_name, "__objc") == symbol_sect_name) {
+      type = eSymbolTypeRuntime;
+
+      if (symbol_name) {
+        llvm::StringRef symbol_name_ref(symbol_name);
+        if (symbol_name_ref.startswith("OBJC_")) {
+          static const llvm::StringRef g_objc_v2_prefix_class("OBJC_CLASS_$_");
+          static const llvm::StringRef g_objc_v2_prefix_metaclass(
+              "OBJC_METACLASS_$_");
+          static const llvm::StringRef g_objc_v2_prefix_ivar("OBJC_IVAR_$_");
+          if (symbol_name_ref.startswith(g_objc_v2_prefix_class)) {
+            symbol_name = symbol_name + g_objc_v2_prefix_class.size();
+            type = eSymbolTypeObjCClass;
+            demangled_is_synthesized = true;
+          } else if (symbol_name_ref.startswith(g_objc_v2_prefix_metaclass)) {
+            symbol_name = symbol_name + g_objc_v2_prefix_metaclass.size();
+            type = eSymbolTypeObjCMetaClass;
+            demangled_is_synthesized = true;
+          } else if (symbol_name_ref.startswith(g_objc_v2_prefix_ivar)) {
+            symbol_name = symbol_name + g_objc_v2_prefix_ivar.size();
+            type = eSymbolTypeObjCIVar;
+            demangled_is_synthesized = true;
+          }
+        }
+      }
+    } else if (symbol_sect_name &&
+               ::strstr(symbol_sect_name, "__gcc_except_tab") ==
+                   symbol_sect_name) {
+      type = eSymbolTypeException;
+    } else {
+      type = eSymbolTypeData;
+    }
+  } else if (symbol_sect_name &&
+             ::strstr(symbol_sect_name, "__IMPORT") == symbol_sect_name) {
+    type = eSymbolTypeTrampoline;
+  }
+  return type;
 }
 
 // Read the UUID out of a dyld_shared_cache file on-disk.
@@ -2536,8 +2596,7 @@ size_t ObjectFileMachO::ParseSymtab() {
   typedef std::set<ConstString> IndirectSymbols;
   IndirectSymbols indirect_symbol_names;
 
-#if defined(__APPLE__) &&                                                      \
-    (defined(__arm__) || defined(__arm64__) || defined(__aarch64__))
+#if defined(__APPLE__) && TARGET_OS_EMBEDDED
 
   // Some recent builds of the dyld_shared_cache (hereafter: DSC) have been
   // optimized by moving LOCAL symbols out of the memory mapped portion of
@@ -4536,22 +4595,20 @@ size_t ObjectFileMachO::ParseSymtab() {
     Address symbol_addr;
     if (module_sp->ResolveFileAddress(e.entry.address, symbol_addr)) {
       SectionSP symbol_section(symbol_addr.GetSection());
+      const char *symbol_name = e.entry.name.GetCString();
+      bool demangled_is_synthesized = false;
+      SymbolType type =
+          GetSymbolType(symbol_name, demangled_is_synthesized, text_section_sp,
+                        data_section_sp, data_dirty_section_sp,
+                        data_const_section_sp, symbol_section);
+
+      sym[sym_idx].SetType(type);
       if (symbol_section) {
         sym[sym_idx].SetID(synthetic_sym_id++);
-        sym[sym_idx].GetMangled().SetMangledName(e.entry.name);
-        switch (symbol_section->GetType()) {
-        case eSectionTypeCode:
-          sym[sym_idx].SetType(eSymbolTypeCode);
-          break;
-        case eSectionTypeOther:
-        case eSectionTypeData:
-        case eSectionTypeZeroFill:
-          sym[sym_idx].SetType(eSymbolTypeData);
-          break;
-        default:
-          break;
-        }
-        sym[sym_idx].SetIsSynthetic(false);
+        sym[sym_idx].GetMangled().SetMangledName(ConstString(symbol_name));
+        if (demangled_is_synthesized)
+          sym[sym_idx].SetDemangledNameIsSynthesized(true);
+        sym[sym_idx].SetIsSynthetic(true);
         sym[sym_idx].SetExternal(true);
         sym[sym_idx].GetAddressRef() = symbol_addr;
         symbols_added.insert(symbol_addr.GetFileAddress());
@@ -4795,7 +4852,8 @@ void ObjectFileMachO::Dump(Stream *s) {
     *s << "\n";
     SectionList *sections = GetSectionList();
     if (sections)
-      sections->Dump(s, nullptr, true, UINT32_MAX);
+      sections->Dump(s->AsRawOstream(), s->GetIndentLevel(), nullptr, true,
+                     UINT32_MAX);
 
     if (m_symtab_up)
       m_symtab_up->Dump(s, nullptr, eSortOrderNone);
@@ -5140,10 +5198,10 @@ uint32_t ObjectFileMachO::GetDependentModules(FileSpecList &files) {
       std::string loader_path("@loader_path");
       std::string executable_path("@executable_path");
       for (auto &rpath : rpath_paths) {
-        if (rpath.find(loader_path) == 0) {
+        if (llvm::StringRef(rpath).startswith(loader_path)) {
           rpath.erase(0, loader_path.size());
           rpath.insert(0, this_file_spec.GetDirectory().GetCString());
-        } else if (rpath.find(executable_path) == 0) {
+        } else if (llvm::StringRef(rpath).startswith(executable_path)) {
           rpath.erase(0, executable_path.size());
           rpath.insert(0, this_file_spec.GetDirectory().GetCString());
         }

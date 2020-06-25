@@ -15,7 +15,8 @@
 
 include "mlir/Dialect/Affine/IR/AffineOpsBase.td"
 include "mlir/Dialect/Linalg/IR/LinalgBase.td"
-include "mlir/Interfaces/SideEffects.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/ViewLikeInterface.td"
 
 // Base class for Linalg dialect ops that do not correspond to library calls.
 class Linalg_Op<string mnemonic, list<OpTrait> traits = []> :
@@ -48,10 +49,10 @@ def Linalg_RangeOp :
     ````
   }];
   let builders = [OpBuilder<
-    "Builder *builder, OperationState &result, Value min, Value max, "
+    "OpBuilder &builder, OperationState &result, Value min, Value max, "
     "Value step",
     [{
-      auto rangeType = RangeType::get(builder->getContext());
+      auto rangeType = RangeType::get(builder.getContext());
       build(builder, result, rangeType, min, max, step);
     }]>];
 
@@ -60,9 +61,51 @@ def Linalg_RangeOp :
   let assemblyFormat = "$min `:` $max `:` $step attr-dict `:` type(results)";
 }
 
-def Linalg_ReshapeOp : Linalg_Op<"reshape", [NoSideEffect]>,
-    Arguments<(ins AnyStridedMemRef:$view, AffineMapArrayAttr:$reassociation)>,
-    Results<(outs AnyStridedMemRef)> {
+class Linalg_ReshapeLikeOp<string mnemonic> :
+    Linalg_Op<mnemonic, [NoSideEffect]> {
+  let builders = [
+    // Builders for a contracting reshape whose result type is computed from
+    // `src` and `reassociation`.
+    OpBuilder<"OpBuilder &b, OperationState &result, Value src, "
+              "ArrayRef<ReassociationExprs> reassociation, "
+              "ArrayRef<NamedAttribute> attrs = {}">,
+    OpBuilder<"OpBuilder &b, OperationState &result, Value src, "
+              "ArrayRef<ReassociationIndices> reassociation, "
+              "ArrayRef<NamedAttribute> attrs = {}", [{
+      auto reassociationMaps =
+          convertReassociationIndicesToMaps(b, reassociation);
+      build(b, result, src, reassociationMaps, attrs);
+    }]>,
+
+    // Builders for a reshape whose result type is passed explicitly. This may
+    // be either a contracting or expanding reshape.
+    OpBuilder<"OpBuilder &b, OperationState &result, Type resultType, "
+              "Value src, ArrayRef<ReassociationExprs> reassociation, "
+              "ArrayRef<NamedAttribute> attrs = {}">,
+    OpBuilder<"OpBuilder &b, OperationState &result, Type resultType, "
+              "Value src, ArrayRef<ReassociationIndices> reassociation, "
+              "ArrayRef<NamedAttribute> attrs = {}", [{
+      auto reassociationMaps =
+          convertReassociationIndicesToMaps(b, reassociation);
+      build(b, result, src, reassociationMaps, attrs);
+    }]>
+  ];
+
+  code commonExtraClassDeclaration = [{
+    static StringRef getReassociationAttrName() { return "reassociation"; }
+    SmallVector<AffineMap, 4> getReassociationMaps() {
+      return llvm::to_vector<4>(llvm::map_range(reassociation(), [
+      ](Attribute a) { return a.cast<AffineMapAttr>().getValue(); }));
+    }
+  }];
+  let assemblyFormat = [{
+    $src $reassociation attr-dict `:` type($src) `into` type(results)
+  }];
+}
+
+def Linalg_ReshapeOp : Linalg_ReshapeLikeOp<"reshape">,
+    Arguments<(ins AnyStridedMemRef:$src, AffineMapArrayAttr:$reassociation)>,
+    Results<(outs AnyStridedMemRef:$result)> {
   let summary = "linalg.reshape produces a new view into the operand view";
   let description = [{
     The `linalg.reshape` op produces a new view whose sizes are a reassociation
@@ -88,6 +131,13 @@ def Linalg_ReshapeOp : Linalg_Op<"reshape", [NoSideEffect]>,
     rank to obtain the memref with the smaller rank. In the case of a dimension
     expansion, the reassociation maps can be interpreted as inverse maps.
 
+    The result memref type of a reshape when dimensions are collapsed
+    (operand memref type when dimensions are expanded) can be
+    zero-ranked if the operand memref type (or the result memref type
+    when dimensions are expanded) is statically shaped with all
+    dimensions being unit extent. In such cases the reassociation map
+    is empty.
+
     Examples:
 
     ```mlir
@@ -102,30 +152,69 @@ def Linalg_ReshapeOp : Linalg_Op<"reshape", [NoSideEffect]>,
       memref<?x?xf32, stride_spec> into memref<?x?x?xf32, stride_spec_2>
     ```
   }];
-
-  let builders = [
-    // Builder for a contracting reshape whose result type is computed from
-    // `view` and `reassociation`.
-    OpBuilder<"Builder *b, OperationState &result, Value view, "
-    "ArrayRef<ArrayRef<AffineExpr>> reassociation, "
-    "ArrayRef<NamedAttribute> attrs = {}">,
-    // Builder for a reshape whose result type is passed explicitly. This may be
-    // either a contracting or expanding reshape.
-    OpBuilder<"Builder *b, OperationState &result, Type resultType, Value view,"
-    "ArrayRef<ArrayRef<AffineExpr>> reassociation, "
-    "ArrayRef<NamedAttribute> attrs = {}">];
-
-  let extraClassDeclaration = [{
-    static StringRef getReassociationAttrName() { return "reassociation"; }
-    MemRefType getViewType() { return view().getType().cast<MemRefType>(); }
-  }];
-  let assemblyFormat = [{
-    $view $reassociation attr-dict `:` type($view) `into` type(results)
+  let extraClassDeclaration = commonExtraClassDeclaration # [{
+    MemRefType getSrcType() { return src().getType().cast<MemRefType>(); }
+    MemRefType getResultType() { return result().getType().cast<MemRefType>(); }
   }];
   let hasFolder = 1;
+  let hasCanonicalizer = 1;
 }
 
-def Linalg_SliceOp : Linalg_Op<"slice", [NoSideEffect]>,
+def Linalg_TensorReshapeOp : Linalg_ReshapeLikeOp<"tensor_reshape">,
+    Arguments<(ins AnyTensor:$src,
+                   AffineMapArrayAttr:$reassociation)>,
+    Results<(outs AnyTensor:$result)> {
+  let summary = "linalg.tensor_reshape produces a new reshaped tensor.";
+  let description = [{
+    The `linalg.reshape` op produces a new tensor whose sizes are a
+    reassociation of the original `src`.
+
+    A reassociation is defined as a continuous grouping of dimensions and is
+    represented with an affine map array attribute. In the future,
+    non-continuous groupings may be allowed (i.e. permutations, reindexings
+    etc).
+
+    A reshape may either collapse or expand dimensions, depending on the
+    relationship between source and target tensor ranks. The verification rule
+    is that the reassociation maps are applied to the tensor with the larger
+    rank to obtain the tensor with the smaller rank. In the case of a dimension
+    expansion, the reassociation maps can be interpreted as inverse maps.
+
+    The result tensor type of a reshape when dimensions are collapsed
+    (operand tensor type when dimensions are expanded) can be
+    zero-ranked if the operand tensor type (or the result tensor type
+    when dimensions are expanded) is statically shaped with all
+    dimensions being unit extent. In such cases the reassociation map
+    is empty.
+
+    Examples:
+
+    ```mlir
+    // Dimension collapse (i, j) -> i' and k -> k'
+    %b = linalg.tensor_reshape %a [(i, j, k) -> (i, j), (i, j, k) -> (k)] :
+      tensor<?x?x?xf32> into tensor<?x?xf32>
+    ```
+
+    ```mlir
+    // Dimension expansion i -> (i', j') and (k) -> (k')
+    %b = linalg.tensor_reshape %a [(i, j, k) -> (i, j), (i, j, k) -> (k)] :
+      tensor<?x?xf32> into tensor<?x?x?xf32>
+    ```
+  }];
+  let extraClassDeclaration = commonExtraClassDeclaration # [{
+    RankedTensorType getSrcType() {
+      return src().getType().cast<RankedTensorType>();
+    }
+    RankedTensorType getResultType() {
+      return result().getType().cast<RankedTensorType>();
+    }
+  }];
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
+}
+
+def Linalg_SliceOp : Linalg_Op<"slice", [
+      DeclareOpInterfaceMethods<ViewLikeOpInterface>, NoSideEffect]>,
     Arguments<(ins AnyStridedMemRef:$view,
                    Variadic<AnyTypeOf<[Range, Index]>>:$indexings)>,
     Results<(outs AnyStridedMemRef)> {
@@ -171,7 +260,7 @@ def Linalg_SliceOp : Linalg_Op<"slice", [NoSideEffect]>,
   }];
 
   let builders = [OpBuilder<
-    "Builder *b, OperationState &result, Value base, "
+    "OpBuilder &b, OperationState &result, Value base, "
     "ValueRange indexings">];
 
   let extraClassDeclaration = [{
@@ -215,7 +304,7 @@ def Linalg_TransposeOp : Linalg_Op<"transpose", [NoSideEffect]>,
   }];
 
   let builders = [OpBuilder<
-    "Builder *b, OperationState &result, Value view, "
+    "OpBuilder &b, OperationState &result, Value view, "
     "AffineMapAttr permutation, ArrayRef<NamedAttribute> attrs = {}">];
 
   let verifier = [{

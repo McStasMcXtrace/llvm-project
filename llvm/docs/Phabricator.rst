@@ -48,7 +48,11 @@ Requesting a review via the web interface
 The tool to create and review patches in Phabricator is called
 *Differential*.
 
-Note that you can upload patches created through git.
+Note that you can upload patches created through git, but using `arc` on the
+command line (see previous section) is prefered: it adds more metadata to
+Phabricator which are useful for the pre-merge testing system and for
+propagating attribution on commits when someone else has to push it for you.
+
 To make reviews easier, please always include **as much context as
 possible** with your diff! Don't worry, Phabricator
 will automatically send a diff with a smaller context in the review
@@ -59,7 +63,8 @@ To get a full diff, use one of the following commands (or just use Arcanist
 to upload your patch):
 
 * ``git show HEAD -U999999 > mypatch.patch``
-* ``git format-patch -U999999 @{u}``
+* ``git diff -U999999 @{u} > mypatch.patch``
+* ``git diff HEAD~1 -U999999 > mypatch.patch``
 
 Before uploading your patch, please make sure it is formatted properly, as
 described in :ref:`How to Submit a Patch <format patches>`.
@@ -178,6 +183,13 @@ that you close the review manually. In the web UI, under "Leap Into Action" put
 the git revision number in the Comment, set the Action to "Close Revision" and
 click Submit.  Note the review must have been Accepted first.
 
+Arcanist also adds extra tags that are mostly noise in the commit message, for
+this reason avoid using `arc land` and push commits to master directly with git
+after removing tags other than "Reviewed by" and "Differential Revision".
+You can run `llvm/utils/git/arcfilter.sh` to clean the commit message of the
+current "HEAD" commit automatically. You can also setup a git hook to catch this
+for you (see `Getting Started <GettingStarted.html#git-pre-push-hook>`).
+
 
 Committing someone's change from Phabricator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -207,16 +219,10 @@ the following:
 
 ::
 
-  git pull --rebase origin master
+  git pull --rebase https://github.com/llvm/llvm-project.git master
   git show # Ensure the patch looks correct.
   ninja check-$whatever # Rerun the appropriate tests if needed.
-  git push
-
-Or
-
-::
-
-  arc land D<Revision>
+  git push https://github.com/llvm/llvm-project.git HEAD:master
 
 
 Abandoning a change

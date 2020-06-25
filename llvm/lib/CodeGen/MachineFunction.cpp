@@ -98,6 +98,7 @@ static const char *getPropertyName(MachineFunctionProperties::Property Prop) {
   case P::RegBankSelected: return "RegBankSelected";
   case P::Selected: return "Selected";
   case P::TracksLiveness: return "TracksLiveness";
+  case P::TiedOpsRewritten: return "TiedOpsRewritten";
   }
   llvm_unreachable("Invalid machine function property");
 }
@@ -133,8 +134,7 @@ static inline unsigned getFnStackAlignment(const TargetSubtargetInfo *STI,
   return STI->getFrameLowering()->getStackAlign().value();
 }
 
-MachineFunction::MachineFunction(const Function &F,
-                                 const LLVMTargetMachine &Target,
+MachineFunction::MachineFunction(Function &F, const LLVMTargetMachine &Target,
                                  const TargetSubtargetInfo &STI,
                                  unsigned FunctionNum, MachineModuleInfo &mmi)
     : F(F), Target(Target), STI(&STI), Ctx(mmi.getContext()), MMI(mmi) {
@@ -341,33 +341,7 @@ void MachineFunction::RenumberBlocks(MachineBasicBlock *MBB) {
   MBBNumbering.resize(BlockNo);
 }
 
-/// This sets the section ranges of cold or exception section with basic block
-/// sections.
-void MachineFunction::setSectionRange() {
-  // Compute the Section Range of cold and exception basic blocks.  Find the
-  // first and last block of each range.
-  auto SectionRange =
-      ([&](llvm::MachineBasicBlockSection S) -> std::pair<int, int> {
-        auto MBBP =
-            std::find_if(begin(), end(), [&](MachineBasicBlock &MBB) -> bool {
-              return MBB.getSectionType() == S;
-            });
-        if (MBBP == end())
-          return std::make_pair(-1, -1);
-
-        auto MBBQ =
-            std::find_if(rbegin(), rend(), [&](MachineBasicBlock &MBB) -> bool {
-              return MBB.getSectionType() == S;
-            });
-        assert(MBBQ != rend() && "Section end not found!");
-        return std::make_pair(MBBP->getNumber(), MBBQ->getNumber());
-      });
-
-  ExceptionSectionRange = SectionRange(MBBS_Exception);
-  ColdSectionRange = SectionRange(llvm::MBBS_Cold);
-}
-
-/// This is used with -fbasicblock-sections or -fbasicblock-labels option.
+/// This is used with -fbasic-block-sections or -fbasicblock-labels option.
 /// A unary encoding of basic block labels is done to keep ".strtab" sizes
 /// small.
 void MachineFunction::createBBLabels() {
@@ -392,6 +366,22 @@ void MachineFunction::createBBLabels() {
       type = 'r';
     BBSectionsSymbolPrefix[MBBI->getNumber()] = type;
   }
+}
+
+/// This method iterates over the basic blocks and assigns their IsBeginSection
+/// and IsEndSection fields. This must be called after MBB layout is finalized
+/// and the SectionID's are assigned to MBBs.
+void MachineFunction::assignBeginEndSections() {
+  front().setIsBeginSection();
+  auto CurrentSectionID = front().getSectionID();
+  for (auto MBBI = std::next(begin()), E = end(); MBBI != E; ++MBBI) {
+    if (MBBI->getSectionID() == CurrentSectionID)
+      continue;
+    MBBI->setIsBeginSection();
+    std::prev(MBBI)->setIsEndSection();
+    CurrentSectionID = MBBI->getSectionID();
+  }
+  back().setIsEndSection();
 }
 
 /// Allocate a new MachineInstr. Use this instead of `new MachineInstr'.
@@ -427,6 +417,11 @@ MachineInstr &MachineFunction::CloneMachineInstrBundle(MachineBasicBlock &MBB,
       break;
     ++I;
   }
+  // Copy over call site info to the cloned instruction if needed. If Orig is in
+  // a bundle, copyCallSiteInfo takes care of finding the call instruction in
+  // the bundle.
+  if (Orig.shouldUpdateCallSiteInfo())
+    copyCallSiteInfo(&Orig, FirstClone);
   return *FirstClone;
 }
 
@@ -664,10 +659,10 @@ void MachineFunction::viewCFGOnly() const
 
 /// Add the specified physical register as a live-in value and
 /// create a corresponding virtual register for it.
-unsigned MachineFunction::addLiveIn(unsigned PReg,
+Register MachineFunction::addLiveIn(MCRegister PReg,
                                     const TargetRegisterClass *RC) {
   MachineRegisterInfo &MRI = getRegInfo();
-  unsigned VReg = MRI.getLiveInVirtReg(PReg);
+  Register VReg = MRI.getLiveInVirtReg(PReg);
   if (VReg) {
     const TargetRegisterClass *VRegRC = MRI.getRegClass(VReg);
     (void)VRegRC;
@@ -1182,8 +1177,7 @@ static bool CanShareConstantPoolEntry(const Constant *A, const Constant *B,
 /// Create a new entry in the constant pool or return an existing one.
 /// User must specify the log2 of the minimum required alignment for the object.
 unsigned MachineConstantPool::getConstantPoolIndex(const Constant *C,
-                                                   unsigned Alignment) {
-  assert(Alignment && "Alignment must be specified!");
+                                                   Align Alignment) {
   if (Alignment > PoolAlignment) PoolAlignment = Alignment;
 
   // Check to see if we already have this constant.
@@ -1192,7 +1186,7 @@ unsigned MachineConstantPool::getConstantPoolIndex(const Constant *C,
   for (unsigned i = 0, e = Constants.size(); i != e; ++i)
     if (!Constants[i].isMachineConstantPoolEntry() &&
         CanShareConstantPoolEntry(Constants[i].Val.ConstVal, C, DL)) {
-      if ((unsigned)Constants[i].getAlignment() < Alignment)
+      if (Constants[i].getAlign() < Alignment)
         Constants[i].Alignment = Alignment;
       return i;
     }
@@ -1202,8 +1196,7 @@ unsigned MachineConstantPool::getConstantPoolIndex(const Constant *C,
 }
 
 unsigned MachineConstantPool::getConstantPoolIndex(MachineConstantPoolValue *V,
-                                                   unsigned Alignment) {
-  assert(Alignment && "Alignment must be specified!");
+                                                   Align Alignment) {
   if (Alignment > PoolAlignment) PoolAlignment = Alignment;
 
   // Check to see if we already have this constant.
@@ -1229,7 +1222,7 @@ void MachineConstantPool::print(raw_ostream &OS) const {
       Constants[i].Val.MachineCPVal->print(OS);
     else
       Constants[i].Val.ConstVal->printAsOperand(OS, /*PrintType=*/false);
-    OS << ", align=" << Constants[i].getAlignment();
+    OS << ", align=" << Constants[i].getAlign().value();
     OS << "\n";
   }
 }

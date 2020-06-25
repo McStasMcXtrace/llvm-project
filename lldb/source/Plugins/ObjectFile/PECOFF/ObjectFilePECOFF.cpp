@@ -640,7 +640,7 @@ Symtab *ObjectFilePECOFF::GetSymtab() {
     std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
     if (m_symtab_up == nullptr) {
       SectionList *sect_list = GetSectionList();
-      m_symtab_up.reset(new Symtab(this));
+      m_symtab_up = std::make_unique<Symtab>(this);
       std::lock_guard<std::recursive_mutex> guard(m_symtab_up->GetMutex());
 
       const uint32_t num_syms = m_coff_header.nsyms;
@@ -782,6 +782,9 @@ std::unique_ptr<CallFrameInfo> ObjectFilePECOFF::CreateCallFrameInfo() {
   if (!data_dir_exception.vmaddr)
     return {};
 
+  if (m_coff_header.machine != llvm::COFF::IMAGE_FILE_MACHINE_AMD64)
+    return {};
+
   return std::make_unique<PECallFrameInfo>(*this, data_dir_exception.vmaddr,
                                            data_dir_exception.vmsize);
 }
@@ -865,7 +868,7 @@ SectionType ObjectFilePECOFF::GetSectionType(llvm::StringRef sect_name,
 void ObjectFilePECOFF::CreateSections(SectionList &unified_section_list) {
   if (m_sections_up)
     return;
-  m_sections_up.reset(new SectionList());
+  m_sections_up = std::make_unique<SectionList>();
 
   ModuleSP module_sp(GetModule());
   if (module_sp) {
@@ -966,13 +969,12 @@ uint32_t ObjectFilePECOFF::ParseDependentModules() {
 
   for (const auto &entry : COFFObj->import_directories()) {
     llvm::StringRef dll_name;
-    auto ec = entry.getName(dll_name);
     // Report a bogus entry.
-    if (ec != std::error_code()) {
+    if (llvm::Error e = entry.getName(dll_name)) {
       LLDB_LOGF(log,
                 "ObjectFilePECOFF::ParseDependentModules() - failed to get "
                 "import directory entry name: %s",
-                ec.message().c_str());
+                llvm::toString(std::move(e)).c_str());
       continue;
     }
 
@@ -1044,7 +1046,8 @@ void ObjectFilePECOFF::Dump(Stream *s) {
 
     SectionList *sections = GetSectionList();
     if (sections)
-      sections->Dump(s, nullptr, true, UINT32_MAX);
+      sections->Dump(s->AsRawOstream(), s->GetIndentLevel(), nullptr, true,
+                     UINT32_MAX);
 
     if (m_symtab_up)
       m_symtab_up->Dump(s, nullptr, eSortOrderNone);

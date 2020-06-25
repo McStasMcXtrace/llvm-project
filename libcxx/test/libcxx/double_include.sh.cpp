@@ -48,6 +48,7 @@
 #include <compare>
 #include <complex>
 #include <complex.h>
+#include <concepts>
 #include <condition_variable>
 #include <csetjmp>
 #include <csignal>
@@ -96,6 +97,7 @@
 #include <mutex>
 #endif
 #include <new>
+#include <numbers>
 #include <numeric>
 #include <optional>
 #include <ostream>

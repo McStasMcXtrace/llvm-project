@@ -538,7 +538,7 @@ void test_get_local_id(int d, global int *out)
 void test_get_workgroup_size(int d, global int *out)
 {
 	switch (d) {
-	case 0: *out = __builtin_amdgcn_workgroup_size_x(); break;
+	case 0: *out = __builtin_amdgcn_workgroup_size_x() + 1; break;
 	case 1: *out = __builtin_amdgcn_workgroup_size_y(); break;
 	case 2: *out = __builtin_amdgcn_workgroup_size_z(); break;
 	default: *out = 0;
@@ -713,6 +713,12 @@ kernel void test_mqsad_pk_u16_u8(global ulong* out, ulong src0, uint src1, ulong
 // CHECK: call <4 x i32> @llvm.amdgcn.mqsad.u32.u8(i64 %src0, i32 %src1, <4 x i32> %src2)
 kernel void test_mqsad_u32_u8(global uint4* out, ulong src0, uint src1, uint4 src2) {
   *out = __builtin_amdgcn_mqsad_u32_u8(src0, src1, src2);
+}
+
+// CHECK-LABEL: test_s_setreg(
+// CHECK: call void @llvm.amdgcn.s.setreg(i32 8193, i32 %val)
+kernel void test_s_setreg(uint val) {
+  __builtin_amdgcn_s_setreg(8193, val);
 }
 
 // CHECK-DAG: [[$WI_RANGE]] = !{i32 0, i32 1024}

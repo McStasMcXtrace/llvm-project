@@ -161,6 +161,22 @@ class 8LS_DForm_R_SI34_XT6_RA5<bits<5> opcode, dag OOL, dag IOL, string asmstr,
   let Inst{48-63} = D_RA{15-0}; // d1
 }
 
+// X-Form: [PO T IMM VRB XO TX]
+class XForm_XT6_IMM5_VB5<bits<6> opcode, bits<10> xo, dag OOL, dag IOL,
+                         string asmstr, InstrItinClass itin, list<dag> pattern>
+  : I<opcode, OOL, IOL, asmstr, itin> {
+  bits<6> XT;
+  bits<5> VRB;
+  bits<5> IMM;
+
+  let Pattern = pattern;
+  let Inst{6-10} = XT{4-0};
+  let Inst{11-15} = IMM;
+  let Inst{16-20} = VRB;
+  let Inst{21-30} = xo;
+  let Inst{31} = XT{5};
+}
+
 multiclass MLS_DForm_R_SI34_RTA5_MEM_p<bits<6> opcode, dag OOL, dag IOL,
                                        dag PCRel_IOL, string asmstr,
                                        InstrItinClass itin> {
@@ -191,6 +207,7 @@ multiclass 8LS_DForm_R_SI34_XT6_RA5_p<bits<5> opcode, dag OOL, dag IOL,
 }
 
 def PrefixInstrs : Predicate<"PPCSubTarget->hasPrefixInstrs()">;
+def IsISA3_1 : Predicate<"PPCSubTarget->isISA3_1()">;
 
 let Predicates = [PrefixInstrs] in {
   let Interpretation64Bit = 1, isCodeGenOnly = 1 in {
@@ -337,3 +354,230 @@ let Predicates = [PrefixInstrs] in {
   }
 }
 
+// TODO: We have an added complexity of 500 here. This is only a temporary
+// solution to have tablegen consider these patterns first. The way we do
+// addressing for PowerPC is complex depending on available D form, X form, or
+// aligned D form loads/stores like DS and DQ forms. The prefixed
+// instructions in this file also add additional PC Relative loads/stores
+// and D form loads/stores with 34 bit immediates. It is very difficult to force
+// instruction selection to consistently pick these first without the current
+// added complexity. Once pc-relative implementation is complete, a set of
+// follow-up patches will address this refactoring and the AddedComplexity will
+// be removed.
+let Predicates = [PCRelativeMemops], AddedComplexity = 500 in {
+  // Load i32
+  def : Pat<(i32 (zextloadi8  (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLBZpc $ga, 0)>;
+  def : Pat<(i32 (extloadi8   (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLBZpc $ga, 0)>;
+  def : Pat<(i32 (sextloadi16 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLHApc $ga, 0)>;
+  def : Pat<(i32 (zextloadi16 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLHZpc $ga, 0)>;
+  def : Pat<(i32 (extloadi16 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLHZpc $ga, 0)>;
+  def : Pat<(i32 (load (PPCmatpcreladdr pcreladdr:$ga))), (PLWZpc $ga, 0)>;
+
+  // Store i32
+  def : Pat<(truncstorei8 i32:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTBpc $RS, $ga, 0)>;
+  def : Pat<(truncstorei16 i32:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTHpc $RS, $ga, 0)>;
+  def : Pat<(store i32:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTWpc $RS, $ga, 0)>;
+
+  // Load i64
+  def : Pat<(i64 (zextloadi8  (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLBZ8pc $ga, 0)>;
+  def : Pat<(i64 (extloadi8   (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLBZ8pc $ga, 0)>;
+  def : Pat<(i64 (sextloadi16 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLHA8pc $ga, 0)>;
+  def : Pat<(i64 (zextloadi16 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLHZ8pc $ga, 0)>;
+  def : Pat<(i64 (extloadi16 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLHZ8pc $ga, 0)>;
+  def : Pat<(i64 (zextloadi32 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLWZ8pc $ga, 0)>;
+  def : Pat<(i64 (sextloadi32 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLWA8pc $ga, 0)>;
+  def : Pat<(i64 (extloadi32 (PPCmatpcreladdr pcreladdr:$ga))),
+            (PLWZ8pc $ga, 0)>;
+  def : Pat<(i64 (load (PPCmatpcreladdr pcreladdr:$ga))), (PLDpc $ga, 0)>;
+
+  // Store i64
+  def : Pat<(truncstorei8 i64:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTB8pc $RS, $ga, 0)>;
+  def : Pat<(truncstorei16 i64:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTH8pc $RS, $ga, 0)>;
+  def : Pat<(truncstorei32 i64:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTW8pc $RS, $ga, 0)>;
+  def : Pat<(store i64:$RS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTDpc $RS, $ga, 0)>;
+
+  // Load f32
+  def : Pat<(f32 (load (PPCmatpcreladdr pcreladdr:$addr))), (PLFSpc $addr, 0)>;
+
+  // Store f32
+  def : Pat<(store f32:$FRS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTFSpc $FRS, $ga, 0)>;
+
+  // Load f64
+  def : Pat<(f64 (extloadf32 (PPCmatpcreladdr pcreladdr:$addr))),
+            (COPY_TO_REGCLASS (PLFSpc $addr, 0), VSFRC)>;
+  def : Pat<(f64 (load (PPCmatpcreladdr pcreladdr:$addr))), (PLFDpc $addr, 0)>;
+
+  // Store f64
+  def : Pat<(store f64:$FRS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTFDpc $FRS, $ga, 0)>;
+
+  // Load f128
+  def : Pat<(f128 (load (PPCmatpcreladdr pcreladdr:$addr))),
+            (COPY_TO_REGCLASS (PLXVpc $addr, 0), VRRC)>;
+
+  // Store f128
+  def : Pat<(store f128:$XS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTXVpc (COPY_TO_REGCLASS $XS, VSRC), $ga, 0)>;
+
+  // Load v4i32
+  def : Pat<(v4i32 (load (PPCmatpcreladdr pcreladdr:$addr))), (PLXVpc $addr, 0)>;
+
+  // Store v4i32
+  def : Pat<(store v4i32:$XS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTXVpc $XS, $ga, 0)>;
+
+  // Load v2i64
+  def : Pat<(v2i64 (load (PPCmatpcreladdr pcreladdr:$addr))), (PLXVpc $addr, 0)>;
+
+  // Store v2i64
+  def : Pat<(store v2i64:$XS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTXVpc $XS, $ga, 0)>;
+
+  // Load v4f32
+  def : Pat<(v4f32 (load (PPCmatpcreladdr pcreladdr:$addr))), (PLXVpc $addr, 0)>;
+
+  // Store v4f32
+  def : Pat<(store v4f32:$XS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTXVpc $XS, $ga, 0)>;
+
+  // Load v2f64
+  def : Pat<(v2f64 (load (PPCmatpcreladdr pcreladdr:$addr))), (PLXVpc $addr, 0)>;
+
+  // Store v2f64
+  def : Pat<(store v2f64:$XS, (PPCmatpcreladdr pcreladdr:$ga)),
+            (PSTXVpc $XS, $ga, 0)>;
+
+  // Atomic Load
+  def : Pat<(atomic_load_8 (PPCmatpcreladdr pcreladdr:$ga)),
+            (PLBZpc $ga, 0)>;
+  def : Pat<(atomic_load_16 (PPCmatpcreladdr pcreladdr:$ga)),
+            (PLHZpc $ga, 0)>;
+  def : Pat<(atomic_load_32 (PPCmatpcreladdr pcreladdr:$ga)),
+            (PLWZpc $ga, 0)>;
+  def : Pat<(atomic_load_64 (PPCmatpcreladdr pcreladdr:$ga)),
+            (PLDpc $ga, 0)>;
+
+  // Atomic Store
+  def : Pat<(atomic_store_8 (PPCmatpcreladdr pcreladdr:$ga), i32:$RS),
+            (PSTBpc $RS, $ga, 0)>;
+  def : Pat<(atomic_store_16 (PPCmatpcreladdr pcreladdr:$ga), i32:$RS),
+            (PSTHpc $RS, $ga, 0)>;
+  def : Pat<(atomic_store_32 (PPCmatpcreladdr pcreladdr:$ga), i32:$RS),
+            (PSTWpc $RS, $ga, 0)>;
+  def : Pat<(atomic_store_8 (PPCmatpcreladdr pcreladdr:$ga), i64:$RS),
+            (PSTB8pc $RS, $ga, 0)>;
+  def : Pat<(atomic_store_16 (PPCmatpcreladdr pcreladdr:$ga), i64:$RS),
+            (PSTH8pc $RS, $ga, 0)>;
+  def : Pat<(atomic_store_32 (PPCmatpcreladdr pcreladdr:$ga), i64:$RS),
+            (PSTW8pc $RS, $ga, 0)>;
+  def : Pat<(atomic_store_64 (PPCmatpcreladdr pcreladdr:$ga), i64:$RS),
+            (PSTDpc $RS, $ga, 0)>;
+
+  // Special Cases For PPCstore_scal_int_from_vsr
+  def : Pat<(PPCstore_scal_int_from_vsr
+              (f64 (PPCcv_fp_to_sint_in_vsr f64:$src)),
+              (PPCmatpcreladdr pcreladdr:$dst), 8),
+            (PSTXSDpc (XSCVDPSXDS f64:$src), $dst, 0)>;
+  def : Pat<(PPCstore_scal_int_from_vsr
+              (f64 (PPCcv_fp_to_sint_in_vsr f128:$src)),
+              (PPCmatpcreladdr pcreladdr:$dst), 8),
+            (PSTXSDpc (COPY_TO_REGCLASS (XSCVQPSDZ f128:$src), VFRC), $dst, 0)>;
+
+  def : Pat<(PPCstore_scal_int_from_vsr
+              (f64 (PPCcv_fp_to_uint_in_vsr f64:$src)),
+              (PPCmatpcreladdr pcreladdr:$dst), 8),
+            (PSTXSDpc (XSCVDPUXDS f64:$src), $dst, 0)>;
+  def : Pat<(PPCstore_scal_int_from_vsr
+              (f64 (PPCcv_fp_to_uint_in_vsr f128:$src)),
+              (PPCmatpcreladdr pcreladdr:$dst), 8),
+            (PSTXSDpc (COPY_TO_REGCLASS (XSCVQPUDZ f128:$src), VFRC), $dst, 0)>;
+
+  // If the PPCmatpcreladdr node is not caught by any other pattern it should be
+  // caught here and turned into a paddi instruction to materialize the address.
+  def : Pat<(PPCmatpcreladdr pcreladdr:$addr), (PADDI8pc 0, $addr)>;
+}
+
+let Predicates = [IsISA3_1] in {
+   def VPDEPD : VXForm_1<1485, (outs vrrc:$vD), (ins vrrc:$vA, vrrc:$vB),
+                         "vpdepd $vD, $vA, $vB", IIC_VecGeneral,
+                         [(set v2i64:$vD,
+                         (int_ppc_altivec_vpdepd v2i64:$vA, v2i64:$vB))]>;
+   def VPEXTD : VXForm_1<1421, (outs vrrc:$vD), (ins vrrc:$vA, vrrc:$vB),
+                         "vpextd $vD, $vA, $vB", IIC_VecGeneral,
+                         [(set v2i64:$vD,
+                         (int_ppc_altivec_vpextd v2i64:$vA, v2i64:$vB))]>;
+   def PDEPD : XForm_6<31, 156, (outs g8rc:$rA), (ins g8rc:$rS, g8rc:$rB),
+                       "pdepd $rA, $rS, $rB", IIC_IntGeneral,
+                       [(set i64:$rA, (int_ppc_pdepd i64:$rS, i64:$rB))]>;
+   def PEXTD : XForm_6<31, 188, (outs g8rc:$rA), (ins g8rc:$rS, g8rc:$rB),
+                       "pextd $rA, $rS, $rB", IIC_IntGeneral,
+                       [(set i64:$rA, (int_ppc_pextd i64:$rS, i64:$rB))]>;
+   def VCLZDM : VXForm_1<1924, (outs vrrc:$vD), (ins vrrc:$vA, vrrc:$vB),
+                         "vclzdm $vD, $vA, $vB", IIC_VecGeneral,
+                         [(set v2i64:$vD,
+                         (int_ppc_altivec_vclzdm v2i64:$vA, v2i64:$vB))]>;
+   def VCTZDM : VXForm_1<1988, (outs vrrc:$vD), (ins vrrc:$vA, vrrc:$vB),
+                         "vctzdm $vD, $vA, $vB", IIC_VecGeneral,
+                         [(set v2i64:$vD,
+                         (int_ppc_altivec_vctzdm v2i64:$vA, v2i64:$vB))]>;
+   def CNTLZDM : XForm_6<31, 59, (outs g8rc:$rA), (ins g8rc:$rS, g8rc:$rB),
+                         "cntlzdm $rA, $rS, $rB", IIC_IntGeneral,
+                         [(set i64:$rA,
+                         (int_ppc_cntlzdm i64:$rS, i64:$rB))]>;
+   def CNTTZDM : XForm_6<31, 571, (outs g8rc:$rA), (ins g8rc:$rS, g8rc:$rB),
+                         "cnttzdm $rA, $rS, $rB", IIC_IntGeneral,
+                         [(set i64:$rA,
+                         (int_ppc_cnttzdm i64:$rS, i64:$rB))]>;
+   def XXGENPCVBM :
+     XForm_XT6_IMM5_VB5<60, 916, (outs vsrc:$XT), (ins vrrc:$VRB, s5imm:$IMM),
+                        "xxgenpcvbm $XT, $VRB, $IMM", IIC_VecGeneral, []>;
+   def XXGENPCVHM :
+     XForm_XT6_IMM5_VB5<60, 917, (outs vsrc:$XT), (ins vrrc:$VRB, s5imm:$IMM),
+                        "xxgenpcvhm $XT, $VRB, $IMM", IIC_VecGeneral, []>;
+   def XXGENPCVWM :
+     XForm_XT6_IMM5_VB5<60, 948, (outs vsrc:$XT), (ins vrrc:$VRB, s5imm:$IMM),
+                        "xxgenpcvwm $XT, $VRB, $IMM", IIC_VecGeneral, []>;
+   def XXGENPCVDM :
+     XForm_XT6_IMM5_VB5<60, 949, (outs vsrc:$XT), (ins vrrc:$VRB, s5imm:$IMM),
+                        "xxgenpcvdm $XT, $VRB, $IMM", IIC_VecGeneral, []>;
+   def VCLRLB : VXForm_1<397, (outs vrrc:$vD), (ins vrrc:$vA, gprc:$rB),
+                         "vclrlb $vD, $vA, $rB", IIC_VecGeneral,
+                         [(set v16i8:$vD,
+                               (int_ppc_altivec_vclrlb v16i8:$vA, i32:$rB))]>;
+   def VCLRRB : VXForm_1<461, (outs vrrc:$vD), (ins vrrc:$vA, gprc:$rB),
+                         "vclrrb $vD, $vA, $rB", IIC_VecGeneral,
+                         [(set v16i8:$vD,
+                               (int_ppc_altivec_vclrrb v16i8:$vA, i32:$rB))]>;
+}
+
+//---------------------------- Anonymous Patterns ----------------------------//
+let Predicates = [IsISA3_1] in {
+  def : Pat<(v16i8 (int_ppc_vsx_xxgenpcvbm v16i8:$VRB, imm:$IMM)),
+            (v16i8 (COPY_TO_REGCLASS (XXGENPCVBM $VRB, imm:$IMM), VRRC))>;
+  def : Pat<(v8i16 (int_ppc_vsx_xxgenpcvhm v8i16:$VRB, imm:$IMM)),
+            (v8i16 (COPY_TO_REGCLASS (XXGENPCVHM $VRB, imm:$IMM), VRRC))>;
+  def : Pat<(v4i32 (int_ppc_vsx_xxgenpcvwm v4i32:$VRB, imm:$IMM)),
+            (v4i32 (COPY_TO_REGCLASS (XXGENPCVWM $VRB, imm:$IMM), VRRC))>;
+  def : Pat<(v2i64 (int_ppc_vsx_xxgenpcvdm v2i64:$VRB, imm:$IMM)),
+            (v2i64 (COPY_TO_REGCLASS (XXGENPCVDM $VRB, imm:$IMM), VRRC))>;
+}

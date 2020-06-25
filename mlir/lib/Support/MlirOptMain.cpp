@@ -40,7 +40,14 @@ static LogicalResult performActions(raw_ostream &os, bool verifyDiagnostics,
                                     bool verifyPasses, SourceMgr &sourceMgr,
                                     MLIRContext *context,
                                     const PassPipelineCLParser &passPipeline) {
+  // Disable multi-threading when parsing the input file. This removes the
+  // unnecessary/costly context synchronization when parsing.
+  bool wasThreadingEnabled = context->isMultithreadingEnabled();
+  context->disableMultithreading();
+
+  // Parse the input file and reset the context threading state.
   OwningModuleRef module(parseSourceFile(sourceMgr, context));
+  context->enableMultithreading(wasThreadingEnabled);
   if (!module)
     return failure();
 
@@ -76,6 +83,7 @@ static LogicalResult processBuffer(raw_ostream &os,
   // Parse the input file.
   MLIRContext context;
   context.allowUnregisteredDialects(allowUnregisteredDialects);
+  context.printOpOnDiagnostic(!verifyDiagnostics);
 
   // If we are in verify diagnostics mode then we have a lot of work to do,
   // otherwise just perform the actions without worrying about it.

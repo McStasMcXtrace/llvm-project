@@ -110,6 +110,7 @@ struct Configuration {
   bool showSummary = false;
   unsigned debugTypes = static_cast<unsigned>(DebugType::None);
   std::vector<std::string> natvisFiles;
+  llvm::StringMap<std::string> namedStreams;
   llvm::SmallString<128> pdbAltPath;
   llvm::SmallString<128> pdbPath;
   llvm::SmallString<128> pdbSourcePath;
@@ -234,6 +235,8 @@ struct Configuration {
   bool swaprunNet = false;
   bool thinLTOEmitImportsFiles;
   bool thinLTOIndexOnly;
+  bool autoImport = false;
+  bool pseudoRelocs = false;
 };
 
 extern Configuration *config;

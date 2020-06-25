@@ -109,9 +109,9 @@ define i1 @caller.zext() {
 ; x = [100, 301)
 define internal i1 @f.sext(i32 %x, i32 %y) {
 ; CHECK-LABEL: define internal i1 @f.sext(i32 %x, i32 %y) {
-; CHECK-NEXT:    %t.1 = sext i32 %x to i64
-; CHECK-NEXT:    %c.2 = icmp sgt i64 %t.1, 299
-; CHECK-NEXT:    %c.4 = icmp slt i64 %t.1, 101
+; CHECK-NEXT:    [[T_1:%.*]] = zext i32 %x to i64
+; CHECK-NEXT:    %c.2 = icmp sgt i64 [[T_1]], 299
+; CHECK-NEXT:    %c.4 = icmp slt i64 [[T_1]], 101
 ; CHECK-NEXT:    %res.1 = add i1 false, %c.2
 ; CHECK-NEXT:    %res.2 = add i1 %res.1, false
 ; CHECK-NEXT:    %res.3 = add i1 %res.2, %c.4
@@ -293,4 +293,21 @@ define i1 @int_range_to_double_cast(i32 %a) {
   %tmp10 = fadd double 0.000000e+00, %tmp4
   %tmp11 = fcmp olt double %tmp4, %tmp10
   ret i1 %tmp11
+}
+
+; Make sure we do not use ranges to propagate info from vectors.
+define i16 @vector_binop_and_cast() {
+; CHECK-LABEL: define i16 @vector_binop_and_cast(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    %vecinit7 = insertelement <8 x i16> <i16 undef, i16 1, i16 2, i16 3, i16 4, i16 5, i16 6, i16 7>, i16 undef, i32 0
+; CHECK-NEXT:    %rem = srem <8 x i16> <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>, %vecinit7
+; CHECK-NEXT:    %0 = bitcast <8 x i16> %rem to i128
+; CHECK-NEXT:    %1 = trunc i128 %0 to i16
+; CHECK-NEXT:    ret i16 %1
+entry:
+  %vecinit7 = insertelement <8 x i16> <i16 undef, i16 1, i16 2, i16 3, i16 4, i16 5, i16 6, i16 7>, i16 undef, i32 0
+  %rem = srem <8 x i16> <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>, %vecinit7
+  %0 = bitcast <8 x i16> %rem to i128
+  %1 = trunc i128 %0 to i16
+  ret i16 %1
 }

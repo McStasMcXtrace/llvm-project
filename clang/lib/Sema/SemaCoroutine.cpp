@@ -24,6 +24,7 @@
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
+#include "llvm/ADT/SmallSet.h"
 
 using namespace clang;
 using namespace sema;
@@ -502,8 +503,9 @@ VarDecl *Sema::buildCoroutinePromise(SourceLocation Loc) {
     return nullptr;
 
   auto *ScopeInfo = getCurFunction();
-  // Build a list of arguments, based on the coroutine functions arguments,
-  // that will be passed to the promise type's constructor.
+
+  // Build a list of arguments, based on the coroutine function's arguments,
+  // that if present will be passed to the promise type's constructor.
   llvm::SmallVector<Expr *, 4> CtorArgExprs;
 
   // Add implicit object parameter.
@@ -519,6 +521,7 @@ VarDecl *Sema::buildCoroutinePromise(SourceLocation Loc) {
     }
   }
 
+  // Add the coroutine function's parameters.
   auto &Moves = ScopeInfo->CoroutineParameterMoves;
   for (auto *PD : FD->parameters()) {
     if (PD->getType()->isDependentType())
@@ -540,28 +543,33 @@ VarDecl *Sema::buildCoroutinePromise(SourceLocation Loc) {
     CtorArgExprs.push_back(RefExpr.get());
   }
 
-  // Create an initialization sequence for the promise type using the
-  // constructor arguments, wrapped in a parenthesized list expression.
-  Expr *PLE = ParenListExpr::Create(Context, FD->getLocation(),
-                                    CtorArgExprs, FD->getLocation());
-  InitializedEntity Entity = InitializedEntity::InitializeVariable(VD);
-  InitializationKind Kind = InitializationKind::CreateForInit(
-      VD->getLocation(), /*DirectInit=*/true, PLE);
-  InitializationSequence InitSeq(*this, Entity, Kind, CtorArgExprs,
-                                 /*TopLevelOfInitList=*/false,
-                                 /*TreatUnavailableAsInvalid=*/false);
+  // If we have a non-zero number of constructor arguments, try to use them.
+  // Otherwise, fall back to the promise type's default constructor.
+  if (!CtorArgExprs.empty()) {
+    // Create an initialization sequence for the promise type using the
+    // constructor arguments, wrapped in a parenthesized list expression.
+    Expr *PLE = ParenListExpr::Create(Context, FD->getLocation(),
+                                      CtorArgExprs, FD->getLocation());
+    InitializedEntity Entity = InitializedEntity::InitializeVariable(VD);
+    InitializationKind Kind = InitializationKind::CreateForInit(
+        VD->getLocation(), /*DirectInit=*/true, PLE);
+    InitializationSequence InitSeq(*this, Entity, Kind, CtorArgExprs,
+                                   /*TopLevelOfInitList=*/false,
+                                   /*TreatUnavailableAsInvalid=*/false);
 
-  // Attempt to initialize the promise type with the arguments.
-  // If that fails, fall back to the promise type's default constructor.
-  if (InitSeq) {
-    ExprResult Result = InitSeq.Perform(*this, Entity, Kind, CtorArgExprs);
-    if (Result.isInvalid()) {
-      VD->setInvalidDecl();
-    } else if (Result.get()) {
-      VD->setInit(MaybeCreateExprWithCleanups(Result.get()));
-      VD->setInitStyle(VarDecl::CallInit);
-      CheckCompleteVariableDeclaration(VD);
-    }
+    // Attempt to initialize the promise type with the arguments.
+    // If that fails, fall back to the promise type's default constructor.
+    if (InitSeq) {
+      ExprResult Result = InitSeq.Perform(*this, Entity, Kind, CtorArgExprs);
+      if (Result.isInvalid()) {
+        VD->setInvalidDecl();
+      } else if (Result.get()) {
+        VD->setInit(MaybeCreateExprWithCleanups(Result.get()));
+        VD->setInitStyle(VarDecl::CallInit);
+        CheckCompleteVariableDeclaration(VD);
+      }
+    } else
+      ActOnUninitializedDecl(VD);
   } else
     ActOnUninitializedDecl(VD);
 
@@ -595,6 +603,72 @@ static FunctionScopeInfo *checkCoroutineContext(Sema &S, SourceLocation Loc,
     return nullptr;
 
   return ScopeInfo;
+}
+
+/// Recursively check \p E and all its children to see if any call target
+/// (including constructor call) is declared noexcept. Also any value returned
+/// from the call has a noexcept destructor.
+static void checkNoThrow(Sema &S, const Stmt *E,
+                         llvm::SmallPtrSetImpl<const Decl *> &ThrowingDecls) {
+  auto checkDeclNoexcept = [&](const Decl *D, bool IsDtor = false) {
+    // In the case of dtor, the call to dtor is implicit and hence we should
+    // pass nullptr to canCalleeThrow.
+    if (Sema::canCalleeThrow(S, IsDtor ? nullptr : cast<Expr>(E), D)) {
+      if (ThrowingDecls.empty()) {
+        // First time seeing an error, emit the error message.
+        S.Diag(cast<FunctionDecl>(S.CurContext)->getLocation(),
+               diag::err_coroutine_promise_final_suspend_requires_nothrow);
+      }
+      ThrowingDecls.insert(D);
+    }
+  };
+  auto SC = E->getStmtClass();
+  if (SC == Expr::CXXConstructExprClass) {
+    auto const *Ctor = cast<CXXConstructExpr>(E)->getConstructor();
+    checkDeclNoexcept(Ctor);
+    // Check the corresponding destructor of the constructor.
+    checkDeclNoexcept(Ctor->getParent()->getDestructor(), true);
+  } else if (SC == Expr::CallExprClass || SC == Expr::CXXMemberCallExprClass ||
+             SC == Expr::CXXOperatorCallExprClass) {
+    if (!cast<CallExpr>(E)->isTypeDependent()) {
+      // FIXME: Handle dependent types.
+      checkDeclNoexcept(cast<CallExpr>(E)->getCalleeDecl());
+      auto ReturnType = cast<CallExpr>(E)->getCallReturnType(S.getASTContext());
+      // Check the destructor of the call return type, if any.
+      if (ReturnType.isDestructedType() ==
+          QualType::DestructionKind::DK_cxx_destructor) {
+        const auto *T =
+            cast<RecordType>(ReturnType.getCanonicalType().getTypePtr());
+        checkDeclNoexcept(
+            dyn_cast<CXXRecordDecl>(T->getDecl())->getDestructor(), true);
+      }
+    }
+  }
+  for (const auto *Child : E->children()) {
+    if (!Child)
+      continue;
+    checkNoThrow(S, Child, ThrowingDecls);
+  }
+}
+
+/// Check that the expression co_await promise.final_suspend() shall not be
+/// potentially-throwing.
+static bool checkNoThrow(Sema &S, const Stmt *FinalSuspend) {
+  llvm::SmallPtrSet<const Decl *, 4> ThrowingDecls;
+  // We first collect all declarations that should not throw but not declared
+  // with noexcept. We then sort them based on the location before printing.
+  // This is to avoid emitting the same note multiple times on the same
+  // declaration, and also provide a deterministic order for the messages.
+  checkNoThrow(S, FinalSuspend, ThrowingDecls);
+  auto SortedDecls = llvm::SmallVector<const Decl *, 4>{ThrowingDecls.begin(),
+                                                        ThrowingDecls.end()};
+  sort(SortedDecls, [](const Decl *A, const Decl *B) {
+    return A->getEndLoc() < B->getEndLoc();
+  });
+  for (const auto *D : SortedDecls) {
+    S.Diag(D->getEndLoc(), diag::note_coroutine_function_declare_noexcept);
+  }
+  return ThrowingDecls.empty();
 }
 
 bool Sema::ActOnCoroutineBodyStart(Scope *SC, SourceLocation KWLoc,
@@ -639,7 +713,7 @@ bool Sema::ActOnCoroutineBodyStart(Scope *SC, SourceLocation KWLoc,
     return true;
 
   StmtResult FinalSuspend = buildSuspends("final_suspend");
-  if (FinalSuspend.isInvalid())
+  if (FinalSuspend.isInvalid() || !checkNoThrow(*this, FinalSuspend.get()))
     return true;
 
   ScopeInfo->setCoroutineSuspends(InitSuspend.get(), FinalSuspend.get());

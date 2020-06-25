@@ -51,8 +51,7 @@ unsigned Sema::getTemplateDepth(Scope *S) const {
 
   // Each template parameter scope represents one level of template parameter
   // depth.
-  for (Scope *TempParamScope = S->getTemplateParamParent();
-       TempParamScope && !Depth;
+  for (Scope *TempParamScope = S->getTemplateParamParent(); TempParamScope;
        TempParamScope = TempParamScope->getParent()->getTemplateParamParent()) {
     ++Depth;
   }
@@ -485,7 +484,7 @@ bool Sema::LookupTemplateName(LookupResult &Found,
     // all language modes, and diagnose the empty lookup in ActOnCallExpr if we
     // successfully form a call to an undeclared template-id.
     bool AllFunctions =
-        getLangOpts().CPlusPlus2a &&
+        getLangOpts().CPlusPlus20 &&
         std::all_of(Found.begin(), Found.end(), [](NamedDecl *ND) {
           return isa<FunctionDecl>(ND->getUnderlyingDecl());
         });
@@ -1947,16 +1946,46 @@ namespace {
 /// constructor to a deduction guide.
 class ExtractTypeForDeductionGuide
   : public TreeTransform<ExtractTypeForDeductionGuide> {
+  llvm::SmallVectorImpl<TypedefNameDecl *> &MaterializedTypedefs;
+
 public:
   typedef TreeTransform<ExtractTypeForDeductionGuide> Base;
-  ExtractTypeForDeductionGuide(Sema &SemaRef) : Base(SemaRef) {}
+  ExtractTypeForDeductionGuide(
+      Sema &SemaRef,
+      llvm::SmallVectorImpl<TypedefNameDecl *> &MaterializedTypedefs)
+      : Base(SemaRef), MaterializedTypedefs(MaterializedTypedefs) {}
 
   TypeSourceInfo *transform(TypeSourceInfo *TSI) { return TransformType(TSI); }
 
   QualType TransformTypedefType(TypeLocBuilder &TLB, TypedefTypeLoc TL) {
-    return TransformType(
-        TLB,
-        TL.getTypedefNameDecl()->getTypeSourceInfo()->getTypeLoc());
+    ASTContext &Context = SemaRef.getASTContext();
+    TypedefNameDecl *OrigDecl = TL.getTypedefNameDecl();
+    TypeLocBuilder InnerTLB;
+    QualType Transformed =
+        TransformType(InnerTLB, OrigDecl->getTypeSourceInfo()->getTypeLoc());
+    TypeSourceInfo *TSI =
+        TransformType(InnerTLB.getTypeSourceInfo(Context, Transformed));
+
+    TypedefNameDecl *Decl = nullptr;
+
+    if (isa<TypeAliasDecl>(OrigDecl))
+      Decl = TypeAliasDecl::Create(
+          Context, Context.getTranslationUnitDecl(), OrigDecl->getBeginLoc(),
+          OrigDecl->getLocation(), OrigDecl->getIdentifier(), TSI);
+    else {
+      assert(isa<TypedefDecl>(OrigDecl) && "Not a Type alias or typedef");
+      Decl = TypedefDecl::Create(
+          Context, Context.getTranslationUnitDecl(), OrigDecl->getBeginLoc(),
+          OrigDecl->getLocation(), OrigDecl->getIdentifier(), TSI);
+    }
+
+    MaterializedTypedefs.push_back(Decl);
+
+    QualType TDTy = Context.getTypedefType(Decl);
+    TypedefTypeLoc TypedefTL = TLB.push<TypedefTypeLoc>(TDTy);
+    TypedefTL.setNameLoc(TL.getNameLoc());
+
+    return TDTy;
   }
 };
 
@@ -2008,6 +2037,7 @@ struct ConvertConstructorToDeductionGuideTransform {
       // a list of substituted template arguments as we go.
       for (NamedDecl *Param : *InnerParams) {
         MultiLevelTemplateArgumentList Args;
+        Args.setKind(TemplateSubstitutionKind::Rewrite);
         Args.addOuterTemplateArguments(SubstArgs);
         Args.addOuterRetainedLevel();
         NamedDecl *NewParam = transformTemplateParameter(Param, Args);
@@ -2027,6 +2057,7 @@ struct ConvertConstructorToDeductionGuideTransform {
     // substitute references to the old parameters into references to the
     // new ones.
     MultiLevelTemplateArgumentList Args;
+    Args.setKind(TemplateSubstitutionKind::Rewrite);
     if (FTD) {
       Args.addOuterTemplateArguments(SubstArgs);
       Args.addOuterRetainedLevel();
@@ -2041,14 +2072,16 @@ struct ConvertConstructorToDeductionGuideTransform {
     // new ones.
     TypeLocBuilder TLB;
     SmallVector<ParmVarDecl*, 8> Params;
-    QualType NewType = transformFunctionProtoType(TLB, FPTL, Params, Args);
+    SmallVector<TypedefNameDecl *, 4> MaterializedTypedefs;
+    QualType NewType = transformFunctionProtoType(TLB, FPTL, Params, Args,
+                                                  MaterializedTypedefs);
     if (NewType.isNull())
       return nullptr;
     TypeSourceInfo *NewTInfo = TLB.getTypeSourceInfo(SemaRef.Context, NewType);
 
     return buildDeductionGuide(TemplateParams, CD->getExplicitSpecifier(),
                                NewTInfo, CD->getBeginLoc(), CD->getLocation(),
-                               CD->getEndLoc());
+                               CD->getEndLoc(), MaterializedTypedefs);
   }
 
   /// Build a deduction guide with the specified parameter types.
@@ -2143,16 +2176,18 @@ private:
     return NewParam;
   }
 
-  QualType transformFunctionProtoType(TypeLocBuilder &TLB,
-                                      FunctionProtoTypeLoc TL,
-                                      SmallVectorImpl<ParmVarDecl*> &Params,
-                                      MultiLevelTemplateArgumentList &Args) {
+  QualType transformFunctionProtoType(
+      TypeLocBuilder &TLB, FunctionProtoTypeLoc TL,
+      SmallVectorImpl<ParmVarDecl *> &Params,
+      MultiLevelTemplateArgumentList &Args,
+      SmallVectorImpl<TypedefNameDecl *> &MaterializedTypedefs) {
     SmallVector<QualType, 4> ParamTypes;
     const FunctionProtoType *T = TL.getTypePtr();
 
     //    -- The types of the function parameters are those of the constructor.
     for (auto *OldParam : TL.getParams()) {
-      ParmVarDecl *NewParam = transformFunctionTypeParam(OldParam, Args);
+      ParmVarDecl *NewParam =
+          transformFunctionTypeParam(OldParam, Args, MaterializedTypedefs);
       if (!NewParam)
         return QualType();
       ParamTypes.push_back(NewParam->getType());
@@ -2194,9 +2229,9 @@ private:
     return Result;
   }
 
-  ParmVarDecl *
-  transformFunctionTypeParam(ParmVarDecl *OldParam,
-                             MultiLevelTemplateArgumentList &Args) {
+  ParmVarDecl *transformFunctionTypeParam(
+      ParmVarDecl *OldParam, MultiLevelTemplateArgumentList &Args,
+      llvm::SmallVectorImpl<TypedefNameDecl *> &MaterializedTypedefs) {
     TypeSourceInfo *OldDI = OldParam->getTypeSourceInfo();
     TypeSourceInfo *NewDI;
     if (auto PackTL = OldDI->getTypeLoc().getAs<PackExpansionTypeLoc>()) {
@@ -2219,7 +2254,8 @@ private:
     // members of the current instantiations with the definitions of those
     // typedefs, avoiding triggering instantiation of the deduced type during
     // deduction.
-    NewDI = ExtractTypeForDeductionGuide(SemaRef).transform(NewDI);
+    NewDI = ExtractTypeForDeductionGuide(SemaRef, MaterializedTypedefs)
+                .transform(NewDI);
 
     // Resolving a wording defect, we also inherit default arguments from the
     // constructor.
@@ -2250,10 +2286,11 @@ private:
     return NewParam;
   }
 
-  NamedDecl *buildDeductionGuide(TemplateParameterList *TemplateParams,
-                                 ExplicitSpecifier ES, TypeSourceInfo *TInfo,
-                                 SourceLocation LocStart, SourceLocation Loc,
-                                 SourceLocation LocEnd) {
+  FunctionTemplateDecl *buildDeductionGuide(
+      TemplateParameterList *TemplateParams, ExplicitSpecifier ES,
+      TypeSourceInfo *TInfo, SourceLocation LocStart, SourceLocation Loc,
+      SourceLocation LocEnd,
+      llvm::ArrayRef<TypedefNameDecl *> MaterializedTypedefs = {}) {
     DeclarationNameInfo Name(DeductionGuideName, Loc);
     ArrayRef<ParmVarDecl *> Params =
         TInfo->getTypeLoc().castAs<FunctionProtoTypeLoc>().getParams();
@@ -2267,6 +2304,8 @@ private:
 
     for (auto *Param : Params)
       Param->setDeclContext(Guide);
+    for (auto *TD : MaterializedTypedefs)
+      TD->setDeclContext(Guide);
 
     auto *GuideTemplate = FunctionTemplateDecl::Create(
         SemaRef.Context, DC, Loc, DeductionGuideName, TemplateParams, Guide);
@@ -3520,9 +3559,8 @@ QualType Sema::CheckTemplateIdType(TemplateName Name,
     // Only substitute for the innermost template argument list.
     MultiLevelTemplateArgumentList TemplateArgLists;
     TemplateArgLists.addOuterTemplateArguments(&StackTemplateArgs);
-    unsigned Depth = AliasTemplate->getTemplateParameters()->getDepth();
-    for (unsigned I = 0; I < Depth; ++I)
-      TemplateArgLists.addOuterTemplateArguments(None);
+    TemplateArgLists.addOuterRetainedLevels(
+        AliasTemplate->getTemplateParameters()->getDepth());
 
     LocalInstantiationScope Scope(*this);
     InstantiatingTemplate Inst(*this, TemplateLoc, Template);
@@ -4168,7 +4206,7 @@ DeclResult Sema::ActOnVarTemplateSpecialization(
 
     if (isSameAsPrimaryTemplate(VarTemplate->getTemplateParameters(),
                                 Converted) &&
-        (!Context.getLangOpts().CPlusPlus2a ||
+        (!Context.getLangOpts().CPlusPlus20 ||
          !TemplateParams->hasAssociatedConstraints())) {
       // C++ [temp.class.spec]p9b3:
       //
@@ -5867,6 +5905,11 @@ bool UnnamedLocalNoLinkageFinder::VisitDependentSizedExtVectorType(
   return Visit(T->getElementType());
 }
 
+bool UnnamedLocalNoLinkageFinder::VisitDependentSizedMatrixType(
+    const DependentSizedMatrixType *T) {
+  return Visit(T->getElementType());
+}
+
 bool UnnamedLocalNoLinkageFinder::VisitDependentAddressSpaceType(
     const DependentAddressSpaceType *T) {
   return Visit(T->getPointeeType());
@@ -5882,6 +5925,11 @@ bool UnnamedLocalNoLinkageFinder::VisitDependentVectorType(
 }
 
 bool UnnamedLocalNoLinkageFinder::VisitExtVectorType(const ExtVectorType* T) {
+  return Visit(T->getElementType());
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitConstantMatrixType(
+    const ConstantMatrixType *T) {
   return Visit(T->getElementType());
 }
 
@@ -5995,6 +6043,15 @@ bool UnnamedLocalNoLinkageFinder::VisitAtomicType(const AtomicType* T) {
 }
 
 bool UnnamedLocalNoLinkageFinder::VisitPipeType(const PipeType* T) {
+  return false;
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitExtIntType(const ExtIntType *T) {
+  return false;
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitDependentExtIntType(
+    const DependentExtIntType *T) {
   return false;
 }
 
@@ -6331,8 +6388,11 @@ CheckTemplateArgumentAddressOfObjectOrFunction(Sema &S,
       Arg = subst->getReplacement()->IgnoreImpCasts();
   }
 
-  DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Arg);
-  ValueDecl *Entity = DRE ? DRE->getDecl() : nullptr;
+  ValueDecl *Entity = nullptr;
+  if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Arg))
+    Entity = DRE->getDecl();
+  else if (CXXUuidofExpr *CUE = dyn_cast<CXXUuidofExpr>(Arg))
+    Entity = CUE->getGuidDecl();
 
   // If our parameter has pointer type, check for a null template value.
   if (ParamType->isPointerType() || ParamType->isNullPtrType()) {
@@ -6359,16 +6419,7 @@ CheckTemplateArgumentAddressOfObjectOrFunction(Sema &S,
     return false;
   }
 
-  if (isa<CXXUuidofExpr>(Arg)) {
-    if (CheckTemplateArgumentIsCompatibleWithParameter(S, Param, ParamType,
-                                                       ArgIn, Arg, ArgType))
-      return true;
-
-    Converted = TemplateArgument(ArgIn);
-    return false;
-  }
-
-  if (!DRE) {
+  if (!Entity) {
     S.Diag(Arg->getBeginLoc(), diag::err_template_arg_not_decl_ref)
         << Arg->getSourceRange();
     S.Diag(Param->getLocation(), diag::note_template_param_here);
@@ -6395,13 +6446,14 @@ CheckTemplateArgumentAddressOfObjectOrFunction(Sema &S,
 
   FunctionDecl *Func = dyn_cast<FunctionDecl>(Entity);
   VarDecl *Var = dyn_cast<VarDecl>(Entity);
+  MSGuidDecl *Guid = dyn_cast<MSGuidDecl>(Entity);
 
   // A non-type template argument must refer to an object or function.
-  if (!Func && !Var) {
+  if (!Func && !Var && !Guid) {
     // We found something, but we don't know specifically what it is.
     S.Diag(Arg->getBeginLoc(), diag::err_template_arg_not_object_or_func)
         << Arg->getSourceRange();
-    S.Diag(DRE->getDecl()->getLocation(), diag::note_template_arg_refers_here);
+    S.Diag(Entity->getLocation(), diag::note_template_arg_refers_here);
     return true;
   }
 
@@ -6422,30 +6474,7 @@ CheckTemplateArgumentAddressOfObjectOrFunction(Sema &S,
     return true;
   }
 
-  if (Func) {
-    // If the template parameter has pointer type, the function decays.
-    if (ParamType->isPointerType() && !AddressTaken)
-      ArgType = S.Context.getPointerType(Func->getType());
-    else if (AddressTaken && ParamType->isReferenceType()) {
-      // If we originally had an address-of operator, but the
-      // parameter has reference type, complain and (if things look
-      // like they will work) drop the address-of operator.
-      if (!S.Context.hasSameUnqualifiedType(Func->getType(),
-                                            ParamType.getNonReferenceType())) {
-        S.Diag(AddrOpLoc, diag::err_template_arg_address_of_non_pointer)
-          << ParamType;
-        S.Diag(Param->getLocation(), diag::note_template_param_here);
-        return true;
-      }
-
-      S.Diag(AddrOpLoc, diag::err_template_arg_address_of_non_pointer)
-        << ParamType
-        << FixItHint::CreateRemoval(AddrOpLoc);
-      S.Diag(Param->getLocation(), diag::note_template_param_here);
-
-      ArgType = Func->getType();
-    }
-  } else {
+  if (Var) {
     // A value of reference type is not an object.
     if (Var->getType()->isReferenceType()) {
       S.Diag(Arg->getBeginLoc(), diag::err_template_arg_reference_var)
@@ -6461,50 +6490,53 @@ CheckTemplateArgumentAddressOfObjectOrFunction(Sema &S,
       S.Diag(Var->getLocation(), diag::note_template_arg_refers_here);
       return true;
     }
+  }
 
-    // If the template parameter has pointer type, we must have taken
-    // the address of this object.
-    if (ParamType->isReferenceType()) {
-      if (AddressTaken) {
-        // If we originally had an address-of operator, but the
-        // parameter has reference type, complain and (if things look
-        // like they will work) drop the address-of operator.
-        if (!S.Context.hasSameUnqualifiedType(Var->getType(),
-                                            ParamType.getNonReferenceType())) {
-          S.Diag(AddrOpLoc, diag::err_template_arg_address_of_non_pointer)
-            << ParamType;
-          S.Diag(Param->getLocation(), diag::note_template_param_here);
-          return true;
-        }
+  if (AddressTaken && ParamType->isReferenceType()) {
+    // If we originally had an address-of operator, but the
+    // parameter has reference type, complain and (if things look
+    // like they will work) drop the address-of operator.
+    if (!S.Context.hasSameUnqualifiedType(Entity->getType(),
+                                          ParamType.getNonReferenceType())) {
+      S.Diag(AddrOpLoc, diag::err_template_arg_address_of_non_pointer)
+        << ParamType;
+      S.Diag(Param->getLocation(), diag::note_template_param_here);
+      return true;
+    }
 
-        S.Diag(AddrOpLoc, diag::err_template_arg_address_of_non_pointer)
-          << ParamType
-          << FixItHint::CreateRemoval(AddrOpLoc);
-        S.Diag(Param->getLocation(), diag::note_template_param_here);
+    S.Diag(AddrOpLoc, diag::err_template_arg_address_of_non_pointer)
+      << ParamType
+      << FixItHint::CreateRemoval(AddrOpLoc);
+    S.Diag(Param->getLocation(), diag::note_template_param_here);
 
-        ArgType = Var->getType();
-      }
-    } else if (!AddressTaken && ParamType->isPointerType()) {
-      if (Var->getType()->isArrayType()) {
-        // Array-to-pointer decay.
-        ArgType = S.Context.getArrayDecayedType(Var->getType());
-      } else {
-        // If the template parameter has pointer type but the address of
-        // this object was not taken, complain and (possibly) recover by
-        // taking the address of the entity.
-        ArgType = S.Context.getPointerType(Var->getType());
-        if (!S.Context.hasSameUnqualifiedType(ArgType, ParamType)) {
-          S.Diag(Arg->getBeginLoc(), diag::err_template_arg_not_address_of)
-              << ParamType;
-          S.Diag(Param->getLocation(), diag::note_template_param_here);
-          return true;
-        }
+    ArgType = Entity->getType();
+  }
 
+  // If the template parameter has pointer type, either we must have taken the
+  // address or the argument must decay to a pointer.
+  if (!AddressTaken && ParamType->isPointerType()) {
+    if (Func) {
+      // Function-to-pointer decay.
+      ArgType = S.Context.getPointerType(Func->getType());
+    } else if (Entity->getType()->isArrayType()) {
+      // Array-to-pointer decay.
+      ArgType = S.Context.getArrayDecayedType(Entity->getType());
+    } else {
+      // If the template parameter has pointer type but the address of
+      // this object was not taken, complain and (possibly) recover by
+      // taking the address of the entity.
+      ArgType = S.Context.getPointerType(Entity->getType());
+      if (!S.Context.hasSameUnqualifiedType(ArgType, ParamType)) {
         S.Diag(Arg->getBeginLoc(), diag::err_template_arg_not_address_of)
-            << ParamType << FixItHint::CreateInsertion(Arg->getBeginLoc(), "&");
-
+          << ParamType;
         S.Diag(Param->getLocation(), diag::note_template_param_here);
+        return true;
       }
+
+      S.Diag(Arg->getBeginLoc(), diag::err_template_arg_not_address_of)
+        << ParamType << FixItHint::CreateInsertion(Arg->getBeginLoc(), "&");
+
+      S.Diag(Param->getLocation(), diag::note_template_param_here);
     }
   }
 
@@ -6830,11 +6862,6 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
       APValue::LValueBase Base = Value.getLValueBase();
       auto *VD = const_cast<ValueDecl *>(Base.dyn_cast<const ValueDecl *>());
       if (Base && (!VD || isa<LifetimeExtendedTemporaryDecl>(VD))) {
-        auto *E = Base.dyn_cast<const Expr *>();
-        if (E && isa<CXXUuidofExpr>(E)) {
-          Converted = TemplateArgument(ArgResult.get()->IgnoreImpCasts());
-          break;
-        }
         Diag(Arg->getBeginLoc(), diag::err_template_arg_not_decl_ref)
             << Arg->getSourceRange();
         return ExprError();
@@ -6921,7 +6948,9 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
       QualType IntegerType = ParamType;
       if (const EnumType *Enum = IntegerType->getAs<EnumType>())
         IntegerType = Enum->getDecl()->getIntegerType();
-      Value = Value.extOrTrunc(Context.getTypeSize(IntegerType));
+      Value = Value.extOrTrunc(IntegerType->isExtIntType()
+                                   ? Context.getIntWidth(IntegerType)
+                                   : Context.getTypeSize(IntegerType));
 
       Converted = TemplateArgument(Context, Value,
                                    Context.getCanonicalType(ParamType));
@@ -7015,7 +7044,9 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
 
       // Coerce the template argument's value to the value it will have
       // based on the template parameter's type.
-      unsigned AllowedBits = Context.getTypeSize(IntegerType);
+      unsigned AllowedBits = IntegerType->isExtIntType()
+                                 ? Context.getIntWidth(IntegerType)
+                                 : Context.getTypeSize(IntegerType);
       if (Value.getBitWidth() != AllowedBits)
         Value = Value.extOrTrunc(AllowedBits);
       Value.setIsSigned(IntegerType->isSignedIntegerOrEnumerationType());
@@ -8210,7 +8241,7 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
 
     if (Context.hasSameType(CanonType,
                         ClassTemplate->getInjectedClassNameSpecialization()) &&
-        (!Context.getLangOpts().CPlusPlus2a ||
+        (!Context.getLangOpts().CPlusPlus20 ||
          !TemplateParams->hasAssociatedConstraints())) {
       // C++ [temp.class.spec]p9b3:
       //

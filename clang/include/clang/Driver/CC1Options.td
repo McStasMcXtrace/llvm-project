@@ -23,7 +23,9 @@ def target_cpu : Separate<["-"], "target-cpu">,
 def target_feature : Separate<["-"], "target-feature">,
   HelpText<"Target specific attributes">;
 def triple : Separate<["-"], "triple">,
-  HelpText<"Specify target triple (e.g. i686-apple-darwin9)">;
+  HelpText<"Specify target triple (e.g. i686-apple-darwin9)">,
+  MarshallingInfoString<"TargetOpts->Triple", "llvm::sys::getDefaultTargetTriple()", "std::string">,
+  AlwaysEmit, Normalizer<"normalizeTriple">, DenormalizeString;
 def target_abi : Separate<["-"], "target-abi">,
   HelpText<"Target a particular ABI type">;
 def target_sdk_version_EQ : Joined<["-"], "target-sdk-version=">,
@@ -212,7 +214,11 @@ def msave_temp_labels : Flag<["-"], "msave-temp-labels">,
            "Note this may change .s semantics and shouldn't generally be used "
            "on compiler-generated code.">;
 def mrelocation_model : Separate<["-"], "mrelocation-model">,
-  HelpText<"The relocation model to use">, Values<"static,pic,ropi,rwpi,ropi-rwpi,dynamic-no-pic">;
+  HelpText<"The relocation model to use">, Values<"static,pic,ropi,rwpi,ropi-rwpi,dynamic-no-pic">,
+  NormalizedValuesScope<"llvm::Reloc">,
+  NormalizedValues<["Static", "PIC_", "ROPI", "RWPI", "ROPI_RWPI", "DynamicNoPIC"]>,
+  MarshallingInfoString<"CodeGenOpts.RelocationModel", "PIC_", "Model">,
+  AutoNormalizeEnum;
 def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
   HelpText<"Disable implicit builtin knowledge of math functions">;
 }
@@ -262,12 +268,6 @@ def coverage_notes_file : Separate<["-"], "coverage-notes-file">,
   HelpText<"Emit coverage notes to this filename.">;
 def coverage_notes_file_EQ : Joined<["-"], "coverage-notes-file=">,
   Alias<coverage_notes_file>;
-def coverage_cfg_checksum : Flag<["-"], "coverage-cfg-checksum">,
-  HelpText<"Emit CFG checksum for functions in .gcno files.">;
-def coverage_no_function_names_in_data : Flag<["-"], "coverage-no-function-names-in-data">,
-  HelpText<"Emit function names in .gcda files.">;
-def coverage_exit_block_before_body : Flag<["-"], "coverage-exit-block-before-body">,
-  HelpText<"Emit the exit block before the body blocks in .gcno files.">;
 def coverage_version_EQ : Joined<["-"], "coverage-version=">,
   HelpText<"Four-byte version string for gcov files.">;
 def test_coverage : Flag<["-"], "test-coverage">,
@@ -282,8 +282,6 @@ def no_struct_path_tbaa : Flag<["-"], "no-struct-path-tbaa">,
   HelpText<"Turn off struct-path aware Type Based Alias Analysis">;
 def new_struct_path_tbaa : Flag<["-"], "new-struct-path-tbaa">,
   HelpText<"Enable enhanced struct-path aware Type Based Alias Analysis">;
-def masm_verbose : Flag<["-"], "masm-verbose">,
-  HelpText<"Generate verbose assembly output">;
 def mdebug_pass : Separate<["-"], "mdebug-pass">,
   HelpText<"Enable additional debug output">;
 def mframe_pointer_EQ : Joined<["-"], "mframe-pointer=">,
@@ -357,6 +355,9 @@ def fsanitize_coverage_8bit_counters
 def fsanitize_coverage_inline_8bit_counters
     : Flag<["-"], "fsanitize-coverage-inline-8bit-counters">,
       HelpText<"Enable inline 8-bit counters in sanitizer coverage">;
+def fsanitize_coverage_inline_bool_flag
+    : Flag<["-"], "fsanitize-coverage-inline-bool-flag">,
+      HelpText<"Enable inline bool flag in sanitizer coverage">;
 def fsanitize_coverage_pc_table
     : Flag<["-"], "fsanitize-coverage-pc-table">,
       HelpText<"Create a table of coverage-instrumented PCs">;
@@ -453,8 +454,6 @@ def fspell_checking_limit : Separate<["-"], "fspell-checking-limit">, MetaVarNam
 def fcaret_diagnostics_max_lines :
   Separate<["-"], "fcaret-diagnostics-max-lines">, MetaVarName<"<N>">,
   HelpText<"Set the maximum number of source lines to show in a caret diagnostic">;
-def fmessage_length : Separate<["-"], "fmessage-length">, MetaVarName<"<N>">,
-  HelpText<"Format message diagnostics so that they fit within N columns or fewer, when possible.">;
 def verify_EQ : CommaJoined<["-"], "verify=">,
   MetaVarName<"<prefixes>">,
   HelpText<"Verify diagnostic output using comment directives that start with"
@@ -570,6 +569,10 @@ def frecovery_ast : Flag<["-"], "frecovery-ast">,
   HelpText<"Preserve expressions in AST rather than dropping them when "
            "encountering semantic errors">;
 def fno_recovery_ast : Flag<["-"], "fno-recovery-ast">;
+def frecovery_ast_type : Flag<["-"], "frecovery-ast-type">,
+  HelpText<"Preserve the type for recovery expressions when possible "
+          "(experimental)">;
+def fno_recovery_ast_type : Flag<["-"], "fno-recovery-ast-type">;
 
 let Group = Action_Group in {
 
@@ -606,6 +609,8 @@ def ast_dump_all : Flag<["-"], "ast-dump-all">,
 def ast_dump_all_EQ : Joined<["-"], "ast-dump-all=">,
   HelpText<"Build ASTs and then debug dump them in the specified format, "
            "forcing deserialization. Supported formats include: default, json">;
+def ast_dump_decl_types : Flag<["-"], "ast-dump-decl-types">,
+  HelpText<"Include declaration types in AST dumps">;
 def templight_dump : Flag<["-"], "templight-dump">,
   HelpText<"Dump templight information to stdout">;
 def ast_dump_lookups : Flag<["-"], "ast-dump-lookups">,
@@ -816,6 +821,9 @@ def fsigned_wchar : Flag<["-"], "fsigned-wchar">,
   HelpText<"Use a signed type for wchar_t">;
 def fno_signed_wchar : Flag<["-"], "fno-signed-wchar">,
   HelpText<"Use an unsigned type for wchar_t">;
+def fcompatibility_qualified_id_block_param_type_checking : Flag<["-"], "fcompatibility-qualified-id-block-type-checking">,
+  HelpText<"Allow using blocks with parameters of more specific type than "
+           "the type system guarantees when a parameter is qualified id">;
 
 // FIXME: Remove these entirely once functionality/tests have been excised.
 def fobjc_gc_only : Flag<["-"], "fobjc-gc-only">, Group<f_Group>,
@@ -835,7 +843,8 @@ def fmodules_hash_content : Flag<["-"], "fmodules-hash-content">,
   HelpText<"Enable hashing the content of a module file">;
 def fmodules_strict_context_hash : Flag<["-"], "fmodules-strict-context-hash">,
   HelpText<"Enable hashing of all compiler options that could impact the "
-           "semantics of a module in an implicit build">;
+           "semantics of a module in an implicit build">,
+  MarshallingInfoFlag<"HeaderSearchOpts->ModulesStrictContextHash", "false">;
 def c_isystem : JoinedOrSeparate<["-"], "c-isystem">, MetaVarName<"<directory>">,
   HelpText<"Add directory to the C SYSTEM include search path">;
 def objc_isystem : JoinedOrSeparate<["-"], "objc-isystem">,

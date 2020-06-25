@@ -21,6 +21,7 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -70,6 +71,10 @@ static codegen::RegisterCodeGenFlags CFG;
 static cl::list<const PassInfo*, bool, PassNameParser>
 PassList(cl::desc("Optimizations available:"));
 
+static cl::opt<bool>
+    EnableNewPassManager("enable-new-pm",
+                         cl::desc("Enable the new pass manager"));
+
 // This flag specifies a textual description of the optimization pass pipeline
 // to run over the module. This flag switches opt to use the new pass manager
 // infrastructure, completely disabling all of the flags specific to the old
@@ -118,8 +123,12 @@ static cl::opt<std::string> ThinLinkBitcodeFile(
 static cl::opt<bool>
 NoVerify("disable-verify", cl::desc("Do not run the verifier"), cl::Hidden);
 
-static cl::opt<bool>
-VerifyEach("verify-each", cl::desc("Verify after each transform"));
+static cl::opt<bool> NoUpgradeDebugInfo("disable-upgrade-debug-info",
+                                        cl::desc("Generate invalid output"),
+                                        cl::ReallyHidden);
+
+static cl::opt<bool> VerifyEach("verify-each",
+                                cl::desc("Verify after each transform"));
 
 static cl::opt<bool>
     DisableDITypeMap("disable-debug-info-type-map",
@@ -179,11 +188,6 @@ static cl::opt<bool>
 DisableLoopUnrolling("disable-loop-unrolling",
                      cl::desc("Disable loop unrolling in all relevant passes"),
                      cl::init(false));
-
-static cl::opt<bool>
-DisableSLPVectorization("disable-slp-vectorization",
-                        cl::desc("Disable the slp vectorization pass"),
-                        cl::init(false));
 
 static cl::opt<bool> EmitSummaryIndex("module-summary",
                                       cl::desc("Emit module summary index"),
@@ -406,18 +410,9 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.DisableUnrollLoops = (DisableLoopUnrolling.getNumOccurrences() > 0) ?
                                DisableLoopUnrolling : OptLevel == 0;
 
-  // Check if vectorization is explicitly disabled via -vectorize-loops=false.
-  // The flag enables vectorization in the LoopVectorize pass, it is on by
-  // default, and if it was disabled, leave it disabled here.
-  // Another flag that exists: -loop-vectorize, controls adding the pass to the
-  // pass manager. If set, the pass is added, and there is no additional check
-  // here for it.
-  if (Builder.LoopVectorize)
-    Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
+  Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
 
-  // When #pragma vectorize is on for SLP, do the same as above
-  Builder.SLPVectorize =
-      DisableSLPVectorization ? false : OptLevel > 1 && SizeLevel < 2;
+  Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
 
   if (TM)
     TM->adjustPassManager(Builder);
@@ -630,8 +625,18 @@ int main(int argc, char **argv) {
   std::unique_ptr<ToolOutputFile> RemarksFile = std::move(*RemarksFileOrErr);
 
   // Load the input module...
-  std::unique_ptr<Module> M =
-      parseIRFile(InputFilename, Err, Context, !NoVerify, ClDataLayout);
+  auto SetDataLayout = [](StringRef) -> Optional<std::string> {
+    if (ClDataLayout.empty())
+      return None;
+    return ClDataLayout;
+  };
+  std::unique_ptr<Module> M;
+  if (NoUpgradeDebugInfo)
+    M = parseAssemblyFileWithIndexNoUpgradeDebugInfo(
+            InputFilename, Err, Context, nullptr, SetDataLayout)
+            .Mod;
+  else
+    M = parseIRFile(InputFilename, Err, Context, SetDataLayout);
 
   if (!M) {
     Err.print(argv[0], errs());
@@ -733,7 +738,16 @@ int main(int argc, char **argv) {
   if (OutputThinLTOBC)
     M->addModuleFlag(Module::Error, "EnableSplitLTOUnit", SplitLTOUnit);
 
-  if (PassPipeline.getNumOccurrences() > 0) {
+  if (EnableNewPassManager || PassPipeline.getNumOccurrences() > 0) {
+    if (PassPipeline.getNumOccurrences() > 0 && PassList.size() > 0) {
+      errs()
+          << "Cannot specify passes via both -foo-pass and --passes=foo-pass";
+      return 1;
+    }
+    SmallVector<StringRef, 4> Passes;
+    for (const auto &P : PassList) {
+      Passes.push_back(P->getPassArgument());
+    }
     OutputKind OK = OK_NoOutput;
     if (!NoOutput)
       OK = OutputAssembly
@@ -750,7 +764,7 @@ int main(int argc, char **argv) {
     // string. Hand off the rest of the functionality to the new code for that
     // layer.
     return runPassPipeline(argv[0], *M, TM.get(), Out.get(), ThinLinkOut.get(),
-                           RemarksFile.get(), PassPipeline, OK, VK,
+                           RemarksFile.get(), PassPipeline, Passes, OK, VK,
                            PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash, EnableDebugify, Coroutines)

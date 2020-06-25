@@ -419,12 +419,21 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_ArraySubscriptExpr;
     break;
 
+  case Stmt::MatrixSubscriptExprClass:
+    // TODO: add support for MatrixSubscriptExpr.
+    K = CXCursor_UnexposedExpr;
+    break;
+
   case Stmt::OMPArraySectionExprClass:
     K = CXCursor_OMPArraySectionExpr;
     break;
 
   case Stmt::OMPArrayShapingExprClass:
     K = CXCursor_OMPArrayShapingExpr;
+    break;
+
+  case Stmt::OMPIteratorExprClass:
+    K = CXCursor_OMPIteratorExpr;
     break;
 
   case Stmt::BinaryOperatorClass:
@@ -485,6 +494,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
 
   case Stmt::CXXFunctionalCastExprClass:
     K = CXCursor_CXXFunctionalCastExpr;
+    break;
+
+  case Stmt::CXXAddrspaceCastExprClass:
+    K = CXCursor_CXXAddrspaceCastExpr;
     break;
 
   case Stmt::CXXTypeidExprClass:

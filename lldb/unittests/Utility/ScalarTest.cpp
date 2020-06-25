@@ -188,6 +188,16 @@ TEST(ScalarTest, GetValue) {
             ScalarGetValue(std::numeric_limits<unsigned long long>::max()));
 }
 
+TEST(ScalarTest, LongLongAssigmentOperator) {
+  Scalar ull;
+  ull = std::numeric_limits<unsigned long long>::max();
+  EXPECT_EQ(std::numeric_limits<unsigned long long>::max(), ull.ULongLong());
+
+  Scalar sll;
+  sll = std::numeric_limits<signed long long>::max();
+  EXPECT_EQ(std::numeric_limits<signed long long>::max(), sll.SLongLong());
+}
+
 TEST(ScalarTest, Division) {
   Scalar lhs(5.0);
   Scalar rhs(2.0);
@@ -302,4 +312,16 @@ TEST(ScalarTest, Scalar_512) {
   ASSERT_TRUE(S.MakeSigned());
   EXPECT_EQ(S.GetType(), Scalar::e_sint512);
   EXPECT_EQ(S.GetByteSize(), 64U);
+}
+
+TEST(ScalarTest, TruncOrExtendTo) {
+  Scalar S(0xffff);
+  S.TruncOrExtendTo(12, true);
+  EXPECT_EQ(S.ULong(), 0xfffu);
+  S.TruncOrExtendTo(20, true);
+  EXPECT_EQ(S.ULong(), 0xfffffu);
+  S.TruncOrExtendTo(24, false);
+  EXPECT_EQ(S.ULong(), 0x0fffffu);
+  S.TruncOrExtendTo(16, false);
+  EXPECT_EQ(S.ULong(), 0xffffu);
 }

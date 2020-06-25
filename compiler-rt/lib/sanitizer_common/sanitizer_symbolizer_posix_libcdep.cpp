@@ -151,6 +151,16 @@ bool SymbolizerProcess::StartSymbolizerSubprocess() {
   GetArgV(path_, argv);
   pid_t pid;
 
+  // Report how symbolizer is being launched for debugging purposes.
+  if (Verbosity() >= 3) {
+    // Only use `Report` for first line so subsequent prints don't get prefixed
+    // with current PID.
+    Report("Launching Symbolizer process: ");
+    for (unsigned index = 0; index < kArgVMax && argv[index]; ++index)
+      Printf("%s ", argv[index]);
+    Printf("\n");
+  }
+
   if (use_posix_spawn_) {
 #if SANITIZER_MAC
     fd_t fd = internal_spawn(argv, const_cast<const char **>(GetEnvP()), &pid);
@@ -311,9 +321,10 @@ class Addr2LinePool : public SymbolizerTool {
 
 #if SANITIZER_SUPPORTS_WEAK_HOOKS
 extern "C" {
-SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
-bool __sanitizer_symbolize_code(const char *ModuleName, u64 ModuleOffset,
-                                char *Buffer, int MaxLength);
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE bool
+__sanitizer_symbolize_code(const char *ModuleName, u64 ModuleOffset,
+                           char *Buffer, int MaxLength,
+                           bool SymbolizeInlineFrames);
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
 bool __sanitizer_symbolize_data(const char *ModuleName, u64 ModuleOffset,
                                 char *Buffer, int MaxLength);
@@ -336,7 +347,8 @@ class InternalSymbolizer : public SymbolizerTool {
 
   bool SymbolizePC(uptr addr, SymbolizedStack *stack) override {
     bool result = __sanitizer_symbolize_code(
-        stack->info.module, stack->info.module_offset, buffer_, kBufferSize);
+        stack->info.module, stack->info.module_offset, buffer_, kBufferSize,
+        common_flags()->symbolize_inline_frames);
     if (result) ParseSymbolizePCOutput(buffer_, stack);
     return result;
   }
@@ -478,7 +490,7 @@ Symbolizer *Symbolizer::PlatformInit() {
 }
 
 void Symbolizer::LateInitialize() {
-  Symbolizer::GetOrInit();
+  Symbolizer::GetOrInit()->LateInitializeTools();
   InitializeSwiftDemangler();
 }
 

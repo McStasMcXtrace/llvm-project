@@ -478,6 +478,8 @@ std::error_code SampleProfileReaderExtBinary::readOneSection(
   case SecProfSummary:
     if (std::error_code EC = readSummary())
       return EC;
+    if (hasSecFlag(Entry, SecProfSummaryFlags::SecFlagPartial))
+      Summary->setPartialProfile(true);
     break;
   case SecNameTable:
     if (std::error_code EC = readNameTableSec(
@@ -831,11 +833,40 @@ uint64_t SampleProfileReaderExtBinaryBase::getFileSize() {
   return FileSize;
 }
 
+static std::string getSecFlagsStr(const SecHdrTableEntry &Entry) {
+  std::string Flags;
+  if (hasSecFlag(Entry, SecCommonFlags::SecFlagCompress))
+    Flags.append("{compressed,");
+  else
+    Flags.append("{");
+
+  switch (Entry.Type) {
+  case SecNameTable:
+    if (hasSecFlag(Entry, SecNameTableFlags::SecFlagMD5Name))
+      Flags.append("md5,");
+    break;
+  case SecProfSummary:
+    if (hasSecFlag(Entry, SecProfSummaryFlags::SecFlagPartial))
+      Flags.append("partial,");
+    break;
+  default:
+    break;
+  }
+  char &last = Flags.back();
+  if (last == ',')
+    last = '}';
+  else
+    Flags.append("}");
+  return Flags;
+}
+
 bool SampleProfileReaderExtBinaryBase::dumpSectionInfo(raw_ostream &OS) {
   uint64_t TotalSecsSize = 0;
   for (auto &Entry : SecHdrTable) {
     OS << getSecName(Entry.Type) << " - Offset: " << Entry.Offset
-       << ", Size: " << Entry.Size << "\n";
+       << ", Size: " << Entry.Size << ", Flags: " << getSecFlagsStr(Entry)
+       << "\n";
+    ;
     TotalSecsSize += getSectionSize(Entry.Type);
   }
   uint64_t HeaderSize = SecHdrTable.front().Offset;
@@ -1045,7 +1076,7 @@ std::error_code SampleProfileReaderGCC::readHeader() {
   if (!GcovBuffer.readGCOVVersion(version))
     return sampleprof_error::unrecognized_format;
 
-  if (version != GCOV::V704)
+  if (version != GCOV::V407)
     return sampleprof_error::unsupported_version;
 
   // Skip the empty integer.

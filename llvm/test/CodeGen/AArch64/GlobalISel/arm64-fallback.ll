@@ -136,7 +136,7 @@ end:
   br label %block
 }
 
-; FALLBACK-WITH-REPORT-ERR remark: <unknown>:0:0: unable to legalize instruction: G_STORE %3, %4 :: (store 12 into `i96* undef`, align 16) (in function: nonpow2_add_narrowing)
+; FALLBACK-WITH-REPORT-ERR: remark: <unknown>:0:0: unable to legalize instruction: %3:_(s96) = G_ADD %2:_, %2:_ (in function: nonpow2_add_narrowing)
 ; FALLBACK-WITH-REPORT-ERR: warning: Instruction selection used fallback path for nonpow2_add_narrowing
 ; FALLBACK-WITH-REPORT-OUT-LABEL: nonpow2_add_narrowing:
 define void @nonpow2_add_narrowing() {
@@ -147,7 +147,7 @@ define void @nonpow2_add_narrowing() {
   ret void
 }
 
-; FALLBACK-WITH-REPORT-ERR remark: <unknown>:0:0: unable to legalize instruction: G_STORE %3, %4 :: (store 12 into `i96* undef`, align 16) (in function: nonpow2_add_narrowing)
+; FALLBACK-WITH-REPORT-ERR: remark: <unknown>:0:0: unable to legalize instruction: %5:_(s96) = G_INSERT %18:_, %16:_(s32), 64 (in function: nonpow2_or_narrowing)
 ; FALLBACK-WITH-REPORT-ERR: warning: Instruction selection used fallback path for nonpow2_or_narrowing
 ; FALLBACK-WITH-REPORT-OUT-LABEL: nonpow2_or_narrowing:
 define void @nonpow2_or_narrowing() {
@@ -160,7 +160,7 @@ define void @nonpow2_or_narrowing() {
   ret void
 }
 
-; FALLBACK-WITH-REPORT-ERR remark: <unknown>:0:0: unable to legalize instruction: G_STORE %0, %1 :: (store 12 into `i96* undef`, align 16) (in function: nonpow2_load_narrowing)
+; FALLBACK-WITH-REPORT-ERR: remark: <unknown>:0:0: unable to legalize instruction: %0:_(s96) = G_INSERT %10:_, %8:_(s32), 64 (in function: nonpow2_load_narrowing)
 ; FALLBACK-WITH-REPORT-ERR: warning: Instruction selection used fallback path for nonpow2_load_narrowing
 ; FALLBACK-WITH-REPORT-OUT-LABEL: nonpow2_load_narrowing:
 define void @nonpow2_load_narrowing() {
@@ -210,3 +210,32 @@ define i64 @strict_align_feature(i64* %p) #0 {
 }
 
 attributes #0 = { "target-features"="+strict-align" }
+
+; FALLBACK-WITH-REPORT-ERR: remark: <unknown>:0:0: unable to translate instruction: call
+; FALLBACK-WITH-REPORT-ERR: warning: Instruction selection used fallback path for direct_mem
+; FALLBACK-WITH-REPORT-OUT-LABEL: direct_mem
+define void @direct_mem(i32 %x, i32 %y) {
+entry:
+  tail call void asm sideeffect "", "imr,imr,~{memory}"(i32 %x, i32 %y)
+  ret void
+}
+
+; FALLBACK-WITH-REPORT-ERR: remark: <unknown>:0:0: unable to lower arguments{{.*}}scalable_arg
+; FALLBACK-WITH-REPORT-OUT-LABEL: scalable_arg
+define <vscale x 16 x i8> @scalable_arg(<vscale x 16 x i1> %pred, i8* %addr) #1 {
+  %res = call <vscale x 16 x i8> @llvm.aarch64.sve.ld1.nxv16i8(<vscale x 16 x i1> %pred, i8* %addr)
+  ret <vscale x 16 x i8> %res
+}
+
+; FALLBACK-WITH-REPORT-ERR: remark: <unknown>:0:0: unable to translate instruction{{.*}}scalable_call
+; FALLBACK-WITH-REPORT-OUT-LABEL: scalable_call
+define <vscale x 16 x i8> @scalable_call(i8* %addr) #1 {
+  %pred = call <vscale x 16 x i1> @llvm.aarch64.sve.ptrue.nxv16i1(i32 0)
+  %res = call <vscale x 16 x i8> @llvm.aarch64.sve.ld1.nxv16i8(<vscale x 16 x i1> %pred, i8* %addr)
+  ret <vscale x 16 x i8> %res
+}
+
+attributes #1 = { "target-features"="+sve" }
+
+declare <vscale x 16 x i1> @llvm.aarch64.sve.ptrue.nxv16i1(i32 %pattern)
+declare <vscale x 16 x i8> @llvm.aarch64.sve.ld1.nxv16i8(<vscale x 16 x i1>, i8*)

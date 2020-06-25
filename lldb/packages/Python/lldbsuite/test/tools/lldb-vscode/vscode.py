@@ -10,6 +10,7 @@ import string
 import subprocess
 import sys
 import threading
+import time
 
 
 def dump_memory(base_addr, data, num_per_line, outfile):
@@ -148,6 +149,15 @@ class DebugCommunication(object):
         self.output_condition.release()
         return output
 
+    def collect_output(self, category, duration, clear=True):
+        end_time = time.time() + duration
+        collected_output = ""
+        while end_time > time.time():
+            output = self.get_output(category, timeout=0.25, clear=clear)
+            if output:
+                collected_output += output
+        return collected_output if collected_output else None
+
     def enqueue_recv_packet(self, packet):
         self.recv_condition.acquire()
         self.recv_packets.append(packet)
@@ -161,7 +171,7 @@ class DebugCommunication(object):
            indicate a new packet is available. Returns True if the caller
            should keep calling this function for more packets.
         '''
-        # If EOF, notify the read thread by enqueing a None.
+        # If EOF, notify the read thread by enqueuing a None.
         if not packet:
             self.enqueue_recv_packet(None)
             return False
@@ -450,7 +460,8 @@ class DebugCommunication(object):
     def request_attach(self, program=None, pid=None, waitFor=None, trace=None,
                        initCommands=None, preRunCommands=None,
                        stopCommands=None, exitCommands=None,
-                       attachCommands=None):
+                       attachCommands=None, terminateCommands=None,
+                       coreFile=None):
         args_dict = {}
         if pid is not None:
             args_dict['pid'] = pid
@@ -469,8 +480,12 @@ class DebugCommunication(object):
             args_dict['stopCommands'] = stopCommands
         if exitCommands:
             args_dict['exitCommands'] = exitCommands
+        if terminateCommands:
+            args_dict['terminateCommands'] = terminateCommands
         if attachCommands:
             args_dict['attachCommands'] = attachCommands
+        if coreFile:
+            args_dict['coreFile'] = coreFile
         command_dict = {
             'command': 'attach',
             'type': 'request',
@@ -569,8 +584,9 @@ class DebugCommunication(object):
                        stopOnEntry=False, disableASLR=True,
                        disableSTDIO=False, shellExpandArguments=False,
                        trace=False, initCommands=None, preRunCommands=None,
-                       stopCommands=None, exitCommands=None, sourcePath=None,
-                       debuggerRoot=None, launchCommands=None):
+                       stopCommands=None, exitCommands=None,
+                       terminateCommands=None ,sourcePath=None,
+                       debuggerRoot=None, launchCommands=None, sourceMap=None):
         args_dict = {
             'program': program
         }
@@ -599,12 +615,16 @@ class DebugCommunication(object):
             args_dict['stopCommands'] = stopCommands
         if exitCommands:
             args_dict['exitCommands'] = exitCommands
+        if terminateCommands:
+            args_dict['terminateCommands'] = terminateCommands
         if sourcePath:
             args_dict['sourcePath'] = sourcePath
         if debuggerRoot:
             args_dict['debuggerRoot'] = debuggerRoot
         if launchCommands:
             args_dict['launchCommands'] = launchCommands
+        if sourceMap:
+            args_dict['sourceMap'] = sourceMap
         command_dict = {
             'command': 'launch',
             'type': 'request',
@@ -788,7 +808,7 @@ class DebugCommunication(object):
             self.threads = body['threads']
             for thread in self.threads:
                 # Copy the thread dictionary so we can add key/value pairs to
-                # it without affecfting the original info from the "threads"
+                # it without affecting the original info from the "threads"
                 # command.
                 tid = thread['id']
                 if tid in self.thread_stop_reasons:
@@ -901,7 +921,8 @@ def run_vscode(dbg, args, options):
                                       initCommands=options.initCmds,
                                       preRunCommands=options.preRunCmds,
                                       stopCommands=options.stopCmds,
-                                      exitCommands=options.exitCmds)
+                                      exitCommands=options.exitCmds,
+                                      terminateCommands=options.terminateCmds)
     else:
         response = dbg.request_launch(options.program,
                                       args=args,
@@ -912,7 +933,8 @@ def run_vscode(dbg, args, options):
                                       initCommands=options.initCmds,
                                       preRunCommands=options.preRunCmds,
                                       stopCommands=options.stopCmds,
-                                      exitCommands=options.exitCmds)
+                                      exitCommands=options.exitCmds,
+                                      terminateCommands=options.terminateCmds)
 
     if response['success']:
         if options.sourceBreakpoints:
@@ -1018,7 +1040,7 @@ def main():
         dest='attach',
         default=False,
         help=('Specify this option to attach to a process by name. The '
-              'process name is the basanme of the executable specified with '
+              'process name is the basename of the executable specified with '
               'the --program option.'))
 
     parser.add_option(
@@ -1084,6 +1106,15 @@ def main():
         default=[],
         help=('Specify a LLDB command that will be executed when the process '
               'exits. Can be specified more than once.'))
+
+    parser.add_option(
+        '--terminateCommand',
+        type='string',
+        action='append',
+        dest='terminateCmds',
+        default=[],
+        help=('Specify a LLDB command that will be executed when the debugging '
+              'session is terminated. Can be specified more than once.'))
 
     parser.add_option(
         '--env',
