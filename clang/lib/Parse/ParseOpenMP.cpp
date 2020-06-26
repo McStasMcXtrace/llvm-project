@@ -2438,7 +2438,6 @@ bool Parser::ParseOpenMPSimpleVarList(
   return !IsCorrect;
 }
 
-
 OMPClause *Parser::ParseOpenMPSizesClause() {
   SourceLocation ClauseNameLoc = ConsumeToken();
   SmallVector<Expr *, 4> ValExprs;
@@ -2479,7 +2478,6 @@ OMPClause *Parser::ParseOpenMPSizesClause() {
   return Actions.ActOnOpenMPSizesClause(
       ValExprs, ClauseNameLoc, T.getOpenLocation(), T.getCloseLocation());
 }
-
 
 OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
   SourceLocation Loc = Tok.getLocation();
