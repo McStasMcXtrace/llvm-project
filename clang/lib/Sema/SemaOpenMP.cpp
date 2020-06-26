@@ -35,6 +35,7 @@
 #include "llvm/ADT/IndexedMap.h"
 #include "llvm/ADT/PointerEmbeddedInt.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 #include <set>
 
@@ -6962,8 +6963,8 @@ static Expr *
 calculateNumIters(Sema &SemaRef, Scope *S, SourceLocation DefaultLoc,
                   Expr *Lower, Expr *Upper, Expr *Step, QualType LCTy,
                   bool TestIsStrictOp, bool RoundToStep,
-                  llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) {
-  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures);
+                  llvm::MapVector<const Expr *, DeclRefExpr *> &Captures, bool Capturing) {
+  ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures, Capturing);
   if (!NewStep.isUsable())
     return nullptr;
   llvm::APSInt LRes, URes, SRes;
@@ -7173,8 +7174,8 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
     if (!LBMaxVal.isUsable())
       return nullptr;
 
-    Expr *LBMin = tryBuildCapture(SemaRef, LBMinVal.get(), Captures, Capturin).get();
-    Expr *LBMax = tryBuildCapture(SemaRef, LBMaxVal.get(), Captures, Capturin).get();
+    Expr *LBMin = tryBuildCapture(SemaRef, LBMinVal.get(), Captures, Capturing).get();
+    Expr *LBMax = tryBuildCapture(SemaRef, LBMaxVal.get(), Captures, Capturing).get();
     if (!LBMin || !LBMax)
       return nullptr;
     // LB(MinVal) < LB(MaxVal)
@@ -7293,7 +7294,7 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
 
   ExprResult Diff =
       calculateNumIters(SemaRef, S, DefaultLoc, Lower, Upper, Step, VarType,
-                        TestIsStrictOp, /*RoundToStep=*/true, Captures);
+                        TestIsStrictOp, /*RoundToStep=*/true, Captures, Capturing);
   if (!Diff.isUsable())
     return nullptr;
 
@@ -7373,7 +7374,7 @@ std::pair<Expr *, Expr *> OpenMPIterationSpaceChecker::buildMinMaxValues(
 
   ExprResult Diff =
       calculateNumIters(SemaRef, S, DefaultLoc, Lower, Upper, Step, VarType,
-                        TestIsStrictOp, /*RoundToStep=*/false, Captures);
+                        TestIsStrictOp, /*RoundToStep=*/false, Captures, Capturing);
   if (!Diff.isUsable())
     return std::make_pair(nullptr, nullptr);
 
@@ -7565,7 +7566,7 @@ Expr *OpenMPIterationSpaceChecker::buildOrderedLoopData(
 
   ExprResult Diff = calculateNumIters(SemaRef, S, DefaultLoc, Lower, Upper,
                                       Step, VarType, /*TestIsStrictOp=*/false,
-                                      /*RoundToStep=*/false, Captures);
+                                      /*RoundToStep=*/false, Captures, Capturing);
   if (!Diff.isUsable())
     return nullptr;
 

@@ -7554,7 +7554,7 @@ class OMPSizesClause final
 
   /// Build an empty clause.
   explicit OMPSizesClause(int NumSizes)
-      : OMPClause(OMPC_sizes, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_sizes, SourceLocation(), SourceLocation()),
         NumSizes(NumSizes) {}
 
 public:
@@ -7623,7 +7623,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_sizes;
+    return T->getClauseKind() == llvm::omp::OMPC_sizes;
   }
 };
 

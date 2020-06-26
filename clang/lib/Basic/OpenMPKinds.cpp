@@ -433,16 +433,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   llvm_unreachable("Invalid OpenMP simple clause kind");
 }
 
-  case OMPD_tile:
-    switch (CKind) {
-#define OPENMP_TILE_CLAUSE(Name)                                               \
-  case OMPC_##Name:                                                            \
-    return true;
-#include "clang/Basic/OpenMPKinds.def"
-    default:
-      break;
-    }
-    break;
+
 bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
   return DKind == OMPD_simd || DKind == OMPD_for || DKind == OMPD_for_simd ||
          DKind == OMPD_parallel_for || DKind == OMPD_parallel_for_simd ||

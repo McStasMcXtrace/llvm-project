@@ -38,6 +38,7 @@ def OMPC_NumThreads : Clause<"num_threads"> {
   let clangClass = "OMPNumThreadsClause";
 }
 def OMPC_SafeLen : Clause<"safelen"> { let clangClass = "OMPSafelenClause"; }
+def OMPC_Sizes: Clause<"sizes"> { let clangClass = "OMPClauseClause"; }
 def OMPC_SimdLen : Clause<"simdlen"> { let clangClass = "OMPSimdlenClause"; }
 def OMPC_Collapse : Clause<"collapse"> { let clangClass = "OMPCollapseClause"; }
 def OMPC_Default : Clause<"default"> { let clangClass = "OMPDefaultClause"; }
@@ -209,6 +210,9 @@ def OMP_Simd : Directive<"simd"> {
   let allowedClauses = [OMPC_Private, OMPC_LastPrivate, OMPC_Linear,
       OMPC_Aligned, OMPC_SafeLen, OMPC_SimdLen, OMPC_Collapse, OMPC_Reduction,
       OMPC_Allocate, OMPC_If, OMPC_NonTemporal, OMPC_Order];
+}
+def OMP_Tile : Directive<"tile"> {
+  let allowedClauses = [OMPC_Sizes];
 }
 def OMP_For : Directive<"for"> {
   let allowedClauses = [OMPC_Private, OMPC_LastPrivate, OMPC_FirstPrivate,

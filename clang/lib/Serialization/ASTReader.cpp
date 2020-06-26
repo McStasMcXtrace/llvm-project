@@ -11982,7 +11982,7 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_detach:
     C = new (Context) OMPDetachClause();
     break;
-  case OMPC_sizes: {
+  case llvm::omp::OMPC_sizes: {
     unsigned NumSizes = Record.readInt();
     C = OMPSizesClause::CreateEmpty(Context, NumSizes);
     break;

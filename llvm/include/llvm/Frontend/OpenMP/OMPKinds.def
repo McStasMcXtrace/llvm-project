@@ -198,6 +198,7 @@ __OMP_CLAUSE(detach, OMPDetachClause)
 __OMP_CLAUSE(inclusive, OMPInclusiveClause)
 __OMP_CLAUSE(exclusive, OMPExclusiveClause)
 __OMP_CLAUSE(uses_allocators, OMPUsesAllocatorsClause)
+__OMP_CLAUSE(sizes, OMPSizesClause)
 __OMP_CLAUSE(affinity, OMPAffinityClause)
 __OMP_CLAUSE(use_device_addr, OMPUseDeviceAddrClause)
 
@@ -1217,6 +1218,8 @@ __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, allocate)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 50, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 50, ~0, nontemporal)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 50, ~0, order)
+
+__OMP_DIRECTIVE_CLAUSE(tile, 1, ~0, sizes)
 
 __OMP_DIRECTIVE_CLAUSE(sections, 1, ~0, private)
 __OMP_DIRECTIVE_CLAUSE(sections, 1, ~0, lastprivate)
