@@ -2243,6 +2243,12 @@ void ASTStmtWriter::VisitOMPSimdDirective(OMPSimdDirective *D) {
   Code = serialization::STMT_OMP_SIMD_DIRECTIVE;
 }
 
+void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
+  VisitOMPLoopDirective(D);
+  Record.AddStmt(D->getTransformedStmt());
+  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
+}
+
 void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   VisitOMPLoopDirective(D);
   Record.AddStmt(D->getTaskReductionRefExpr());
@@ -2608,12 +2614,6 @@ void ASTStmtWriter::VisitOMPTargetTeamsDistributeSimdDirective(
     OMPTargetTeamsDistributeSimdDirective *D) {
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
-  VisitOMPLoopDirective(D);
-  Record.AddStmt(D->getTransformedStmt());
-  Code = serialization::STMT_OMP_TILE_DIRECTIVE;
 }
 
 //===----------------------------------------------------------------------===//

@@ -100,6 +100,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_proc_bind:
   case OMPC_safelen:
   case OMPC_simdlen:
+  case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
@@ -151,7 +152,6 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
-  case OMPC_sizes:
   case OMPC_uses_allocators:
   case OMPC_affinity:
     break;
@@ -187,6 +187,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_num_threads:
   case OMPC_safelen:
   case OMPC_simdlen:
+  case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
@@ -244,7 +245,6 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
-  case OMPC_sizes:
   case OMPC_uses_allocators:
   case OMPC_affinity:
     break;
@@ -899,6 +899,25 @@ OMPInReductionClause *OMPInReductionClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPInReductionClause(N);
 }
 
+OMPSizesClause *OMPSizesClause::Create(const ASTContext &C,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc,
+                                       ArrayRef<Expr *> Sizes) {
+  OMPSizesClause *Clause = CreateEmpty(C, Sizes.size());
+  Clause->setLocStart(StartLoc);
+  Clause->setLParenLoc(LParenLoc);
+  Clause->setLocEnd(EndLoc);
+  Clause->setSizesRefs(Sizes);
+  return Clause;
+}
+
+OMPSizesClause *OMPSizesClause::CreateEmpty(const ASTContext &C,
+                                            unsigned NumSizes) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
+  return new (Mem) OMPSizesClause(NumSizes);
+}
+
 OMPAllocateClause *
 OMPAllocateClause::Create(const ASTContext &C, SourceLocation StartLoc,
                           SourceLocation LParenLoc, Expr *Allocator,
@@ -1401,25 +1420,6 @@ OMPExclusiveClause *OMPExclusiveClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPExclusiveClause(N);
 }
 
-OMPSizesClause *OMPSizesClause::Create(const ASTContext &C,
-                                       SourceLocation StartLoc,
-                                       SourceLocation LParenLoc,
-                                       SourceLocation EndLoc,
-                                       ArrayRef<Expr *> Sizes) {
-  OMPSizesClause *Clause = CreateEmpty(C, Sizes.size());
-  Clause->setLocStart(StartLoc);
-  Clause->setLParenLoc(LParenLoc);
-  Clause->setLocEnd(EndLoc);
-  Clause->setSizesRefs(Sizes);
-  return Clause;
-}
-
-OMPSizesClause *OMPSizesClause::CreateEmpty(const ASTContext &C,
-                                            unsigned NumSizes) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumSizes));
-  return new (Mem) OMPSizesClause(NumSizes);
-}
-
 void OMPUsesAllocatorsClause::setAllocatorsData(
     ArrayRef<OMPUsesAllocatorsClause::Data> Data) {
   assert(Data.size() == NumOfAllocators &&
@@ -1536,6 +1536,18 @@ void OMPClausePrinter::VisitOMPSafelenClause(OMPSafelenClause *Node) {
 void OMPClausePrinter::VisitOMPSimdlenClause(OMPSimdlenClause *Node) {
   OS << "simdlen(";
   Node->getSimdlen()->printPretty(OS, nullptr, Policy, 0);
+  OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
+  OS << "sizes(";
+  bool First = true;
+  for (auto Size : Node->getSizesRefs()) {
+    if (!First)
+      OS << ", ";
+    Size->printPretty(OS, nullptr, Policy, 0);
+    First = false;
+  }
   OS << ")";
 }
 
@@ -2076,18 +2088,6 @@ void OMPClausePrinter::VisitOMPNontemporalClause(OMPNontemporalClause *Node) {
 void OMPClausePrinter::VisitOMPOrderClause(OMPOrderClause *Node) {
   OS << "order(" << getOpenMPSimpleClauseTypeName(OMPC_order, Node->getKind())
      << ")";
-}
-
-void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
-  OS << "sizes(";
-  bool First = true;
-  for (auto Size : Node->getSizesRefs()) {
-    if (!First)
-      OS << ", ";
-    Size->printPretty(OS, nullptr, Policy, 0);
-    First = false;
-  }
-  OS << ")";
 }
 
 void OMPClausePrinter::VisitOMPInclusiveClause(OMPInclusiveClause *Node) {

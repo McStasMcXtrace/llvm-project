@@ -11754,6 +11754,11 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_simdlen:
     C = new (Context) OMPSimdlenClause();
     break;
+  case llvm::omp::OMPC_sizes: {
+    unsigned NumSizes = Record.readInt();
+    C = OMPSizesClause::CreateEmpty(Context, NumSizes);
+    break;
+  }
   case llvm::omp::OMPC_allocator:
     C = new (Context) OMPAllocatorClause();
     break;
@@ -11982,11 +11987,6 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_detach:
     C = new (Context) OMPDetachClause();
     break;
-  case llvm::omp::OMPC_sizes: {
-    unsigned NumSizes = Record.readInt();
-    C = OMPSizesClause::CreateEmpty(Context, NumSizes);
-    break;
-  }
   case llvm::omp::OMPC_uses_allocators:
     C = OMPUsesAllocatorsClause::CreateEmpty(Context, Record.readInt());
     break;
@@ -12048,6 +12048,12 @@ void OMPClauseReader::VisitOMPSimdlenClause(OMPSimdlenClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
 }
 
+void OMPClauseReader::VisitOMPSizesClause(OMPSizesClause *C) {
+  for (auto &E : C->getSizesRefs())
+    E = Record.readSubExpr();
+  C->setLParenLoc(Record.readSourceLocation());
+}
+
 void OMPClauseReader::VisitOMPAllocatorClause(OMPAllocatorClause *C) {
   C->setAllocator(Record.readExpr());
   C->setLParenLoc(Record.readSourceLocation());
@@ -12055,12 +12061,6 @@ void OMPClauseReader::VisitOMPAllocatorClause(OMPAllocatorClause *C) {
 
 void OMPClauseReader::VisitOMPCollapseClause(OMPCollapseClause *C) {
   C->setNumForLoops(Record.readSubExpr());
-  C->setLParenLoc(Record.readSourceLocation());
-}
-
-void OMPClauseReader::VisitOMPSizesClause(OMPSizesClause *C) {
-  for (auto &E : C->getSizesRefs())
-    E = Record.readSubExpr();
   C->setLParenLoc(Record.readSourceLocation());
 }
 

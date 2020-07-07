@@ -156,12 +156,6 @@ enum OpenMPOrderClauseKind {
   OMPC_ORDER_unknown,
 };
 
-enum OpenMPTileClauseKind {
-#define OPENMP_TILE_KIND(Name) OMPC_TILE_##Name,
-#include "clang/Basic/OpenMPKinds.def"
-  OMPC_TILE_unknown,
-};
-
 /// Scheduling data for loop-based OpenMP directives.
 struct OpenMPScheduleTy final {
   OpenMPScheduleClauseKind Schedule = OMPC_SCHEDULE_unknown;

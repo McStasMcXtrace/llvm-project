@@ -313,20 +313,20 @@ public:
   /// Methods with similar functionality:
   ///
   ///  * IgnoreContainers(true) - Not specific to OpenMP; also ignores
-  ///  containers/captures potentially inside the associated code.
+  ///    containers/captures potentially inside the associated code.
   ///
   ///  * getCapturedStmt(Kind) - Return the capture of the specified kind;
-  ///  requires the captured decl/stmt to exist.
+  ///    requires the captured decl/stmt to exist.
   ///
   ///  * getInnermostCapturedStmt() - Returns the innermost capture containing
-  ///  the associated code; also cannot be used if there is no CapturedStmt,
-  ///  e.g. for loop transformations.
+  ///    the associated code; also cannot be used if there is no CapturedStmt,
+  ///    e.g. for loop transformations.
   ///
   ///  * getBody() - In addition to ignoring captures, also skips associated
-  ///  loops.
+  ///    loops.
   ///
   ///  * getStructuredBlock() - For loop-associated directives, returns the
-  ///  body; for others, returns the captured statement.
+  ///    body; for others, returns the captured statement.
   ///
   Stmt *ignoreCaptures();
   const Stmt *ignoreCaptures() const {

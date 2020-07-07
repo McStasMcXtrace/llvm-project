@@ -1952,6 +1952,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     break;
   case OMPD_parallel:
   case OMPD_simd:
+  case OMPD_tile:
   case OMPD_task:
   case OMPD_taskyield:
   case OMPD_barrier:
@@ -2005,7 +2006,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd:
-  case OMPD_tile:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -2074,7 +2074,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   DeclarationNameInfo DirName;
   StmtResult Directive = StmtError();
   bool HasAssociatedStatement = true;
-  bool ErrorFound = false;
 
   switch (DKind) {
   case OMPD_threadprivate: {
@@ -2186,6 +2185,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     LLVM_FALLTHROUGH;
   case OMPD_parallel:
   case OMPD_simd:
+  case OMPD_tile:
   case OMPD_for:
   case OMPD_for_simd:
   case OMPD_sections:
@@ -2226,8 +2226,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_teams_distribute:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
-  case OMPD_target_teams_distribute_simd:
-  case OMPD_tile: {
+  case OMPD_target_teams_distribute_simd: {
     // Special processing for flush and depobj clauses.
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;
@@ -2324,7 +2323,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     if (DKind == OMPD_tile && !FirstClauses[unsigned(OMPC_sizes)].getInt()) {
       Diag(Loc, diag::err_omp_required_clause)
           << getOpenMPDirectiveName(OMPD_tile) << "sizes";
-      ErrorFound = true;
     }
 
     StmtResult AssociatedStmt;
@@ -2448,22 +2446,12 @@ OMPClause *Parser::ParseOpenMPSizesClause() {
     return nullptr;
   }
 
-  // SourceLocation Loc = Tok.getLocation();
-  // SourceLocation LOpen = ConsumeToken();
-  // SmallVector<Expr*, 4> Vals;
-  // OpenMPVarListDataTy Data;
-
   while (true) {
-    // SourceLocation Loc = ConsumeToken();
-    // SourceLocation LLoc = Tok.getLocation();
-
     ExprResult Val = ParseConstantExpression();
     if (!Val.isUsable()) {
-      // TODO: emit diagnostics
       T.skipToEnd();
       return nullptr;
     }
-    // Actions.ActOnFinishFullExpr(Val.get(), {}, true, true);
 
     ValExprs.push_back(Val.get());
 
@@ -2715,6 +2703,15 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_affinity:
     Clause = ParseOpenMPVarListClause(DKind, CKind, WrongDirective);
     break;
+  case OMPC_sizes:
+    if (!FirstClause) {
+      Diag(Tok, diag::err_omp_more_one_clause)
+          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+      ErrorFound = true;
+    }
+
+    Clause = ParseOpenMPSizesClause();
+    break;
   case OMPC_uses_allocators:
     Clause = ParseOpenMPUsesAllocatorClause(DKind);
     break;
@@ -2729,15 +2726,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       Diag(Tok, diag::err_omp_unexpected_clause)
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::comma, tok::annot_pragma_openmp_end, StopBeforeMatch);
-    break;
-  case OMPC_sizes:
-    if (!FirstClause) {
-      Diag(Tok, diag::err_omp_more_one_clause)
-          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
-      ErrorFound = true;
-    }
-
-    Clause = ParseOpenMPSizesClause();
     break;
   }
   return ErrorFound ? nullptr : Clause;

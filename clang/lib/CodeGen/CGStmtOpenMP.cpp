@@ -2309,6 +2309,11 @@ void CodeGenFunction::EmitOMPSimdDirective(const OMPSimdDirective &S) {
   checkForLastprivateConditionalUpdate(*this, S);
 }
 
+void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
+  // Emit the de-sugared statement.
+  EmitStmt(S.getTransformedStmt());
+}
+
 void CodeGenFunction::EmitOMPOuterLoop(
     bool DynamicOrOrdered, bool IsMonotonic, const OMPLoopDirective &S,
     CodeGenFunction::OMPPrivateScope &LoopScope,
@@ -5157,6 +5162,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_in_reduction:
   case OMPC_safelen:
   case OMPC_simdlen:
+  case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
@@ -5213,7 +5219,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
-  case OMPC_sizes:
   case OMPC_uses_allocators:
   case OMPC_affinity:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
@@ -5576,11 +5581,6 @@ void CodeGenFunction::EmitOMPTargetTeamsDistributeSimdDirective(
     emitTargetTeamsDistributeSimdRegion(CGF, Action, S);
   };
   emitCommonOMPTargetDirective(*this, S, CodeGen);
-}
-
-void CodeGenFunction::EmitOMPTileDirective(const OMPTileDirective &S) {
-  // Emit the de-sugared statement.
-  EmitStmt(S.getTransformedStmt());
 }
 
 void CodeGenFunction::EmitOMPTeamsDistributeDirective(

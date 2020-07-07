@@ -38,8 +38,8 @@ def OMPC_NumThreads : Clause<"num_threads"> {
   let clangClass = "OMPNumThreadsClause";
 }
 def OMPC_SafeLen : Clause<"safelen"> { let clangClass = "OMPSafelenClause"; }
-def OMPC_Sizes: Clause<"sizes"> { let clangClass = "OMPClauseClause"; }
 def OMPC_SimdLen : Clause<"simdlen"> { let clangClass = "OMPSimdlenClause"; }
+def OMPC_Sizes: Clause<"sizes"> { let clangClass = "OMPClauseClause"; }
 def OMPC_Collapse : Clause<"collapse"> { let clangClass = "OMPCollapseClause"; }
 def OMPC_Default : Clause<"default"> { let clangClass = "OMPDefaultClause"; }
 def OMPC_Private : Clause<"private"> { let clangClass = "OMPPrivateClause"; }
